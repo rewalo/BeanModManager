@@ -2,7 +2,7 @@
 
 A simple mod manager for Among Us. Install and manage mods like TOHE, Town of Us Mira, Better CrewLink, and The Other Roles without the hassle.
 
-![Bean Mod Manager](https://raw.githubusercontent.com/rewalo/BeanModManager/refs/heads/main/Images/Screenshot.png)
+![Bean Mod Manager](https://raw.githubusercontent.com/rewalo/BeanModManager/refs/heads/master/Images/Screenshot.png)
 
 ## How to install?
 
