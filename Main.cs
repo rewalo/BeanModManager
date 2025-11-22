@@ -26,6 +26,14 @@ namespace BeanModManager
         private Dictionary<string, ModCard> _modCards;
         private bool _isInstalling = false;
         private readonly object _installLock = new object();
+        private readonly HashSet<string> _selectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private string _installedSearchText = string.Empty;
+        private string _storeSearchText = string.Empty;
+        private string _installedCategoryFilter = "All";
+        private string _storeCategoryFilter = "All";
+        private bool _isUpdatingCategoryFilters = false;
+        private Timer _installedSearchDebounceTimer;
+        private Timer _storeSearchDebounceTimer;
 
         public Main()
         {
@@ -38,6 +46,8 @@ namespace BeanModManager
             _bepInExInstaller = new BepInExInstaller();
             _modCards = new Dictionary<string, ModCard>();
 
+            LoadSavedSelection();
+
             _modDownloader.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _modInstaller.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _bepInExInstaller.ProgressChanged += (s, msg) => UpdateStatus(msg);
@@ -46,6 +56,21 @@ namespace BeanModManager
 
             LoadSettings();
             LoadMods();
+            
+            // Initialize search debounce timers
+            _installedSearchDebounceTimer = new Timer { Interval = 300 };
+            _installedSearchDebounceTimer.Tick += (s, e) =>
+            {
+                _installedSearchDebounceTimer.Stop();
+                RefreshModCards();
+            };
+            
+            _storeSearchDebounceTimer = new Timer { Interval = 300 };
+            _storeSearchDebounceTimer.Tick += (s, e) =>
+            {
+                _storeSearchDebounceTimer.Stop();
+                RefreshModCards();
+            };
         }
 
         private void LoadSettings()
@@ -61,8 +86,7 @@ namespace BeanModManager
             }
 
             txtAmongUsPath.Text = _config.AmongUsPath ?? "Not detected";
-            btnLaunchVanilla.Enabled = !string.IsNullOrEmpty(_config.AmongUsPath) &&
-                File.Exists(Path.Combine(_config.AmongUsPath, "Among Us.exe"));
+            UpdateLaunchButtonsState();
 
             if (chkAutoUpdateMods != null)
             {
@@ -83,12 +107,22 @@ namespace BeanModManager
 
             try
             {
-                _availableMods = await _modStore.GetAvailableModsWithAllVersions().ConfigureAwait(false);
+                // Detect installed mods first (doesn't require GitHub API)
+                var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath);
+                var installedModIds = new HashSet<string>(
+                    detectedMods.Select(m => m.ModId)
+                        .Concat(_config.InstalledMods.Select(m => m.ModId))
+                        .Distinct(),
+                    StringComparer.OrdinalIgnoreCase
+                );
+
+                // Fetch versions prioritizing installed mods
+                _availableMods = await _modStore.GetAvailableModsWithAllVersions(installedModIds).ConfigureAwait(false);
                 
                 if (_modStore.IsRateLimited())
                 {
                     SafeInvoke(() => MessageBox.Show(
-                        "GitHub API rate limit reached. Some mod versions may not be available.\n\nPlease wait a few minutes and try again, or refresh the mod list later.",
+                        "GitHub API rate limit reached. Installed mods have been loaded, but mod store versions are unavailable.\n\nPlease wait a few minutes and try again to see available mods in the store.",
                         "GitHub Rate Limit",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning));
@@ -96,7 +130,7 @@ namespace BeanModManager
                 
                 SafeInvoke(RefreshModCards);
 
-                if (_config.AutoUpdateMods)
+                if (_config.AutoUpdateMods && !_modStore.IsRateLimited())
                 {
                     _ = Task.Run(async () => await CheckForUpdatesAsync().ConfigureAwait(false));
                 }
@@ -124,13 +158,24 @@ namespace BeanModManager
                 return;
             }
 
+            UpdateCategoryFilters();
+
             panelStore.Controls.Clear();
             panelInstalled.Controls.Clear();
             lblEmptyStore.Visible = false;
             lblEmptyInstalled.Visible = false;
+            panelStore.SuspendLayout();
+            panelInstalled.SuspendLayout();
+            var nextCardMap = new Dictionary<string, ModCard>(StringComparer.OrdinalIgnoreCase);
+            var installedCards = new List<ModCard>();
+            var storeCards = new List<ModCard>();
 
             if (_availableMods == null || !_availableMods.Any())
+            {
+                panelStore.ResumeLayout();
+                panelInstalled.ResumeLayout();
                 return;
+            }
 
             if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
             {
@@ -160,6 +205,7 @@ namespace BeanModManager
 
             foreach (var mod in _availableMods)
             {
+                bool addedToInstalledList = false;
                 var modsFolder = Path.Combine(_config.AmongUsPath, "Mods");
                 var modStoragePath = Path.Combine(modsFolder, mod.Id);
                 bool modFolderExists = !string.IsNullOrEmpty(_config.AmongUsPath) && Directory.Exists(modStoragePath);
@@ -231,12 +277,28 @@ namespace BeanModManager
 
                 if (isInstalled)
                 {
+                    addedToInstalledList = true;
                     var installedVersion = mod.InstalledVersion ?? mod.Versions.FirstOrDefault();
                     if (installedVersion != null)
                     {
                         var installedCard = CreateModCard(mod, installedVersion, true);
                         installedCard.CheckForUpdate();
-                        panelInstalled.Controls.Add(installedCard);
+                        if (installedCard.IsSelectable)
+                        {
+                            var currentMod = mod;
+                            installedCard.SelectionChanged += (cardControl, isSelected) =>
+                                HandleModSelectionChanged(currentMod, cardControl, isSelected, true);
+                            if (_selectedModIds.Contains(mod.Id))
+                            {
+                                installedCard.SetSelected(true, true);
+                            }
+                        }
+                        else
+                        {
+                            _selectedModIds.Remove(mod.Id);
+                        }
+                        installedCards.Add(installedCard);
+                        nextCardMap[mod.Id] = installedCard;
                     }
                 }
                 else
@@ -270,8 +332,51 @@ namespace BeanModManager
                     }
                     
                     var storeCard = CreateModCard(mod, preferredVersion, false);
-                    panelStore.Controls.Add(storeCard);
+                    storeCards.Add(storeCard);
                 }
+
+                if (!addedToInstalledList)
+                {
+                    // ensure selection cache stays clean
+                    nextCardMap.Remove(mod.Id);
+                }
+            }
+
+            _modCards = nextCardMap;
+
+            var filteredInstalled = installedCards
+                .Where(card => MatchesFilters(card.BoundMod, true))
+                .OrderBy(card => GetCategorySortOrder(card.BoundMod?.Category))
+                .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var filteredStore = storeCards
+                .Where(card => MatchesFilters(card.BoundMod, false))
+                .OrderBy(card => GetCategorySortOrder(card.BoundMod?.Category))
+                .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            foreach (var card in filteredInstalled)
+            {
+                panelInstalled.Controls.Add(card);
+            }
+
+            foreach (var card in filteredStore)
+            {
+                panelStore.Controls.Add(card);
+            }
+
+            var stillInstalled = new HashSet<string>(_availableMods
+                .Where(m => m.IsInstalled)
+                .Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
+            var removedSelections = _selectedModIds.Where(id => !stillInstalled.Contains(id)).ToList();
+            foreach (var removed in removedSelections)
+            {
+                _selectedModIds.Remove(removed);
+            }
+            if (removedSelections.Any())
+            {
+                PersistSelectedMods();
             }
 
             if (panelStore.Controls.Count == 0)
@@ -295,6 +400,9 @@ namespace BeanModManager
             }
 
             _config.Save();
+            UpdateLaunchButtonsState();
+            panelStore.ResumeLayout();
+            panelInstalled.ResumeLayout();
         }
 
         private ModCard CreateModCard(Mod mod, ModVersion version, bool isInstalledView)
@@ -340,6 +448,580 @@ namespace BeanModManager
                 }
             };
             return card;
+        }
+
+        private void HandleModSelectionChanged(Mod mod, ModCard card, bool isSelected, bool initiatedByUser)
+        {
+            if (mod == null)
+                return;
+
+            bool selectionChanged = false;
+
+            if (isSelected)
+            {
+                if (_selectedModIds.Contains(mod.Id))
+                {
+                    UpdateLaunchButtonsState();
+                    return;
+                }
+
+                if (!mod.IsInstalled)
+                {
+                    if (initiatedByUser)
+                    {
+                        MessageBox.Show($"{mod.Name} is not installed.", "Selection Error",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                    card?.SetSelected(false, true);
+                    return;
+                }
+
+                if (!EnsureDependenciesInstalled(mod, initiatedByUser))
+                {
+                    card?.SetSelected(false, true);
+                    return;
+                }
+
+                var conflictId = FindIncompatibility(mod);
+                if (conflictId != null)
+                {
+                    if (initiatedByUser)
+                    {
+                        var conflictName = _availableMods?.FirstOrDefault(m => string.Equals(m.Id, conflictId, StringComparison.OrdinalIgnoreCase))?.Name ?? conflictId;
+                        MessageBox.Show($"{mod.Name} cannot be combined with {conflictName}.",
+                            "Incompatible Mods", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                    card?.SetSelected(false, true);
+                    return;
+                }
+
+                _selectedModIds.Add(mod.Id);
+                selectionChanged = true;
+                AutoSelectDependencies(mod);
+            }
+            else
+            {
+                if (DependencyStillRequired(mod.Id))
+                {
+                    if (initiatedByUser)
+                    {
+                        MessageBox.Show($"{mod.Name} is required by another selected mod.",
+                            "Dependency Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    card?.SetSelected(true, true);
+                    return;
+                }
+
+                _selectedModIds.Remove(mod.Id);
+                selectionChanged = true;
+            }
+
+            if (selectionChanged)
+            {
+                PersistSelectedMods();
+            }
+
+            UpdateLaunchButtonsState();
+        }
+
+        private bool EnsureDependenciesInstalled(Mod mod, bool showMessage)
+        {
+            var dependencies = _modStore.GetDependencies(mod.Id);
+            if (dependencies == null || !dependencies.Any())
+                return true;
+
+            var missing = new List<string>();
+            foreach (var dependency in dependencies.Where(d => !string.IsNullOrEmpty(d.modId)))
+            {
+                var depMod = _availableMods?.FirstOrDefault(m => string.Equals(m.Id, dependency.modId, StringComparison.OrdinalIgnoreCase));
+                if (depMod == null || !depMod.IsInstalled)
+                {
+                    missing.Add(depMod?.Name ?? dependency.modId);
+                }
+            }
+
+            if (missing.Any())
+            {
+                if (showMessage)
+                {
+                    MessageBox.Show($"{mod.Name} requires {string.Join(", ", missing)} to be installed first.",
+                        "Dependency Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool DependencyStillRequired(string dependencyId)
+        {
+            foreach (var modId in _selectedModIds)
+            {
+                if (string.Equals(modId, dependencyId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var dependencies = _modStore.GetDependencies(modId);
+                if (dependencies != null && dependencies.Any(d => !string.IsNullOrEmpty(d.modId) &&
+                    string.Equals(d.modId, dependencyId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void AutoSelectDependencies(Mod mod)
+        {
+            var dependencies = _modStore.GetDependencies(mod.Id);
+            if (dependencies == null)
+                return;
+
+            foreach (var dependency in dependencies.Where(d => !string.IsNullOrEmpty(d.modId)))
+            {
+                if (_selectedModIds.Contains(dependency.modId))
+                    continue;
+
+                var depMod = _availableMods?.FirstOrDefault(m => string.Equals(m.Id, dependency.modId, StringComparison.OrdinalIgnoreCase));
+                if (depMod == null || !depMod.IsInstalled)
+                    continue;
+
+                if (_modCards.TryGetValue(depMod.Id, out var card) && card.IsSelectable)
+                {
+                    card.SetSelected(true, true);
+                    HandleModSelectionChanged(depMod, card, true, false);
+                }
+                else
+                {
+                    HandleModSelectionChanged(depMod, null, true, false);
+                }
+            }
+        }
+
+        private string FindIncompatibility(Mod mod)
+        {
+            if (mod == null)
+                return null;
+
+            foreach (var selectedId in _selectedModIds)
+            {
+                if (mod.Incompatibilities != null && mod.Incompatibilities.Any(id =>
+                        string.Equals(id, selectedId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return selectedId;
+                }
+
+                var selectedMod = _availableMods?.FirstOrDefault(m => string.Equals(m.Id, selectedId, StringComparison.OrdinalIgnoreCase));
+                if (selectedMod?.Incompatibilities != null && selectedMod.Incompatibilities.Any(id =>
+                        string.Equals(id, mod.Id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return selectedId;
+                }
+            }
+
+            return null;
+        }
+
+        private bool MatchesFilters(Mod mod, bool isInstalledView)
+        {
+            if (mod == null)
+                return false;
+
+            var searchText = isInstalledView ? _installedSearchText : _storeSearchText;
+            var categoryFilter = isInstalledView ? _installedCategoryFilter : _storeCategoryFilter;
+
+            if (!string.Equals(categoryFilter, "All", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!NormalizeCategory(mod.Category).Equals(categoryFilter, StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                if (!ContainsSearchTerm(mod, searchText))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static string NormalizeCategory(string category)
+        {
+            if (string.IsNullOrWhiteSpace(category))
+                return "Other";
+            return category.Trim();
+        }
+
+        private static int GetCategorySortOrder(string category)
+        {
+            var normalized = NormalizeCategory(category);
+            if (normalized.Equals("Host Mod", StringComparison.OrdinalIgnoreCase))
+                return 0;
+            if (normalized.Equals("Mod", StringComparison.OrdinalIgnoreCase))
+                return 1;
+            if (normalized.Equals("Utility", StringComparison.OrdinalIgnoreCase))
+                return 2;
+            if (normalized.Equals("Dependency", StringComparison.OrdinalIgnoreCase))
+                return 3;
+            return 4;
+        }
+
+        private static bool ContainsSearchTerm(Mod mod, string searchText)
+        {
+            if (mod == null)
+                return false;
+
+            var term = searchText?.Trim();
+            if (string.IsNullOrEmpty(term))
+                return true;
+
+            return (!string.IsNullOrEmpty(mod.Name) && mod.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                   (!string.IsNullOrEmpty(mod.Description) && mod.Description.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                   (!string.IsNullOrEmpty(mod.Author) && mod.Author.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private void UpdateCategoryFilters()
+        {
+            if (_availableMods == null || cmbInstalledCategory == null || cmbStoreCategory == null)
+                return;
+
+            var categories = _availableMods
+                .Select(m => NormalizeCategory(m.Category))
+                .Where(c => !string.IsNullOrEmpty(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!categories.Any() || !categories[0].Equals("All", StringComparison.OrdinalIgnoreCase))
+            {
+                categories.Insert(0, "All");
+            }
+
+            UpdateCategoryCombo(cmbInstalledCategory, categories, ref _installedCategoryFilter);
+            UpdateCategoryCombo(cmbStoreCategory, categories, ref _storeCategoryFilter);
+        }
+
+        private void UpdateCategoryCombo(ComboBox combo, List<string> categories, ref string filterValue)
+        {
+            if (combo == null || categories == null)
+                return;
+
+            _isUpdatingCategoryFilters = true;
+            try
+            {
+                combo.BeginUpdate();
+                combo.Items.Clear();
+                foreach (var category in categories)
+                {
+                    combo.Items.Add(category);
+                }
+                combo.EndUpdate();
+
+            var currentFilter = filterValue ?? "All";
+            var desired = categories.FirstOrDefault(c => c.Equals(currentFilter, StringComparison.OrdinalIgnoreCase)) ?? "All";
+            filterValue = desired;
+                combo.SelectedItem = desired;
+            }
+            finally
+            {
+                _isUpdatingCategoryFilters = false;
+            }
+        }
+
+        private List<Mod> GetSelectedInstalledMods()
+        {
+            if (_availableMods == null)
+                return new List<Mod>();
+
+            return _availableMods
+                .Where(m => m.IsInstalled && _selectedModIds.Contains(m.Id))
+                .ToList();
+        }
+
+        private List<Mod> ExpandModsWithDependencies(IEnumerable<Mod> mods)
+        {
+            var ordered = new List<Mod>();
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (mods == null)
+                return ordered;
+
+            foreach (var mod in mods)
+            {
+                AddModWithDependencies(mod, ordered, visited);
+            }
+
+            return ordered;
+        }
+
+        private void AddModWithDependencies(Mod mod, List<Mod> ordered, HashSet<string> visited)
+        {
+            if (mod == null || !visited.Add(mod.Id))
+                return;
+
+            var dependencies = _modStore.GetDependencies(mod.Id);
+            if (dependencies != null)
+            {
+                foreach (var dependency in dependencies.Where(d => !string.IsNullOrEmpty(d.modId)))
+                {
+                    var depMod = _availableMods?.FirstOrDefault(m => string.Equals(m.Id, dependency.modId, StringComparison.OrdinalIgnoreCase));
+                    if (depMod == null || !depMod.IsInstalled)
+                    {
+                        throw new InvalidOperationException($"{mod.Name} requires {dependency.modId} which is not installed.");
+                    }
+                    AddModWithDependencies(depMod, ordered, visited);
+                }
+            }
+
+            ordered.Add(mod);
+        }
+
+        private void LoadSavedSelection()
+        {
+            _selectedModIds.Clear();
+            if (_config.SelectedMods != null)
+            {
+                foreach (var modId in _config.SelectedMods)
+                {
+                    if (!string.IsNullOrWhiteSpace(modId))
+                    {
+                        _selectedModIds.Add(modId);
+                    }
+                }
+            }
+        }
+
+        private static bool IsDependencyMod(Mod mod)
+        {
+            return mod != null &&
+                   !string.IsNullOrEmpty(mod.Category) &&
+                   mod.Category.Equals("Dependency", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsBetterCrewLink(Mod mod)
+        {
+            return mod != null && mod.Id != null &&
+                   mod.Id.Equals("BetterCrewLink", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void PersistSelectedMods()
+        {
+            _config.SelectedMods = _selectedModIds.ToList();
+            _ = _config.SaveAsync();
+        }
+
+        private bool LaunchBetterCrewLinkExecutable(Mod mod = null, bool showErrors = true)
+        {
+            mod = mod ?? FindModById("BetterCrewLink");
+            if (mod == null)
+                return false;
+
+            var modStoragePath = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
+            if (!Directory.Exists(modStoragePath))
+            {
+                if (showErrors)
+                {
+                    MessageBox.Show($"Mod folder not found: {modStoragePath}\n\nPlease reinstall {mod.Name}.", "Mod Not Found",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                return false;
+            }
+
+            var bclExe = Path.Combine(modStoragePath, "Better-CrewLink.exe");
+            if (!File.Exists(bclExe))
+            {
+                var bclExes = Directory.GetFiles(modStoragePath, "Better-CrewLink.exe", SearchOption.AllDirectories);
+                if (bclExes.Any())
+                {
+                    bclExe = bclExes.First();
+                }
+                else
+                {
+                    if (showErrors)
+                    {
+                        MessageBox.Show("Better-CrewLink.exe not found in mod folder.", "File Not Found",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    return false;
+                }
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = bclExe,
+                    WorkingDirectory = Path.GetDirectoryName(bclExe),
+                    UseShellExecute = true
+                });
+                UpdateStatus("Launched Better CrewLink");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (showErrors)
+                {
+                    MessageBox.Show($"Failed to launch Better CrewLink: {ex.Message}", "Launch Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                return false;
+            }
+        }
+
+        private Mod FindModById(string modId)
+        {
+            if (string.IsNullOrEmpty(modId) || _availableMods == null)
+                return null;
+
+            return _availableMods.FirstOrDefault(m =>
+                string.Equals(m.Id, modId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private ModVersion GetPreferredInstallVersion(Mod mod)
+        {
+            if (mod?.Versions == null || !mod.Versions.Any())
+                return null;
+
+            var stable = mod.Versions
+                .Where(v => !v.IsPreRelease && !string.IsNullOrEmpty(v.DownloadUrl))
+                .OrderByDescending(v => v.ReleaseDate)
+                .FirstOrDefault();
+
+            if (stable != null)
+                return stable;
+
+            return mod.Versions
+                .Where(v => !string.IsNullOrEmpty(v.DownloadUrl))
+                .OrderByDescending(v => v.ReleaseDate)
+                .FirstOrDefault()
+                ?? mod.Versions.FirstOrDefault();
+        }
+
+        private List<Mod> GetInstalledDependents(string dependencyId)
+        {
+            if (_modStore == null || _availableMods == null || string.IsNullOrEmpty(dependencyId))
+                return new List<Mod>();
+
+            var dependentIds = _modStore.GetDependents(dependencyId);
+            if (dependentIds == null || dependentIds.Count == 0)
+                return new List<Mod>();
+
+            var dependentSet = new HashSet<string>(dependentIds, StringComparer.OrdinalIgnoreCase);
+            return _availableMods
+                .Where(m => m.IsInstalled && dependentSet.Contains(m.Id))
+                .ToList();
+        }
+
+        private async Task<bool> InstallDependencyModsAsync(Mod parentMod, List<Dependency> dependencies, HashSet<string> installChain = null)
+        {
+            if (parentMod == null || dependencies == null || dependencies.Count == 0)
+                return true;
+
+            if (installChain == null)
+            {
+                installChain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            if (installChain.Contains(parentMod.Id))
+                return true;
+
+            installChain.Add(parentMod.Id);
+
+            try
+            {
+                foreach (var dependency in dependencies)
+                {
+                    if (string.IsNullOrEmpty(dependency.modId))
+                        continue;
+
+                    if (installChain.Contains(dependency.modId))
+                    {
+                        SafeInvoke(() => MessageBox.Show(
+                            $"Circular dependency detected involving {parentMod.Name} and {dependency.modId}.",
+                            "Dependency Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error));
+                        return false;
+                    }
+
+                    var depMod = FindModById(dependency.modId);
+                    if (depMod == null)
+                    {
+                        SafeInvoke(() => MessageBox.Show(
+                            $"Dependency {dependency.modId} required by {parentMod.Name} is not available in the registry.",
+                            "Dependency Missing",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning));
+                        return false;
+                    }
+
+                    if (depMod.IsInstalled)
+                    {
+                        continue;
+                    }
+
+                    var nestedDependencies = _modStore.GetDependencies(depMod.Id);
+                    if (!await InstallDependencyModsAsync(depMod, nestedDependencies, installChain).ConfigureAwait(false))
+                    {
+                        return false;
+                    }
+
+                    var depVersion = GetPreferredInstallVersion(depMod);
+                    if (depVersion == null || string.IsNullOrEmpty(depVersion.DownloadUrl))
+                    {
+                        SafeInvoke(() => MessageBox.Show(
+                            $"No downloadable version found for dependency {depMod.Name}.",
+                            "Dependency Missing",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning));
+                        return false;
+                    }
+
+                    UpdateStatus($"Installing dependency {depMod.Name}...");
+
+                    var modsFolder = Path.Combine(_config.AmongUsPath, "Mods");
+                    if (!Directory.Exists(modsFolder))
+                    {
+                        Directory.CreateDirectory(modsFolder);
+                    }
+
+                    var depStoragePath = Path.Combine(modsFolder, depMod.Id);
+                    if (Directory.Exists(depStoragePath))
+                    {
+                        try
+                        {
+                            Directory.Delete(depStoragePath, true);
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Warning: Could not delete dependency folder {depStoragePath}: {ex.Message}");
+                        }
+                    }
+
+                    Directory.CreateDirectory(depStoragePath);
+
+                    var downloadSuccess = await _modDownloader.DownloadMod(depMod, depVersion, depStoragePath, nestedDependencies).ConfigureAwait(false);
+                    if (!downloadSuccess)
+                    {
+                        SafeInvoke(() => MessageBox.Show(
+                            $"Failed to download dependency {depMod.Name}.",
+                            "Dependency Install Failed",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning));
+                        return false;
+                    }
+
+                    depMod.IsInstalled = true;
+                    depMod.InstalledVersion = depVersion;
+                    _config.AddInstalledMod(depMod.Id, depVersion.Version);
+                    await _config.SaveAsync().ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                installChain.Remove(parentMod.Id);
+            }
+
+            return true;
         }
 
         private void SetInstallButtonsEnabled(bool enabled)
@@ -483,9 +1165,19 @@ namespace BeanModManager
                     {
                         foreach (var dep in dependencies)
                         {
-                            System.Diagnostics.Debug.WriteLine($"  Dependency: {dep.name}, GitHub: {dep.githubOwner}/{dep.githubRepo}, URL: {dep.downloadUrl}");
+                            System.Diagnostics.Debug.WriteLine($"  Dependency: {dep.name}, GitHub: {dep.githubOwner}/{dep.githubRepo}, URL: {dep.downloadUrl}, ModId: {dep.modId}");
                         }
                     }
+
+                    if (dependencies != null && dependencies.Any(d => !string.IsNullOrEmpty(d.modId)))
+                    {
+                        var dependencyInstalled = await InstallDependencyModsAsync(mod, dependencies).ConfigureAwait(false);
+                        if (!dependencyInstalled)
+                        {
+                            return;
+                        }
+                    }
+
                     var downloaded = await _modDownloader.DownloadMod(mod, version, modStoragePath, dependencies).ConfigureAwait(false);
                     if (!downloaded)
                     {
@@ -530,6 +1222,18 @@ namespace BeanModManager
 
         private async void UninstallMod(Mod mod, ModVersion version)
         {
+            var blockingMods = GetInstalledDependents(mod.Id);
+            if (blockingMods.Any())
+            {
+                var blockingList = string.Join("\n", blockingMods.Select(m => $"• {m.Name}"));
+                MessageBox.Show(
+                    $"{mod.Name} cannot be uninstalled because the following mods depend on it:\n\n{blockingList}\n\nPlease uninstall those mods first.",
+                    "Dependency Detected",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
             var result = SafeInvoke(() => MessageBox.Show(
                 $"Uninstall {mod.Name} {version.Version}?",
                 "Uninstall Mod",
@@ -581,20 +1285,8 @@ namespace BeanModManager
 
         private void LaunchGame(Mod mod = null, ModVersion version = null)
         {
-            if (string.IsNullOrEmpty(_config.AmongUsPath))
-            {
-                MessageBox.Show("Please set your Among Us path in Settings first.", "Path Required",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            if (!EnsureAmongUsPathSet())
                 return;
-            }
-
-            var exePath = Path.Combine(_config.AmongUsPath, "Among Us.exe");
-            if (!File.Exists(exePath))
-            {
-                MessageBox.Show("Among Us.exe not found at the specified path.", "File Not Found",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
 
             try
             {
@@ -602,29 +1294,8 @@ namespace BeanModManager
 
                 if (!isVanilla && mod.Id == "BetterCrewLink")
                 {
-                    var modStoragePath = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
-                    if (!Directory.Exists(modStoragePath))
-                    {
-                        MessageBox.Show($"Mod folder not found: {modStoragePath}\n\nPlease reinstall {mod.Name}.", "Mod Not Found",
-                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    if (!LaunchBetterCrewLinkExecutable(mod))
                         return;
-                    }
-
-                    var bclExe = Path.Combine(modStoragePath, "Better-CrewLink.exe");
-                    if (!File.Exists(bclExe))
-                    {
-                        var bclExes = Directory.GetFiles(modStoragePath, "Better-CrewLink.exe", SearchOption.AllDirectories);
-                        if (bclExes.Any())
-                        {
-                            bclExe = bclExes.First();
-                        }
-                        else
-                        {
-                            MessageBox.Show($"Better-CrewLink.exe not found in mod folder.", "File Not Found",
-                                MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            return;
-                        }
-                    }
 
                     Mod selectedModForBcl = ShowBetterCrewLinkModSelection();
                     if (selectedModForBcl == null || selectedModForBcl.Id == "__CANCELLED__")
@@ -634,13 +1305,6 @@ namespace BeanModManager
                             return;
                         }
                     }
-
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = bclExe,
-                        WorkingDirectory = Path.GetDirectoryName(bclExe),
-                        UseShellExecute = true
-                    });
 
                     if (selectedModForBcl != null)
                     {
@@ -685,6 +1349,26 @@ namespace BeanModManager
                 MessageBox.Show($"Error launching game: {ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private bool EnsureAmongUsPathSet()
+        {
+            if (string.IsNullOrEmpty(_config.AmongUsPath))
+            {
+                MessageBox.Show("Please set your Among Us path in Settings first.", "Path Required",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            var exePath = Path.Combine(_config.AmongUsPath, "Among Us.exe");
+            if (!File.Exists(exePath))
+            {
+                MessageBox.Show("Among Us.exe not found at the specified path.", "File Not Found",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+
+            return true;
         }
 
         private void CleanPluginsFolder(string pluginsPath)
@@ -768,6 +1452,9 @@ namespace BeanModManager
 
         private void LaunchVanillaAmongUs()
         {
+            if (!EnsureAmongUsPathSet())
+                return;
+
             var exePath = Path.Combine(_config.AmongUsPath, "Among Us.exe");
             string bepInExBackup = null;
             
@@ -819,57 +1506,187 @@ namespace BeanModManager
 
         private async void LaunchGameWithMod(Mod mod)
         {
-            // Check if BepInEx is installed, if not try to install it
-            if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
+            if (mod == null)
+                return;
+
+            await LaunchModsAsync(new List<Mod> { mod });
+        }
+
+        private async Task LaunchModsAsync(List<Mod> mods)
+        {
+            try
             {
-                UpdateStatus("BepInEx not found. Installing BepInEx...");
-                var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath);
-                if (!installed)
+                mods = mods?.Where(m => m != null).ToList() ?? new List<Mod>();
+
+                if (mods == null || mods.Count == 0)
                 {
-                    MessageBox.Show(
-                        "Failed to install BepInEx. Please install BepInEx from the Settings tab before launching mods.",
-                        "BepInEx Installation Failed",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
+                    LaunchVanillaAmongUs();
                     return;
                 }
-                UpdateStatus("BepInEx installed successfully!");
-            }
 
-            // Special handling for mods that require Steam depot
-            if (_modStore.ModRequiresDepot(mod.Id))
+                var playableMods = mods
+                    .Where(m => !IsDependencyMod(m))
+                    .ToList();
+
+                var betterCrewLinkMods = playableMods
+                    .Where(m => string.Equals(m.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (betterCrewLinkMods.Any())
+                {
+                    if (playableMods.Count == betterCrewLinkMods.Count)
+                    {
+                        LaunchGame(betterCrewLinkMods.First(), betterCrewLinkMods.First().InstalledVersion);
+                        return;
+                    }
+
+                    foreach (var bcl in betterCrewLinkMods)
+                    {
+                        LaunchBetterCrewLinkExecutable(bcl);
+                    }
+
+                    playableMods = playableMods
+                        .Where(m => !string.Equals(m.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    mods = mods
+                        .Where(m => !string.Equals(m.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
+
+                if (!playableMods.Any())
+                {
+                    MessageBox.Show("Select at least one full mod to launch.", "No Mod Selected",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                if (!EnsureAmongUsPathSet())
+                    return;
+
+                if (playableMods.Any(m => string.Equals(m.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase)))
+                {
+                    if (playableMods.Count > 1)
+                    {
+                        MessageBox.Show("Better CrewLink must be launched separately.", "Unsupported Combination",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+                }
+
+                if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
+                {
+                    UpdateStatus("BepInEx not found. Installing BepInEx...");
+                    var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath);
+                    if (!installed)
+                    {
+                        MessageBox.Show(
+                            "Failed to install BepInEx. Please install BepInEx from the Settings tab before launching mods.",
+                            "BepInEx Installation Failed",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return;
+                    }
+                    UpdateStatus("BepInEx installed successfully!");
+                }
+
+                var depotMods = playableMods.Where(m => _modStore.ModRequiresDepot(m.Id)).ToList();
+                if (depotMods.Any())
+                {
+                    if (depotMods.Count > 1)
+                    {
+                        MessageBox.Show("Launching multiple depot-based mods at once isn't supported yet.",
+                            "Depot Limitation", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+
+                    if (playableMods.Count > depotMods.Count)
+                    {
+                        MessageBox.Show($"{depotMods[0].Name} uses a dedicated depot build and can't launch alongside non-depot mods.",
+                            "Depot Limitation", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+
+                var supportingMods = mods
+                    .Where(m => !string.Equals(m.Id, depotMods[0].Id, StringComparison.OrdinalIgnoreCase))
+                    .Where(m => !IsBetterCrewLink(m))
+                    .ToList();
+
+                    LaunchModWithDepot(depotMods[0], supportingMods);
+                    return;
+                }
+
+                var exePath = Path.Combine(_config.AmongUsPath, "Among Us.exe");
+                var pluginsPath = Path.Combine(_config.AmongUsPath, "BepInEx", "plugins");
+
+                if (!Directory.Exists(pluginsPath))
+                {
+                    Directory.CreateDirectory(pluginsPath);
+                }
+
+                UpdateStatus($"Preparing {mods.Count} mod(s)...");
+                CleanPluginsFolder(pluginsPath);
+
+                foreach (var mod in mods)
+                {
+                    if (string.Equals(mod?.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    try
+                    {
+                        PrepareModForLaunch(mod, pluginsPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to prepare {mod.Name}: {ex.Message}", "Launch Error",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                }
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    WorkingDirectory = _config.AmongUsPath,
+                    UseShellExecute = true
+                };
+                var process = Process.Start(startInfo);
+
+                if (process != null)
+                {
+                    process.EnableRaisingEvents = true;
+                }
+
+                if (mods.Count == 1)
+                {
+                    UpdateStatus($"Launched {mods[0].Name}");
+                }
+                else
+                {
+                    UpdateStatus($"Launched {mods.Count} mods");
+                }
+            }
+            catch (Exception ex)
             {
-                LaunchModWithDepot(mod);
-                return;
+                MessageBox.Show($"Error launching mods: {ex.Message}", "Launch Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus($"Error launching mods: {ex.Message}");
             }
+        }
 
-            var exePath = Path.Combine(_config.AmongUsPath, "Among Us.exe");
-            var pluginsPath = Path.Combine(_config.AmongUsPath, "BepInEx", "plugins");
-            
+        private void PrepareModForLaunch(Mod mod, string pluginsPath)
+        {
             var modStoragePath = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
             if (!Directory.Exists(modStoragePath))
             {
-                MessageBox.Show($"Mod folder not found: {modStoragePath}\n\nPlease reinstall {mod.Name}.", "Mod Not Found",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
+                throw new DirectoryNotFoundException($"Mod folder not found: {modStoragePath}\nPlease reinstall {mod.Name}.");
             }
 
-            if (!Directory.Exists(pluginsPath))
-            {
-                Directory.CreateDirectory(pluginsPath);
-            }
-
-            UpdateStatus($"Preparing {mod.Name}...");
-            CleanPluginsFolder(pluginsPath);
-
-            // Check if this is a DLL-only mod (no BepInEx structure, just DLL files)
             var dllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
             var hasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
             var hasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
 
             if (dllFiles.Any() && !hasBepInExStructure && !hasSubdirectories)
             {
-                // DLL-only mod - copy DLLs directly to BepInEx/plugins
                 UpdateStatus($"Copying {mod.Name} DLL files to plugins...");
                 foreach (var dllFile in dllFiles)
                 {
@@ -893,31 +1710,19 @@ namespace BeanModManager
             }
             else
             {
-                // Full mod structure - copy everything
                 UpdateStatus($"Copying {mod.Name} files...");
                 CopyDirectoryContents(modStoragePath, _config.AmongUsPath, true);
             }
-
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = exePath,
-                WorkingDirectory = _config.AmongUsPath,
-                UseShellExecute = true
-            };
-            var process = Process.Start(startInfo);
-
-            if (process != null)
-            {
-                process.EnableRaisingEvents = true;
-            }
-
-            UpdateStatus($"Launched {mod.Name}");
         }
 
-        private async void LaunchModWithDepot(Mod mod)
+        private async void LaunchModWithDepot(Mod mod, List<Mod> supportingMods = null)
         {
             try
             {
+                supportingMods = supportingMods?
+                    .Where(m => m != null && !string.Equals(m.Id, mod.Id, StringComparison.OrdinalIgnoreCase) && !IsBetterCrewLink(m))
+                    .ToList() ?? new List<Mod>();
+
                 // Check if BepInEx is installed, if not try to install it
                 if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
                 {
@@ -1091,6 +1896,19 @@ namespace BeanModManager
                     MessageBox.Show("Failed to install mod files to depot.", "Installation Failed",
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
+                }
+
+                foreach (var supporting in supportingMods)
+                {
+                    var supportingPath = Path.Combine(_config.AmongUsPath, "Mods", supporting.Id);
+                    if (!Directory.Exists(supportingPath))
+                    {
+                        UpdateStatus($"Skipping {supporting.Name}: mod folder not found.");
+                        continue;
+                    }
+
+                    UpdateStatus($"Adding {supporting.Name} to depot build...");
+                    _steamDepotService.InstallModToDepot(supportingPath, depotPath, supporting.Id);
                 }
 
                 // Delete entire Innersloth folder to prevent blackscreen
@@ -1278,9 +2096,81 @@ namespace BeanModManager
         }
 
 
+        private async Task LaunchSelectedModsAsync()
+        {
+            if (!EnsureAmongUsPathSet())
+                return;
+
+            var selectedMods = GetSelectedInstalledMods();
+            if (!selectedMods.Any())
+            {
+                MessageBox.Show("Select at least one installed mod to launch.", "No Mods Selected",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                var expandedMods = ExpandModsWithDependencies(selectedMods);
+                await LaunchModsAsync(expandedMods);
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "Dependency Missing",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private async void btnLaunchSelected_Click(object sender, EventArgs e)
+        {
+            await LaunchSelectedModsAsync();
+        }
+
         private void btnLaunchVanilla_Click(object sender, EventArgs e)
         {
             LaunchGame();
+        }
+
+        private void txtInstalledSearch_TextChanged(object sender, EventArgs e)
+        {
+            _installedSearchText = txtInstalledSearch.Text ?? string.Empty;
+            // Reset and restart debounce timer
+            _installedSearchDebounceTimer.Stop();
+            _installedSearchDebounceTimer.Start();
+        }
+
+        private void txtStoreSearch_TextChanged(object sender, EventArgs e)
+        {
+            _storeSearchText = txtStoreSearch.Text ?? string.Empty;
+            // Reset and restart debounce timer
+            _storeSearchDebounceTimer.Stop();
+            _storeSearchDebounceTimer.Start();
+        }
+
+        private void cmbInstalledCategory_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_isUpdatingCategoryFilters)
+                return;
+
+            var selected = cmbInstalledCategory.SelectedItem as string ?? "All";
+            if (!string.Equals(_installedCategoryFilter, selected, StringComparison.OrdinalIgnoreCase))
+            {
+                _installedCategoryFilter = selected;
+                RefreshModCards();
+            }
+        }
+
+        private void cmbStoreCategory_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_isUpdatingCategoryFilters)
+                return;
+
+            var selected = cmbStoreCategory.SelectedItem as string ?? "All";
+            if (!string.Equals(_storeCategoryFilter, selected, StringComparison.OrdinalIgnoreCase))
+            {
+                _storeCategoryFilter = selected;
+                RefreshModCards();
+            }
         }
 
         private async void btnInstallBepInEx_Click(object sender, EventArgs e)
@@ -1455,6 +2345,25 @@ namespace BeanModManager
             });
         }
 
+        private void UpdateLaunchButtonsState()
+        {
+            SafeInvoke(() =>
+            {
+                bool hasGame = !string.IsNullOrEmpty(_config.AmongUsPath) &&
+                               File.Exists(Path.Combine(_config.AmongUsPath, "Among Us.exe"));
+
+                if (btnLaunchVanilla != null)
+                {
+                    btnLaunchVanilla.Enabled = hasGame;
+                }
+
+                if (btnLaunchSelected != null)
+                {
+                    btnLaunchSelected.Enabled = hasGame && _selectedModIds.Any();
+                }
+            });
+        }
+
         private void btnDetectPath_Click(object sender, EventArgs e)
         {
             var detectedPath = AmongUsDetector.DetectAmongUsPath();
@@ -1463,7 +2372,7 @@ namespace BeanModManager
                 _config.AmongUsPath = detectedPath;
                 _ = _config.SaveAsync();
                 txtAmongUsPath.Text = detectedPath;
-                btnLaunchVanilla.Enabled = true;
+                UpdateLaunchButtonsState();
                 UpdateBepInExButtonState();
                 RefreshModCards(); // Refresh to detect installed mods
                 MessageBox.Show("Among Us path detected successfully!", "Success",
@@ -1506,7 +2415,7 @@ namespace BeanModManager
                         _ = _config.SaveAsync();
                         txtAmongUsPath.Text = selected;
 
-                        btnLaunchVanilla.Enabled = true;
+                        UpdateLaunchButtonsState();
                         UpdateBepInExButtonState();
                         RefreshModCards();
 
@@ -1639,11 +2548,11 @@ namespace BeanModManager
             await _config.SaveAsync().ConfigureAwait(false);
         }
 
-        private async void chkShowBetaVersions_CheckedChanged(object sender, EventArgs e)
+        private void chkShowBetaVersions_CheckedChanged(object sender, EventArgs e)
         {
             _config.ShowBetaVersions = chkShowBetaVersions.Checked;
             _ = _config.SaveAsync(); // Fire and forget
-            
+
             // Refresh mod cards to show/hide beta versions
             SafeInvoke(RefreshModCards);
         }
@@ -1921,6 +2830,5 @@ namespace BeanModManager
                 SafeInvoke(() => progressBar.Visible = false);
             }
         }
-
     }
 }

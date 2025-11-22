@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 using BeanModManager.Models;
 using BeanModManager.Helpers;
 using System.Threading;
+using System.IO;
+using System.Windows.Forms;
+using System.Diagnostics;
 
 namespace BeanModManager.Services
 {
@@ -46,7 +49,8 @@ namespace BeanModManager.Services
                             GitHubOwner = entry.githubOwner,
                             GitHubRepo = entry.githubRepo,
                             Category = entry.category,
-                            Versions = new List<ModVersion>()
+                            Versions = new List<ModVersion>(),
+                            Incompatibilities = entry.incompatibilities ?? new List<string>()
                         };
 
                         _registryEntries[entry.id] = entry;
@@ -61,165 +65,38 @@ namespace BeanModManager.Services
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to load mod registry from {_registryUrl}: {ex.Message}");
             }
-
-            LoadHardcodedMods();
+            MessageBox.Show("Failed to load mod registry from the internet.\n\n" + "Please check your internet connection and try again.", "Mod Registry Load Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Process.GetCurrentProcess().Kill();
+            //LoadHardcodedMods();
         }
 
         private void LoadHardcodedMods()
         {
-            _availableMods.Clear();
-            _availableMods.AddRange(new List<Mod>
+            var json = File.ReadAllText("mod-registry.json");
+            var registry = JsonHelper.Deserialize<ModRegistry>(json);
+
+            if (registry != null && registry.mods != null && registry.mods.Any())
             {
-                new Mod
+                foreach (var entry in registry.mods)
                 {
-                    Id = "TOHE",
-                    Name = "Town of Host Enhanced",
-                    Author = "EnhancedNetwork",
-                    Description = "A host-only modpack for Among Us with enhanced features",
-                    GitHubOwner = "EnhancedNetwork",
-                    GitHubRepo = "TownofHost-Enhanced",
-                    Category = "Host Mod",
-                    Versions = new List<ModVersion>()
-                },
-                new Mod
-                {
-                    Id = "TownOfUs",
-                    Name = "Town of Us Mira",
-                    Author = "AU-Avengers",
-                    Description = "Town of Us Reactivated, but cleaner using MiraAPI with many improvements!",
-                    GitHubOwner = "AU-Avengers",
-                    GitHubRepo = "TOU-Mira",
-                    Category = "Mod",
-                    Versions = new List<ModVersion>()
-                },
-                new Mod
-                {
-                    Id = "BetterCrewLink",
-                    Name = "Better CrewLink",
-                    Author = "OhMyGuus",
-                    Description = "Voice proximity chat for Among Us",
-                    GitHubOwner = "OhMyGuus",
-                    GitHubRepo = "BetterCrewLink",
-                    Category = "Utility",
-                    Versions = new List<ModVersion>()
-                },
-                new Mod
-                {
-                    Id = "TheOtherRoles",
-                    Name = "The Other Roles",
-                    Author = "TheOtherRolesAU",
-                    Description = "A mod for Among Us which adds many new roles, new Settings and new Custom Hats to the game",
-                    GitHubOwner = "TheOtherRolesAU",
-                    GitHubRepo = "TheOtherRoles",
-                    Category = "Mod",
-                    Versions = new List<ModVersion>()
-                },
-                new Mod
-                {
-                    Id = "AllTheRoles",
-                    Name = "All The Roles",
-                    Author = "Zeo666",
-                    Description = "A mod for Among Us which adds many new roles, modifiers, game modes, map settings, hats and more",
-                    GitHubOwner = "Zeo666",
-                    GitHubRepo = "AllTheRoles",
-                    Category = "Mod",
-                    Versions = new List<ModVersion>()
-                },
-                new Mod
-                {
-                    Id = "LaunchpadReloaded",
-                    Name = "Launchpad: Reloaded",
-                    Author = "All-Of-Us-Mods",
-                    Description = "A vanilla-oriented unique Among Us client mod",
-                    GitHubOwner = "All-Of-Us-Mods",
-                    GitHubRepo = "LaunchpadReloaded",
-                    Category = "Mod",
-                    Versions = new List<ModVersion>()
+                    var mod = new Mod
+                    {
+                        Id = entry.id,
+                        Name = entry.name,
+                        Author = entry.author,
+                        Description = entry.description,
+                        GitHubOwner = entry.githubOwner,
+                        GitHubRepo = entry.githubRepo,
+                        Category = entry.category,
+                        Versions = new List<ModVersion>(),
+                        Incompatibilities = entry.incompatibilities ?? new List<string>()
+                    };
+
+                    _registryEntries[entry.id] = entry;
+                    _availableMods.Add(mod);
                 }
-            });
-
-            CreateHardcodedRegistryEntries();
-
+            }
             System.Diagnostics.Debug.WriteLine($"Loaded {_availableMods.Count} hardcoded mods (fallback)");
-        }
-
-        private void CreateHardcodedRegistryEntries()
-        {
-            // Only add entries that don't already exist (from external registry)
-            // This ensures external registry entries take precedence
-            if (!_registryEntries.ContainsKey("LaunchpadReloaded"))
-            {
-                _registryEntries["LaunchpadReloaded"] = new ModRegistryEntry
-            {
-                id = "LaunchpadReloaded",
-                name = "Launchpad: Reloaded",
-                author = "All-Of-Us-Mods",
-                description = "A vanilla oriented fun and unique Among Us client mod",
-                githubOwner = "All-Of-Us-Mods",
-                githubRepo = "LaunchpadReloaded",
-                category = "Mod",
-                requiresDepot = false,
-                dependencies = new List<Dependency>
-                {
-                    new Dependency
-                    {
-                        name = "Reactor",
-                        fileName = "Reactor.dll",
-                        githubOwner = "NuclearPowered",
-                        githubRepo = "Reactor"
-                    },
-                    new Dependency
-                    {
-                        name = "MiraAPI",
-                        fileName = "MiraAPI.dll",
-                        githubOwner = "All-Of-Us-Mods",
-                        githubRepo = "MiraAPI"
-                    }
-                }
-            };
-            }
-
-            if (!_registryEntries.ContainsKey("TheOtherRoles"))
-            {
-                _registryEntries["TheOtherRoles"] = new ModRegistryEntry
-            {
-                id = "TheOtherRoles",
-                name = "The Other Roles",
-                author = "TheOtherRolesAU",
-                description = "Adds many new roles & hats",
-                githubOwner = "TheOtherRolesAU",
-                githubRepo = "TheOtherRoles",
-                category = "Mod",
-                requiresDepot = true,
-                depotConfig = new DepotConfig
-                {
-                    depotId = 945361,
-                    manifestId = "5207443046106116882",
-                    gameVersion = "v15.11.0"
-                }
-            };
-            }
-
-            if (!_registryEntries.ContainsKey("AllTheRoles"))
-            {
-                _registryEntries["AllTheRoles"] = new ModRegistryEntry
-            {
-                id = "AllTheRoles",
-                name = "All The Roles",
-                author = "Zeo666",
-                description = "Adds roles & modifiers",
-                githubOwner = "Zeo666",
-                githubRepo = "AllTheRoles",
-                category = "Mod",
-                requiresDepot = true,
-                depotConfig = new DepotConfig
-                {
-                    depotId = 945361,
-                    manifestId = "1110308242604365209",
-                    gameVersion = "v16.0.5"
-                }
-            };
-            }
         }
 
         public async Task<List<Mod>> GetAvailableMods()
@@ -256,6 +133,66 @@ namespace BeanModManager.Services
             return results;
         }
 
+        public async Task<List<Mod>> GetAvailableModsWithAllVersions(HashSet<string> installedModIds)
+        {
+            _rateLimited = false;
+            
+            // Start with all mods from registry (they'll be added to results)
+            var results = new List<Mod>(_availableMods);
+            var processedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // First, fetch versions for installed mods
+            var installedMods = _availableMods.Where(m => installedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase)).ToList();
+            foreach (var mod in installedMods)
+            {
+                if (_rateLimited)
+                {
+                    // Already in results, just mark as processed
+                    processedModIds.Add(mod.Id);
+                    continue;
+                }
+
+                try
+                {
+                    await FetchAllModVersions(mod);
+                    processedModIds.Add(mod.Id);
+                }
+                catch
+                {
+                    // If rate limited during fetch, mark as processed but mod is already in results
+                    processedModIds.Add(mod.Id);
+                    // Continue to try other installed mods even if one fails
+                }
+            }
+
+            // Then fetch versions for uninstalled mods (if not rate limited)
+            if (!_rateLimited)
+            {
+                var uninstalledMods = _availableMods.Where(m => !installedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase)).ToList();
+                foreach (var mod in uninstalledMods)
+                {
+                    if (_rateLimited)
+                        break;
+
+                    try
+                    {
+                        await FetchAllModVersions(mod);
+                        processedModIds.Add(mod.Id);
+                    }
+                    catch
+                    {
+                        // If rate limited during fetch, mark as processed but mod is already in results
+                        processedModIds.Add(mod.Id);
+                        if (_rateLimited)
+                            break;
+                    }
+                }
+            }
+
+            // All mods are already in results, so just return them
+            return results;
+        }
+
         public bool IsRateLimited() => _rateLimited;
 
         public bool ModRequiresDepot(string modId)
@@ -280,6 +217,21 @@ namespace BeanModManager.Services
                 return _registryEntries[modId].dependencies;
 
             return new List<Dependency>();
+        }
+
+        public List<string> GetDependents(string dependencyId)
+        {
+            if (string.IsNullOrEmpty(dependencyId))
+                return new List<string>();
+
+            return _registryEntries.Values
+                .Where(entry => entry.dependencies != null &&
+                                entry.dependencies.Any(dep =>
+                                    !string.IsNullOrEmpty(dep.modId) &&
+                                    dep.modId.Equals(dependencyId, StringComparison.OrdinalIgnoreCase)))
+                .Select(entry => entry.id)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         public async Task<string> FetchLatestDependencyDll(string githubOwner, string githubRepo, string fileName)

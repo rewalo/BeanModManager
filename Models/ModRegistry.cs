@@ -21,15 +21,18 @@ namespace BeanModManager.Models
         public bool requiresDepot { get; set; }
         public DepotConfig depotConfig { get; set; }
         public List<Dependency> dependencies { get; set; }
+        public List<string> incompatibilities { get; set; }
     }
 
     public class Dependency
     {
+        public string modId { get; set; }
         public string name { get; set; }
         public string downloadUrl { get; set; }
         public string fileName { get; set; }
         public string githubOwner { get; set; }
         public string githubRepo { get; set; }
+        public bool optional { get; set; }
     }
 
     public class AssetFilters

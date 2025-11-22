@@ -15,6 +15,7 @@ namespace BeanModManager.Models
         public string DataPath { get; set; }
         public bool AutoUpdateMods { get; set; }
         public bool ShowBetaVersions { get; set; }
+        public List<string> SelectedMods { get; set; }
 
         private static string ConfigPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -26,6 +27,7 @@ namespace BeanModManager.Models
         public Config()
         {
             InstalledMods = new List<InstalledMod>();
+            SelectedMods = new List<string>();
             DataPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "BeanModManager");
@@ -41,6 +43,10 @@ namespace BeanModManager.Models
                     var config = JsonHelper.Deserialize<Config>(json);
                     if (config != null)
                     {
+                        if (config.InstalledMods == null)
+                            config.InstalledMods = new List<InstalledMod>();
+                        if (config.SelectedMods == null)
+                            config.SelectedMods = new List<string>();
                         return config;
                     }
                 }

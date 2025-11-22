@@ -16,10 +16,12 @@ namespace BeanModManager.Models
         public string DiscordLink { get; set; }
         public bool IsInstalled { get; set; }
         public ModVersion InstalledVersion { get; set; }
+        public List<string> Incompatibilities { get; set; }
 
         public Mod()
         {
             Versions = new List<ModVersion>();
+            Incompatibilities = new List<string>();
         }
     }
 

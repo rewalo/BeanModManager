@@ -23,7 +23,8 @@
           "exclude": ["steam", "epic"]
         }
       },
-      "requiresDepot": false
+      "requiresDepot": false,
+      "incompatibilities": ["TownOfUs", "TheOtherRoles", "AllTheRoles", "LaunchpadReloaded"]
     },
     {
       "id": "TownOfUs",
@@ -48,7 +49,8 @@
           "exactMatch": true
         }
       },
-      "requiresDepot": false
+      "requiresDepot": false,
+      "incompatibilities": ["TOHE", "TheOtherRoles", "AllTheRoles", "LaunchpadReloaded"]
     },
     {
       "id": "BetterCrewLink",
@@ -64,7 +66,8 @@
           "exclude": ["source"]
         }
       },
-      "requiresDepot": false
+      "requiresDepot": false,
+      "incompatibilities": []
     },
     {
       "id": "TheOtherRoles",
@@ -92,6 +95,7 @@
         }
       },
       "requiresDepot": true,
+      "incompatibilities": ["AllTheRoles", "TownOfUs", "TOHE", "LaunchpadReloaded"],
       "depotConfig": {
         "depotId": 945361,
         "manifestId": "5207443046106116882",
@@ -117,6 +121,7 @@
         }
       },
       "requiresDepot": true,
+      "incompatibilities": ["TheOtherRoles", "TownOfUs", "TOHE", "LaunchpadReloaded"],
       "depotConfig": {
         "depotId": 945361,
         "manifestId": "1110308242604365209",
@@ -140,18 +145,84 @@
       "requiresDepot": false,
       "dependencies": [
         {
+          "modId": "Reactor",
           "name": "Reactor",
           "fileName": "Reactor.dll",
           "githubOwner": "NuclearPowered",
           "githubRepo": "Reactor"
         },
         {
+          "modId": "MiraAPI",
           "name": "MiraAPI",
           "fileName": "MiraAPI.dll",
           "githubOwner": "All-Of-Us-Mods",
           "githubRepo": "MiraAPI"
         }
-      ]
-    }
+      ],
+      "incompatibilities": ["TOHE", "TownOfUs", "TheOtherRoles", "AllTheRoles"]
+    },
+    {
+      "id": "Reactor",
+      "name": "Reactor",
+      "author": "NuclearPowered",
+      "description": "Shared modding framework required by multiple mods.",
+      "githubOwner": "NuclearPowered",
+      "githubRepo": "Reactor",
+      "category": "Dependency",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["Reactor.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "MiraAPI",
+      "name": "Mira API",
+      "author": "All-Of-Us-Mods",
+      "description": "Core API used by Mira-based mods.",
+      "githubOwner": "All-Of-Us-Mods",
+      "githubRepo": "MiraAPI",
+      "category": "Dependency",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["MiraAPI.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+	{
+      "id": "Submerged",
+      "name": "Submerged",
+      "author": "SubmergedAmongUs",
+      "description": "A mod for Among Us which adds a new map into the game.",
+      "githubOwner": "SubmergedAmongUs",
+      "githubRepo": "Submerged",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["Submerged.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+            "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor"
+        }
+      ],
+      "incompatibilities": []
+	}
   ]
 }

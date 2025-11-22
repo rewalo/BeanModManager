@@ -99,6 +99,38 @@ namespace BeanModManager.Services
                         });
                     }
                 }
+
+                var reactorModPath = Path.Combine(modsFolder, "Reactor");
+                if (Directory.Exists(reactorModPath))
+                {
+                    var reactorDll = FindModDll(reactorModPath, "Reactor.dll");
+                    if (reactorDll != null)
+                    {
+                        var version = GetDllVersion(reactorDll);
+                        installedMods.Add(new InstalledModInfo
+                        {
+                            ModId = "Reactor",
+                            Version = version ?? "Unknown",
+                            DllPath = reactorDll
+                        });
+                    }
+                }
+
+                var miraModPath = Path.Combine(modsFolder, "MiraAPI");
+                if (Directory.Exists(miraModPath))
+                {
+                    var miraDll = FindModDll(miraModPath, "MiraAPI.dll");
+                    if (miraDll != null)
+                    {
+                        var version = GetDllVersion(miraDll);
+                        installedMods.Add(new InstalledModInfo
+                        {
+                            ModId = "MiraAPI",
+                            Version = version ?? "Unknown",
+                            DllPath = miraDll
+                        });
+                    }
+                }
             }
 
             var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
@@ -166,6 +198,38 @@ namespace BeanModManager.Services
                         installedMods.Add(new InstalledModInfo
                         {
                             ModId = "TheOtherRoles",
+                            Version = version ?? "Unknown",
+                            DllPath = dll
+                        });
+                    }
+                }
+
+                if (!installedMods.Any(m => m.ModId == "Reactor"))
+                {
+                    var reactorDlls = Directory.GetFiles(pluginsPath, "Reactor.dll", SearchOption.TopDirectoryOnly);
+                    if (reactorDlls.Any())
+                    {
+                        var dll = reactorDlls.First();
+                        var version = GetDllVersion(dll);
+                        installedMods.Add(new InstalledModInfo
+                        {
+                            ModId = "Reactor",
+                            Version = version ?? "Unknown",
+                            DllPath = dll
+                        });
+                    }
+                }
+
+                if (!installedMods.Any(m => m.ModId == "MiraAPI"))
+                {
+                    var miraDlls = Directory.GetFiles(pluginsPath, "MiraAPI.dll", SearchOption.TopDirectoryOnly);
+                    if (miraDlls.Any())
+                    {
+                        var dll = miraDlls.First();
+                        var version = GetDllVersion(dll);
+                        installedMods.Add(new InstalledModInfo
+                        {
+                            ModId = "MiraAPI",
                             Version = version ?? "Unknown",
                             DllPath = dll
                         });

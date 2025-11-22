@@ -166,9 +166,13 @@ namespace BeanModManager.Services
 
                 // Download dependencies if specified
                 System.Diagnostics.Debug.WriteLine($"Dependencies check: dependencies={dependencies?.Count ?? 0}, null={dependencies == null}");
-                if (dependencies != null && dependencies.Any())
+                var downloadableDependencies = dependencies?
+                    .Where(d => string.IsNullOrEmpty(d.modId))
+                    .ToList();
+
+                if (downloadableDependencies != null && downloadableDependencies.Any())
                 {
-                    System.Diagnostics.Debug.WriteLine($"Downloading {dependencies.Count} dependencies for {mod.Name}...");
+                    System.Diagnostics.Debug.WriteLine($"Downloading {downloadableDependencies.Count} dependencies for {mod.Name}...");
                     OnProgressChanged($"Downloading dependencies for {mod.Name}...");
                     
                     // Dependencies go in the same folder as the mod files
@@ -191,7 +195,7 @@ namespace BeanModManager.Services
                     }
                     // For DLL-only mods, dependencies go directly in extractToPath (same folder as mod DLL)
                     
-                    foreach (var dependency in dependencies)
+                    foreach (var dependency in downloadableDependencies)
                     {
                         try
                         {
