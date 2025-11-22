@@ -51,13 +51,22 @@ namespace BeanModManager
                 if (detectedPath != null)
                 {
                     _config.AmongUsPath = detectedPath;
-                    _config.Save();
+                    _ = _config.SaveAsync();
                 }
             }
 
             txtAmongUsPath.Text = _config.AmongUsPath ?? "Not detected";
             btnLaunchVanilla.Enabled = !string.IsNullOrEmpty(_config.AmongUsPath) &&
                 File.Exists(Path.Combine(_config.AmongUsPath, "Among Us.exe"));
+
+            if (chkAutoUpdateMods != null)
+            {
+                chkAutoUpdateMods.Checked = _config.AutoUpdateMods;
+            }
+            if (chkShowBetaVersions != null)
+            {
+                chkShowBetaVersions.Checked = _config.ShowBetaVersions;
+            }
 
             UpdateBepInExButtonState();
         }
@@ -76,7 +85,7 @@ namespace BeanModManager
 
             try
             {
-                _availableMods = await _modStore.GetAvailableMods();
+                _availableMods = await _modStore.GetAvailableModsWithAllVersions();
                 
                 if (InvokeRequired)
                 {
@@ -85,6 +94,11 @@ namespace BeanModManager
                 else
                 {
                     RefreshModCards();
+                }
+
+                if (_config.AutoUpdateMods)
+                {
+                    _ = Task.Run(async () => await CheckForUpdatesAsync());
                 }
             }
             catch (Exception ex)
@@ -135,7 +149,7 @@ namespace BeanModManager
             if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
             {
                 _config.InstalledMods.Clear();
-                _config.Save();
+                _ = _config.SaveAsync();
             }
 
             var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath);
@@ -156,7 +170,7 @@ namespace BeanModManager
                 _config.AddInstalledMod(detected.ModId, detected.Version);
             }
             
-            _config.Save();
+            _ = _config.SaveAsync();
 
             foreach (var mod in _availableMods)
             {
@@ -172,9 +186,25 @@ namespace BeanModManager
                     mod.IsInstalled = true;
                     if (detectedMod != null)
                     {
-                        mod.InstalledVersion = mod.Versions.FirstOrDefault(v => v.Version == detectedMod.Version) 
-                            ?? mod.Versions.FirstOrDefault() 
-                            ?? new ModVersion { Version = detectedMod.Version };
+                        mod.InstalledVersion = mod.Versions.FirstOrDefault(v => v.Version == detectedMod.Version);
+                        
+                        if (mod.InstalledVersion == null)
+                        {
+                            mod.InstalledVersion = mod.Versions.FirstOrDefault(v => 
+                                v.Version.StartsWith(detectedMod.Version, StringComparison.OrdinalIgnoreCase) ||
+                                detectedMod.Version.StartsWith(v.Version, StringComparison.OrdinalIgnoreCase));
+                        }
+                        
+                        if (mod.InstalledVersion == null)
+                        {
+                            mod.InstalledVersion = mod.Versions.FirstOrDefault(v => _config.IsModInstalled(mod.Id, v.Version));
+                        }
+                        
+                        if (mod.InstalledVersion == null)
+                        {
+                            mod.InstalledVersion = mod.Versions.FirstOrDefault() 
+                                ?? new ModVersion { Version = detectedMod.Version };
+                        }
                     }
                     else
                     {
@@ -194,31 +224,42 @@ namespace BeanModManager
                     if (installedVersion != null)
                     {
                         var installedCard = CreateModCard(mod, installedVersion, true);
+                        installedCard.CheckForUpdate();
                         panelInstalled.Controls.Add(installedCard);
                     }
                 }
                 else
                 {
                     ModVersion preferredVersion = null;
-                    bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) && 
-                                          AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
                     
-                    if (isEpicOrMsStore)
+                    if (mod.Versions != null && mod.Versions.Any())
                     {
-                        preferredVersion = mod.Versions.FirstOrDefault(v => v.GameVersion == "Epic/MS Store")
-                            ?? mod.Versions.FirstOrDefault();
-                    }
-                    else
-                    {
-                        preferredVersion = mod.Versions.FirstOrDefault(v => v.GameVersion == "Steam/Itch.io")
-                            ?? mod.Versions.FirstOrDefault();
+                        bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) && 
+                                              AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                        
+                        if (isEpicOrMsStore)
+                        {
+                            preferredVersion = mod.Versions.FirstOrDefault(v => v.GameVersion == "Epic/MS Store")
+                                ?? mod.Versions.FirstOrDefault();
+                        }
+                        else
+                        {
+                            preferredVersion = mod.Versions.FirstOrDefault(v => v.GameVersion == "Steam/Itch.io")
+                                ?? mod.Versions.FirstOrDefault();
+                        }
                     }
                     
-                    if (preferredVersion != null)
+                    if (preferredVersion == null)
                     {
-                        var storeCard = CreateModCard(mod, preferredVersion, false);
-                        panelStore.Controls.Add(storeCard);
+                        preferredVersion = new ModVersion 
+                        { 
+                            Version = "Loading...", 
+                            DownloadUrl = mod.GitHubRepo != null ? $"https://github.com/{mod.GitHubOwner}/{mod.GitHubRepo}/releases" : null
+                        };
                     }
+                    
+                    var storeCard = CreateModCard(mod, preferredVersion, false);
+                    panelStore.Controls.Add(storeCard);
                 }
             }
 
@@ -257,7 +298,28 @@ namespace BeanModManager
                 }
                 
                 System.Diagnostics.Debug.WriteLine($"Installing {mod.Name} - Selected version: {selectedVersion.GameVersion}, URL: {selectedVersion.DownloadUrl}");
-                await InstallMod(mod, selectedVersion);
+                await InstallMod(mod, selectedVersion).ConfigureAwait(false);
+            };
+            card.UpdateClicked += async (s, e) =>
+            {
+                var selectedVersion = card.SelectedVersion;
+                if (selectedVersion == null || string.IsNullOrEmpty(selectedVersion.DownloadUrl))
+                {
+                    if (InvokeRequired)
+                    {
+                        Invoke(new Action(() => MessageBox.Show("Please select a version to update to.", "Version Required",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning)));
+                    }
+                    else
+                    {
+                        MessageBox.Show("Please select a version to update to.", "Version Required",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                    return;
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"Updating {mod.Name} - Selected version: {selectedVersion.GameVersion}, URL: {selectedVersion.DownloadUrl}");
+                await InstallMod(mod, selectedVersion).ConfigureAwait(false);
             };
             card.UninstallClicked += (s, e) => UninstallMod(mod, version);
             card.PlayClicked += (s, e) => LaunchMod(mod, version);
@@ -431,23 +493,38 @@ namespace BeanModManager
                         return;
                     }
 
+                    // Store the installed version in a metadata file for accurate version detection
+                    var versionFile = Path.Combine(modStoragePath, ".modversion");
+                    try
+                    {
+                        File.WriteAllText(versionFile, version.Version);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Warning: Could not write version file: {ex.Message}");
+                    }
+
                     mod.IsInstalled = true;
                     mod.InstalledVersion = version;
                     
                     _config.AddInstalledMod(mod.Id, version.Version);
-                    _config.Save();
+                    await _config.SaveAsync();
                     
                     if (InvokeRequired)
                     {
-                        Invoke(new Action(RefreshModCards));
+                        BeginInvoke(new Action(() =>
+                        {
+                            RefreshModCards();
+                            MessageBox.Show($"{mod.Name} installed successfully!", "Success",
+                                MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }));
                     }
                     else
                     {
                         RefreshModCards();
+                        MessageBox.Show($"{mod.Name} installed successfully!", "Success",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
-                    
-                    MessageBox.Show($"{mod.Name} installed successfully!", "Success",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 catch (Exception ex)
                 {
@@ -481,20 +558,33 @@ namespace BeanModManager
             }
         }
 
-        private void UninstallMod(Mod mod, ModVersion version)
+        private async void UninstallMod(Mod mod, ModVersion version)
         {
-            var result = MessageBox.Show(
-                $"Uninstall {mod.Name} {version.Version}?",
-                "Uninstall Mod",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
+            DialogResult result;
+            if (InvokeRequired)
+            {
+                result = (DialogResult)Invoke(new Func<DialogResult>(() => MessageBox.Show(
+                    $"Uninstall {mod.Name} {version.Version}?",
+                    "Uninstall Mod",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question)));
+            }
+            else
+            {
+                result = MessageBox.Show(
+                    $"Uninstall {mod.Name} {version.Version}?",
+                    "Uninstall Mod",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+            }
 
             if (result != DialogResult.Yes)
                 return;
 
             try
             {
-                var uninstalled = _modInstaller.UninstallMod(mod, _config.AmongUsPath);
+                // Run uninstall on background thread
+                var uninstalled = await Task.Run(() => _modInstaller.UninstallMod(mod, _config.AmongUsPath));
                 
                 if (uninstalled)
                 {
@@ -502,30 +592,50 @@ namespace BeanModManager
                     mod.InstalledVersion = null;
                     
                     _config.RemoveInstalledMod(mod.Id, version.Version);
-                    _config.Save();
+                    _ = _config.SaveAsync();
                     
                     if (InvokeRequired)
                     {
-                        Invoke(new Action(RefreshModCards));
+                        BeginInvoke(new Action(() =>
+                        {
+                            RefreshModCards();
+                            MessageBox.Show($"{mod.Name} uninstalled!", "Success",
+                                MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }));
                     }
                     else
                     {
                         RefreshModCards();
+                        MessageBox.Show($"{mod.Name} uninstalled!", "Success",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
-                    
-                    MessageBox.Show($"{mod.Name} uninstalled!", "Success",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
                 {
-                    MessageBox.Show($"Failed to uninstall {mod.Name}. Some files may still be present.", "Warning",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (InvokeRequired)
+                    {
+                        Invoke(new Action(() => MessageBox.Show($"Failed to uninstall {mod.Name}. Some files may still be present.", "Warning",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning)));
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Failed to uninstall {mod.Name}. Some files may still be present.", "Warning",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error uninstalling mod: {ex.Message}", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(() => MessageBox.Show($"Error uninstalling mod: {ex.Message}", "Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error)));
+                }
+                else
+                {
+                    MessageBox.Show($"Error uninstalling mod: {ex.Message}", "Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
 
@@ -1116,7 +1226,7 @@ namespace BeanModManager
             if (detectedPath != null)
             {
                 _config.AmongUsPath = detectedPath;
-                _config.Save();
+                _ = _config.SaveAsync();
                 txtAmongUsPath.Text = detectedPath;
                 btnLaunchVanilla.Enabled = true;
                 UpdateBepInExButtonState();
@@ -1158,7 +1268,7 @@ namespace BeanModManager
                     if (AmongUsDetector.ValidateAmongUsPath(selected))
                     {
                         _config.AmongUsPath = selected;
-                        _config.Save();
+                        _ = _config.SaveAsync();
                         txtAmongUsPath.Text = selected;
 
                         btnLaunchVanilla.Enabled = true;
@@ -1265,6 +1375,184 @@ namespace BeanModManager
             {
                 MessageBox.Show($"Error opening folder: {ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async void chkAutoUpdateMods_CheckedChanged(object sender, EventArgs e)
+        {
+            _config.AutoUpdateMods = chkAutoUpdateMods.Checked;
+            await _config.SaveAsync();
+        }
+
+        private async void chkShowBetaVersions_CheckedChanged(object sender, EventArgs e)
+        {
+            _config.ShowBetaVersions = chkShowBetaVersions.Checked;
+            _ = _config.SaveAsync(); // Fire and forget
+            
+            // Refresh mod cards to show/hide beta versions
+            if (InvokeRequired)
+            {
+                Invoke(new Action(RefreshModCards));
+            }
+            else
+            {
+                RefreshModCards();
+            }
+        }
+
+        private async void btnUpdateAllMods_Click(object sender, EventArgs e)
+        {
+            await UpdateAllModsAsync();
+        }
+
+        private async Task CheckForUpdatesAsync()
+        {
+            try
+            {
+                var installedMods = _availableMods?.Where(m => m.IsInstalled).ToList();
+                if (installedMods == null || !installedMods.Any())
+                    return;
+
+                var updatesAvailable = new List<Mod>();
+                foreach (var mod in installedMods)
+                {
+                    if (mod.InstalledVersion == null)
+                        continue;
+
+                    // Find the latest version (non-pre-release preferred, but include pre-releases)
+                    var latestVersion = mod.Versions
+                        .Where(v => !string.IsNullOrEmpty(v.DownloadUrl))
+                        .OrderByDescending(v => v.ReleaseDate)
+                        .FirstOrDefault();
+
+                    if (latestVersion != null && 
+                        latestVersion.Version != mod.InstalledVersion.Version)
+                    {
+                        updatesAvailable.Add(mod);
+                    }
+                }
+
+                if (updatesAvailable.Any() && InvokeRequired)
+                {
+                    Invoke(new Action(() =>
+                    {
+                        var modNames = string.Join(", ", updatesAvailable.Select(m => m.Name));
+                        var result = MessageBox.Show(
+                            $"Updates available for: {modNames}\n\nWould you like to update them now?",
+                            "Updates Available",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Information);
+
+                        if (result == DialogResult.Yes)
+                        {
+                            _ = Task.Run(async () => await UpdateModsAsync(updatesAvailable));
+                        }
+                    }));
+                }
+                else if (updatesAvailable.Any())
+                {
+                    var modNames = string.Join(", ", updatesAvailable.Select(m => m.Name));
+                    var result = MessageBox.Show(
+                        $"Updates available for: {modNames}\n\nWould you like to update them now?",
+                        "Updates Available",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Information);
+
+                    if (result == DialogResult.Yes)
+                    {
+                        await UpdateModsAsync(updatesAvailable);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error checking for updates: {ex.Message}");
+            }
+        }
+
+        private async Task UpdateAllModsAsync()
+        {
+            if (string.IsNullOrEmpty(_config.AmongUsPath))
+            {
+                MessageBox.Show("Please set your Among Us path in Settings first.", "Path Required",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var installedMods = _availableMods?.Where(m => m.IsInstalled).ToList();
+            if (installedMods == null || !installedMods.Any())
+            {
+                MessageBox.Show("No mods are installed.", "No Mods",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            await UpdateModsAsync(installedMods);
+        }
+
+        private async Task UpdateModsAsync(List<Mod> modsToUpdate)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => progressBar.Visible = true));
+            }
+            else
+            {
+                progressBar.Visible = true;
+            }
+
+            try
+            {
+                foreach (var mod in modsToUpdate)
+                {
+                    if (mod.InstalledVersion == null)
+                        continue;
+
+                    // Find the latest version for the same game version, or just the latest
+                    var currentGameVersion = mod.InstalledVersion.GameVersion;
+                    var latestVersion = mod.Versions
+                        .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && 
+                                   (string.IsNullOrEmpty(currentGameVersion) || v.GameVersion == currentGameVersion))
+                        .OrderByDescending(v => v.ReleaseDate)
+                        .FirstOrDefault();
+
+                    if (latestVersion == null || latestVersion.Version == mod.InstalledVersion.Version)
+                        continue;
+
+                    UpdateStatus($"Updating {mod.Name} to {latestVersion.Version}...");
+
+                    try
+                    {
+                        await InstallMod(mod, latestVersion);
+                    }
+                    catch (Exception ex)
+                    {
+                        UpdateStatus($"Error updating {mod.Name}: {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine($"Error updating {mod.Name}: {ex.Message}");
+                    }
+                }
+
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(RefreshModCards));
+                }
+                else
+                {
+                    RefreshModCards();
+                }
+
+                UpdateStatus("Updates completed!");
+            }
+            finally
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(() => progressBar.Visible = false));
+                }
+                else
+                {
+                    progressBar.Visible = false;
+                }
             }
         }
 

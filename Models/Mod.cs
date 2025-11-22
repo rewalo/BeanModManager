@@ -31,14 +31,16 @@ namespace BeanModManager.Models
         public string ReleaseTag { get; set; }
         public DateTime ReleaseDate { get; set; }
         public bool IsInstalled { get; set; }
+        public bool IsPreRelease { get; set; }
 
         public override string ToString()
         {
+            var result = Version ?? "Unknown";
             if (!string.IsNullOrEmpty(GameVersion))
             {
-                return $"{Version} ({GameVersion})";
+                result += $" ({GameVersion})";
             }
-            return Version ?? "Unknown";
+            return result;
         }
     }
 }

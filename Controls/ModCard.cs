@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using BeanModManager.Models;
 
@@ -19,15 +21,19 @@ namespace BeanModManager
         private Button _btnUninstall;
         private Button _btnPlay;
         private Button _btnOpenFolder;
+        private Button _btnUpdate;
         private LinkLabel _linkGitHub;
         private bool _isInstalledView;
+        private bool _isUpdatingUI = false;
 
         public event EventHandler InstallClicked;
         public event EventHandler UninstallClicked;
         public event EventHandler PlayClicked;
         public event EventHandler OpenFolderClicked;
+        public event EventHandler UpdateClicked;
 
         public ModVersion SelectedVersion => _version;
+        public bool HasUpdateAvailable { get; private set; }
 
         public void SetInstallButtonEnabled(bool enabled)
         {
@@ -35,6 +41,24 @@ namespace BeanModManager
             {
                 _btnInstall.Enabled = enabled;
             }
+        }
+
+
+        public void CheckForUpdate()
+        {
+            if (_mod == null || _mod.InstalledVersion == null || _mod.Versions == null || !_mod.Versions.Any())
+            {
+                HasUpdateAvailable = false;
+                return;
+            }
+
+            var latestVersion = _mod.Versions
+                .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && !v.IsPreRelease)
+                .OrderByDescending(v => v.ReleaseDate)
+                .FirstOrDefault();
+
+            HasUpdateAvailable = latestVersion != null && 
+                                latestVersion.Version != _mod.InstalledVersion.Version;
         }
 
         public ModCard(Mod mod, ModVersion version, Config config, bool isInstalledView = false)
@@ -94,7 +118,8 @@ namespace BeanModManager
 
             _lblVersion = new Label
             {
-                Text = $"Version: {_version.Version}" + (!string.IsNullOrEmpty(_version.GameVersion) ? $" ({_version.GameVersion})" : ""),
+                Text = $"Version: {_version.Version}" + 
+                       (!string.IsNullOrEmpty(_version.GameVersion) ? $" ({_version.GameVersion})" : ""),
                 Font = new Font("Segoe UI", 8),
                 ForeColor = Color.DarkBlue,
                 AutoSize = true,
@@ -107,16 +132,24 @@ namespace BeanModManager
                 Size = new Size(200, 25),
                 Location = new Point(10, 100),
                 Font = new Font("Segoe UI", 8),
-                Visible = false
+                Visible = false,
+                DrawMode = DrawMode.OwnerDrawFixed
             };
-            _cmbVersion.SelectedIndexChanged += (s, e) =>
+            _cmbVersion.DrawItem += (s, e) =>
             {
-                if (_cmbVersion.SelectedItem != null)
+                e.DrawBackground();
+                if (e.Index >= 0 && e.Index < _cmbVersion.Items.Count)
                 {
-                    _version = (ModVersion)_cmbVersion.SelectedItem;
-                    System.Diagnostics.Debug.WriteLine($"Version changed to: {_version.GameVersion} - {_version.DownloadUrl}");
+                    var version = (ModVersion)_cmbVersion.Items[e.Index];
+                    var text = version.ToString();
+                    var brush = (e.State & DrawItemState.Selected) == DrawItemState.Selected 
+                        ? new SolidBrush(Color.White) 
+                        : new SolidBrush(Color.Black);
+                    e.Graphics.DrawString(text, _cmbVersion.Font, brush, e.Bounds);
+                    brush.Dispose();
                 }
             };
+            _cmbVersion.SelectedIndexChanged += _cmbVersion_SelectedIndexChanged;
 
             _btnInstall = new Button
             {
@@ -179,6 +212,27 @@ namespace BeanModManager
             _btnOpenFolder.FlatAppearance.BorderSize = 0;
             _btnOpenFolder.Click += (s, e) => OpenFolderClicked?.Invoke(this, EventArgs.Empty);
 
+            _btnUpdate = new Button
+            {
+                Text = "Update",
+                Size = new Size(90, 30),
+                Location = new Point(210, 130),
+                BackColor = Color.FromArgb(255, 193, 7),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                Visible = false
+            };
+            _btnUpdate.FlatAppearance.BorderSize = 0;
+            _btnUpdate.Click += (s, e) =>
+            {
+                if (_cmbVersion.Visible && _cmbVersion.SelectedItem != null)
+                {
+                    _version = (ModVersion)_cmbVersion.SelectedItem;
+                }
+                UpdateClicked?.Invoke(this, EventArgs.Empty);
+            };
+
             _linkGitHub = new LinkLabel
             {
                 Text = "GitHub",
@@ -204,25 +258,54 @@ namespace BeanModManager
             this.Controls.Add(_btnPlay);
             this.Controls.Add(_linkGitHub);
             this.Controls.Add(_btnOpenFolder);
+            this.Controls.Add(_btnUpdate);
+        }
+
+        private void _cmbVersion_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_cmbVersion.SelectedItem != null)
+            {
+                _version = (ModVersion)_cmbVersion.SelectedItem;
+                System.Diagnostics.Debug.WriteLine($"Version changed to: {_version.GameVersion} - {_version.DownloadUrl}");
+            }
         }
 
         private void UpdateUI()
         {
-            bool isInstalled = _mod.IsInstalled;
+            if (_isUpdatingUI)
+                return;
+            
+            _isUpdatingUI = true;
+            
+            try
+            {
+                bool isInstalled = _mod.IsInstalled;
+
+                CheckForUpdate();
 
             _btnInstall.Visible = !isInstalled && !_isInstalledView;
             _btnUninstall.Visible = isInstalled || _isInstalledView;
             _btnPlay.Visible = isInstalled || _isInstalledView;
             _btnOpenFolder.Visible = isInstalled || _isInstalledView;
+            _btnUpdate.Visible = (isInstalled || _isInstalledView) && HasUpdateAvailable;
             _linkGitHub.Visible = !string.IsNullOrEmpty(_mod.GitHubRepo);
             
             if (isInstalled || _isInstalledView)
             {
                 _btnPlay.Location = new Point(10, 130);
                 _btnOpenFolder.Location = new Point(110, 130);
-                _btnUninstall.Location = new Point(210, 130);
                 
-                _linkGitHub.Location = new Point(10, 175);
+                if (HasUpdateAvailable)
+                {
+                    _btnUpdate.Location = new Point(210, 130);
+                    _btnUninstall.Location = new Point(10, 170);
+                }
+                else
+                {
+                    _btnUninstall.Location = new Point(210, 130);
+                }
+                
+                _linkGitHub.Location = new Point(10, HasUpdateAvailable ? 210 : 175);
             }
             else
             {
@@ -230,27 +313,85 @@ namespace BeanModManager
                 _linkGitHub.Location = new Point(110, 135);
             }
 
-            if (!isInstalled && !_isInstalledView && _mod.Versions != null && _mod.Versions.Count > 1)
+             var availableVersions = _mod.Versions?.AsEnumerable() ?? Enumerable.Empty<ModVersion>();
+             if (!_config.ShowBetaVersions)
+             {
+                 availableVersions = availableVersions.Where(v => !v.IsPreRelease);
+             }
+             
+             var versionsList = availableVersions.ToList();
+             var filteredCount = versionsList.Count;
+             
+             bool showVersionSelector = !isInstalled && !_isInstalledView && 
+                                       _mod.Versions != null && 
+                                       filteredCount > 1;
+            
+            if (showVersionSelector)
             {
                 _cmbVersion.Visible = true;
                 _lblVersion.Visible = false;
                 
+                _cmbVersion.SelectedIndexChanged -= _cmbVersion_SelectedIndexChanged;
+                
+                _cmbVersion.BeginUpdate();
                 _cmbVersion.Items.Clear();
-                foreach (var version in _mod.Versions)
+                
+                foreach (var version in versionsList)
                 {
                     _cmbVersion.Items.Add(version);
                 }
                 
-                var currentIndex = _mod.Versions.IndexOf(_version);
-                if (currentIndex >= 0 && currentIndex < _cmbVersion.Items.Count)
+                _cmbVersion.EndUpdate();
+                
+                if (isInstalled && _mod.InstalledVersion != null)
                 {
-                    _cmbVersion.SelectedIndex = currentIndex;
+                    var installedIndex = -1;
+                    for (int i = 0; i < _cmbVersion.Items.Count; i++)
+                    {
+                        var v = (ModVersion)_cmbVersion.Items[i];
+                        if (v.Version == _mod.InstalledVersion.Version && 
+                            v.GameVersion == _mod.InstalledVersion.GameVersion)
+                        {
+                            installedIndex = i;
+                            break;
+                        }
+                    }
+                    if (installedIndex >= 0)
+                    {
+                        _cmbVersion.SelectedIndex = installedIndex;
+                        _version = (ModVersion)_cmbVersion.Items[installedIndex];
+                    }
+                    else if (_cmbVersion.Items.Count > 0)
+                    {
+                        _cmbVersion.SelectedIndex = 0;
+                        _version = (ModVersion)_cmbVersion.Items[0];
+                    }
                 }
-                else if (_cmbVersion.Items.Count > 0)
+                else
                 {
-                    _cmbVersion.SelectedIndex = 0;
-                    _version = (ModVersion)_cmbVersion.Items[0];
+                    var latestStable = versionsList.FirstOrDefault(v => !v.IsPreRelease);
+                    if (latestStable != null)
+                    {
+                        var stableIndex = _cmbVersion.Items.IndexOf(latestStable);
+                        if (stableIndex >= 0)
+                        {
+                            _cmbVersion.SelectedIndex = stableIndex;
+                            _version = latestStable;
+                        }
+                        else if (_cmbVersion.Items.Count > 0)
+                        {
+                            _cmbVersion.SelectedIndex = 0;
+                            _version = (ModVersion)_cmbVersion.Items[0];
+                        }
+                    }
+                    else if (_cmbVersion.Items.Count > 0)
+                    {
+                        _cmbVersion.SelectedIndex = 0;
+                        _version = (ModVersion)_cmbVersion.Items[0];
+                    }
                 }
+                
+                _cmbVersion.SelectedIndexChanged += _cmbVersion_SelectedIndexChanged;
             }
             else
             {
@@ -258,14 +399,35 @@ namespace BeanModManager
                 _lblVersion.Visible = true;
             }
 
-            if (isInstalled || _isInstalledView)
+            if (_lblVersion.Visible)
+            {
+                _lblVersion.Text = $"Version: {_version.Version}" + 
+                                   (_version.IsPreRelease ? " (Beta)" : "") +
+                                   (!string.IsNullOrEmpty(_version.GameVersion) ? $" ({_version.GameVersion})" : "");
+            }
+
+            if (HasUpdateAvailable && (isInstalled || _isInstalledView))
+            {
+                this.BackColor = Color.FromArgb(255, 248, 220);
+                if (_lblVersion.Visible)
+                {
+                    _lblVersion.Text += " ⬆ Update Available";
+                    _lblVersion.ForeColor = Color.OrangeRed;
+                }
+            }
+            else if (isInstalled || _isInstalledView)
             {
                 this.BackColor = Color.FromArgb(220, 248, 220);
-                this.BorderStyle = BorderStyle.FixedSingle;
+                _lblVersion.ForeColor = Color.DarkBlue;
             }
             else
             {
                 this.BackColor = Color.FromArgb(245, 245, 250);
+            }
+            }
+            finally
+            {
+                _isUpdatingUI = false;
             }
         }
     }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using BeanModManager.Helpers;
 
 namespace BeanModManager.Models
@@ -11,6 +12,8 @@ namespace BeanModManager.Models
         public string AmongUsPath { get; set; }
         public List<InstalledMod> InstalledMods { get; set; }
         public string DataPath { get; set; }
+        public bool AutoUpdateMods { get; set; }
+        public bool ShowBetaVersions { get; set; }
 
         private static string ConfigPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -49,16 +52,25 @@ namespace BeanModManager.Models
 
         public void Save()
         {
+            // Fire and forget async save to avoid blocking
+            _ = SaveAsync();
+        }
+
+        public async Task SaveAsync()
+        {
             try
             {
-                var directory = Path.GetDirectoryName(ConfigPath);
-                if (!Directory.Exists(directory))
+                await Task.Run(() =>
                 {
-                    Directory.CreateDirectory(directory);
-                }
+                    var directory = Path.GetDirectoryName(ConfigPath);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
 
-                var json = JsonHelper.Serialize(this);
-                File.WriteAllText(ConfigPath, json);
+                    var json = JsonHelper.Serialize(this);
+                    File.WriteAllText(ConfigPath, json);
+                });
             }
             catch (Exception ex)
             {

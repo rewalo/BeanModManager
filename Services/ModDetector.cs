@@ -23,15 +23,42 @@ namespace BeanModManager.Services
                 var toheModPath = Path.Combine(modsFolder, "TOHE");
                 if (Directory.Exists(toheModPath))
                 {
+                    // First try to read from metadata file
+                    var versionFile = Path.Combine(toheModPath, ".modversion");
+                    string version = null;
+                    if (File.Exists(versionFile))
+                    {
+                        try
+                        {
+                            version = File.ReadAllText(versionFile).Trim();
+                        }
+                        catch { }
+                    }
+                    
                     var toheDll = FindModDll(toheModPath, "TOHE.dll");
                     if (toheDll != null)
                     {
-                        var version = GetDllVersion(toheDll);
+                        // If we don't have version from metadata, get it from DLL
+                        if (string.IsNullOrEmpty(version))
+                        {
+                            version = GetDllVersion(toheDll);
+                        }
+                        
                         installedMods.Add(new InstalledModInfo
                         {
                             ModId = "TOHE",
                             Version = version ?? "Unknown",
                             DllPath = toheDll
+                        });
+                    }
+                    else if (!string.IsNullOrEmpty(version))
+                    {
+                        // Mod folder exists with version file but no DLL found
+                        installedMods.Add(new InstalledModInfo
+                        {
+                            ModId = "TOHE",
+                            Version = version,
+                            DllPath = null
                         });
                     }
                     else
@@ -48,15 +75,38 @@ namespace BeanModManager.Services
                 var townOfUsModPath = Path.Combine(modsFolder, "TownOfUs");
                 if (Directory.Exists(townOfUsModPath))
                 {
+                    var versionFile = Path.Combine(townOfUsModPath, ".modversion");
+                    string version = null;
+                    if (File.Exists(versionFile))
+                    {
+                        try
+                        {
+                            version = File.ReadAllText(versionFile).Trim();
+                        }
+                        catch { }
+                    }
+                    
                     var townOfUsDll = FindModDll(townOfUsModPath, "*TownOfUs*.dll", "*Town-Of-Us*.dll", "*TOU-Mira*.dll");
                     if (townOfUsDll != null)
                     {
-                        var version = GetDllVersion(townOfUsDll);
+                        if (string.IsNullOrEmpty(version))
+                        {
+                            version = GetDllVersion(townOfUsDll);
+                        }
                         installedMods.Add(new InstalledModInfo
                         {
                             ModId = "TownOfUs",
                             Version = version ?? "Unknown",
                             DllPath = townOfUsDll
+                        });
+                    }
+                    else if (!string.IsNullOrEmpty(version))
+                    {
+                        installedMods.Add(new InstalledModInfo
+                        {
+                            ModId = "TownOfUs",
+                            Version = version,
+                            DllPath = null
                         });
                     }
                     else
@@ -73,15 +123,38 @@ namespace BeanModManager.Services
                 var bclModPath = Path.Combine(modsFolder, "BetterCrewLink");
                 if (Directory.Exists(bclModPath))
                 {
+                    var versionFile = Path.Combine(bclModPath, ".modversion");
+                    string version = null;
+                    if (File.Exists(versionFile))
+                    {
+                        try
+                        {
+                            version = File.ReadAllText(versionFile).Trim();
+                        }
+                        catch { }
+                    }
+                    
                     var bclDll = FindModDll(bclModPath, "*BetterCrewLink*.dll");
                     if (bclDll != null)
                     {
-                        var version = GetDllVersion(bclDll);
+                        if (string.IsNullOrEmpty(version))
+                        {
+                            version = GetDllVersion(bclDll);
+                        }
                         installedMods.Add(new InstalledModInfo
                         {
                             ModId = "BetterCrewLink",
                             Version = version ?? "Unknown",
                             DllPath = bclDll
+                        });
+                    }
+                    else if (!string.IsNullOrEmpty(version))
+                    {
+                        installedMods.Add(new InstalledModInfo
+                        {
+                            ModId = "BetterCrewLink",
+                            Version = version,
+                            DllPath = null
                         });
                     }
                     else
@@ -98,15 +171,38 @@ namespace BeanModManager.Services
                 var torModPath = Path.Combine(modsFolder, "TheOtherRoles");
                 if (Directory.Exists(torModPath))
                 {
+                    var versionFile = Path.Combine(torModPath, ".modversion");
+                    string version = null;
+                    if (File.Exists(versionFile))
+                    {
+                        try
+                        {
+                            version = File.ReadAllText(versionFile).Trim();
+                        }
+                        catch { }
+                    }
+                    
                     var torDll = FindModDll(torModPath, "TheOtherRoles.dll");
                     if (torDll != null)
                     {
-                        var version = GetDllVersion(torDll);
+                        if (string.IsNullOrEmpty(version))
+                        {
+                            version = GetDllVersion(torDll);
+                        }
                         installedMods.Add(new InstalledModInfo
                         {
                             ModId = "TheOtherRoles",
                             Version = version ?? "Unknown",
                             DllPath = torDll
+                        });
+                    }
+                    else if (!string.IsNullOrEmpty(version))
+                    {
+                        installedMods.Add(new InstalledModInfo
+                        {
+                            ModId = "TheOtherRoles",
+                            Version = version,
+                            DllPath = null
                         });
                     }
                     else
@@ -227,6 +323,33 @@ namespace BeanModManager.Services
         {
             try
             {
+                // First, try to read the version from a metadata file we created during installation
+                var modFolder = Directory.GetParent(dllPath);
+                while (modFolder != null && !modFolder.Name.Equals("Mods", StringComparison.OrdinalIgnoreCase))
+                {
+                    modFolder = modFolder.Parent;
+                }
+                
+                if (modFolder != null)
+                {
+                    var modIdFolder = modFolder.GetDirectories().FirstOrDefault(d => 
+                        dllPath.StartsWith(d.FullName, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (modIdFolder != null)
+                    {
+                        var versionFile = Path.Combine(modIdFolder.FullName, ".modversion");
+                        if (File.Exists(versionFile))
+                        {
+                            var storedVersion = File.ReadAllText(versionFile).Trim();
+                            if (!string.IsNullOrEmpty(storedVersion))
+                            {
+                                return storedVersion;
+                            }
+                        }
+                    }
+                }
+                
+                // Fall back to reading from DLL if no metadata file exists
                 var fileInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(dllPath);
                 if (!string.IsNullOrEmpty(fileInfo.FileVersion))
                 {

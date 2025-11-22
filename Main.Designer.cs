@@ -38,6 +38,10 @@
             this.lblEmptyStore = new System.Windows.Forms.Label();
             this.panelStore = new System.Windows.Forms.FlowLayoutPanel();
             this.tabSettings = new System.Windows.Forms.TabPage();
+            this.btnUpdateAllMods = new System.Windows.Forms.Button();
+            this.chkShowBetaVersions = new System.Windows.Forms.CheckBox();
+            this.chkAutoUpdateMods = new System.Windows.Forms.CheckBox();
+            this.lblMods = new System.Windows.Forms.Label();
             this.btnOpenDataFolder = new System.Windows.Forms.Button();
             this.btnOpenBepInExFolder = new System.Windows.Forms.Button();
             this.btnOpenModsFolder = new System.Windows.Forms.Button();
@@ -69,7 +73,7 @@
             this.tabControl.Location = new System.Drawing.Point(0, 0);
             this.tabControl.Name = "tabControl";
             this.tabControl.SelectedIndex = 0;
-            this.tabControl.Size = new System.Drawing.Size(1000, 600);
+            this.tabControl.Size = new System.Drawing.Size(1072, 626);
             this.tabControl.TabIndex = 0;
             // 
             // tabInstalled
@@ -80,7 +84,7 @@
             this.tabInstalled.Location = new System.Drawing.Point(4, 24);
             this.tabInstalled.Name = "tabInstalled";
             this.tabInstalled.Padding = new System.Windows.Forms.Padding(3);
-            this.tabInstalled.Size = new System.Drawing.Size(992, 572);
+            this.tabInstalled.Size = new System.Drawing.Size(1064, 598);
             this.tabInstalled.TabIndex = 0;
             this.tabInstalled.Text = "Installed Mods";
             this.tabInstalled.UseVisualStyleBackColor = true;
@@ -91,7 +95,7 @@
             this.lblEmptyInstalled.AutoSize = true;
             this.lblEmptyInstalled.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblEmptyInstalled.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(120)))), ((int)(((byte)(120)))), ((int)(((byte)(130)))));
-            this.lblEmptyInstalled.Location = new System.Drawing.Point(400, 250);
+            this.lblEmptyInstalled.Location = new System.Drawing.Point(436, 263);
             this.lblEmptyInstalled.Name = "lblEmptyInstalled";
             this.lblEmptyInstalled.Size = new System.Drawing.Size(190, 25);
             this.lblEmptyInstalled.TabIndex = 2;
@@ -108,7 +112,7 @@
             this.panelInstalled.Location = new System.Drawing.Point(3, 3);
             this.panelInstalled.Name = "panelInstalled";
             this.panelInstalled.Padding = new System.Windows.Forms.Padding(10);
-            this.panelInstalled.Size = new System.Drawing.Size(986, 520);
+            this.panelInstalled.Size = new System.Drawing.Size(1058, 546);
             this.panelInstalled.TabIndex = 1;
             // 
             // btnLaunchVanilla
@@ -121,9 +125,9 @@
             this.btnLaunchVanilla.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLaunchVanilla.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnLaunchVanilla.ForeColor = System.Drawing.Color.White;
-            this.btnLaunchVanilla.Location = new System.Drawing.Point(10, 530);
+            this.btnLaunchVanilla.Location = new System.Drawing.Point(10, 556);
             this.btnLaunchVanilla.Name = "btnLaunchVanilla";
-            this.btnLaunchVanilla.Size = new System.Drawing.Size(972, 40);
+            this.btnLaunchVanilla.Size = new System.Drawing.Size(1044, 40);
             this.btnLaunchVanilla.TabIndex = 0;
             this.btnLaunchVanilla.Text = "🚀 Launch Vanilla Among Us";
             this.btnLaunchVanilla.UseVisualStyleBackColor = false;
@@ -167,6 +171,10 @@
             // 
             // tabSettings
             // 
+            this.tabSettings.Controls.Add(this.btnUpdateAllMods);
+            this.tabSettings.Controls.Add(this.chkShowBetaVersions);
+            this.tabSettings.Controls.Add(this.chkAutoUpdateMods);
+            this.tabSettings.Controls.Add(this.lblMods);
             this.tabSettings.Controls.Add(this.btnOpenDataFolder);
             this.tabSettings.Controls.Add(this.btnOpenBepInExFolder);
             this.tabSettings.Controls.Add(this.btnOpenModsFolder);
@@ -185,6 +193,51 @@
             this.tabSettings.TabIndex = 2;
             this.tabSettings.Text = "Settings";
             this.tabSettings.UseVisualStyleBackColor = true;
+            // 
+            // btnUpdateAllMods
+            // 
+            this.btnUpdateAllMods.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnUpdateAllMods.Location = new System.Drawing.Point(20, 345);
+            this.btnUpdateAllMods.Name = "btnUpdateAllMods";
+            this.btnUpdateAllMods.Size = new System.Drawing.Size(150, 35);
+            this.btnUpdateAllMods.TabIndex = 13;
+            this.btnUpdateAllMods.Text = "Update All Mods";
+            this.btnUpdateAllMods.UseVisualStyleBackColor = true;
+            this.btnUpdateAllMods.Click += new System.EventHandler(this.btnUpdateAllMods_Click);
+            // 
+            // chkShowBetaVersions
+            // 
+            this.chkShowBetaVersions.AutoSize = true;
+            this.chkShowBetaVersions.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chkShowBetaVersions.Location = new System.Drawing.Point(20, 315);
+            this.chkShowBetaVersions.Name = "chkShowBetaVersions";
+            this.chkShowBetaVersions.Size = new System.Drawing.Size(127, 19);
+            this.chkShowBetaVersions.TabIndex = 14;
+            this.chkShowBetaVersions.Text = "Show beta versions";
+            this.chkShowBetaVersions.UseVisualStyleBackColor = true;
+            this.chkShowBetaVersions.CheckedChanged += new System.EventHandler(this.chkShowBetaVersions_CheckedChanged);
+            // 
+            // chkAutoUpdateMods
+            // 
+            this.chkAutoUpdateMods.AutoSize = true;
+            this.chkAutoUpdateMods.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chkAutoUpdateMods.Location = new System.Drawing.Point(20, 290);
+            this.chkAutoUpdateMods.Name = "chkAutoUpdateMods";
+            this.chkAutoUpdateMods.Size = new System.Drawing.Size(127, 19);
+            this.chkAutoUpdateMods.TabIndex = 12;
+            this.chkAutoUpdateMods.Text = "Auto-update mods";
+            this.chkAutoUpdateMods.UseVisualStyleBackColor = true;
+            this.chkAutoUpdateMods.CheckedChanged += new System.EventHandler(this.chkAutoUpdateMods_CheckedChanged);
+            // 
+            // lblMods
+            // 
+            this.lblMods.AutoSize = true;
+            this.lblMods.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblMods.Location = new System.Drawing.Point(20, 260);
+            this.lblMods.Name = "lblMods";
+            this.lblMods.Size = new System.Drawing.Size(46, 19);
+            this.lblMods.TabIndex = 11;
+            this.lblMods.Text = "Mods";
             // 
             // btnOpenDataFolder
             // 
@@ -308,9 +361,9 @@
             this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.lblStatus,
             this.progressBar});
-            this.statusStrip.Location = new System.Drawing.Point(0, 600);
+            this.statusStrip.Location = new System.Drawing.Point(0, 626);
             this.statusStrip.Name = "statusStrip";
-            this.statusStrip.Size = new System.Drawing.Size(1000, 22);
+            this.statusStrip.Size = new System.Drawing.Size(1072, 22);
             this.statusStrip.TabIndex = 1;
             this.statusStrip.Text = "statusStrip1";
             // 
@@ -332,7 +385,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
-            this.ClientSize = new System.Drawing.Size(1000, 622);
+            this.ClientSize = new System.Drawing.Size(1072, 648);
             this.Controls.Add(this.tabControl);
             this.Controls.Add(this.statusStrip);
             this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -380,6 +433,10 @@
         private System.Windows.Forms.ToolStripProgressBar progressBar;
         private System.Windows.Forms.Label lblEmptyStore;
         private System.Windows.Forms.Label lblEmptyInstalled;
+        private System.Windows.Forms.CheckBox chkAutoUpdateMods;
+        private System.Windows.Forms.CheckBox chkShowBetaVersions;
+        private System.Windows.Forms.Button btnUpdateAllMods;
+        private System.Windows.Forms.Label lblMods;
     }
 }
 
