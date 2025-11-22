@@ -24,6 +24,7 @@ Mods are stored separately in `Among Us/Mods/{ModId}/`. When you click Play, it 
 
 ## Supported Mods
 
+- **All The Roles** - Adds new roles, game modes, map settings, and custom cosmetics (hats, visors, nameplates)
 - **Town of Host Enhanced (TOHE)** - Host-only modpack with enhanced features
 - **Town of Us Mira** - Town of Us Reactivated with MiraAPI
 - **Better CrewLink** - Voice proximity chat for Among Us
