@@ -18,7 +18,7 @@ namespace BeanModManager.Services
 
         public ModStore(string registryUrl = null)
         {
-            _registryUrl = registryUrl ?? "https://raw.githubusercontent.com/rewalo/BeanModMaanager/master/mod-registry.json";
+            _registryUrl = registryUrl ?? "https://raw.githubusercontent.com/rewalo/BeanModManager/master/mod-registry.json";
 
             _availableMods = new List<Mod>();
             _registryEntries = new Dictionary<string, ModRegistryEntry>();
