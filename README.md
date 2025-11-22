@@ -24,6 +24,7 @@ Mods are stored separately in `Among Us/Mods/{ModId}/`. When you click Play, it 
 
 ## Supported Mods
 
+- **Launchpad Reloaded** - A vanilla-oriented Among Us mod with unique features, enhancing the gameplay experience without overcomplicating it.
 - **All The Roles** - A mod for Among Us which adds many new roles, modifiers, game modes, map settings, hats and more
 - **Town of Host Enhanced (TOHE)** - Host-only modpack with enhanced features
 - **Town of Us Mira** - Town of Us Reactivated with MiraAPI
