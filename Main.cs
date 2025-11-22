@@ -38,6 +38,11 @@ namespace BeanModManager
         public Main()
         {
             InitializeComponent();
+            
+            // Set window title with version
+            var version = Assembly.GetExecutingAssembly().GetName().Version;
+            this.Text = $"Bean Mod Manager v{version.Major}.{version.Minor}.{version.Build}";
+            
             InitializeUiPerformanceTweaks();
             _config = Config.Load();
             _modStore = new ModStore();
@@ -2359,7 +2364,45 @@ namespace BeanModManager
 
                 if (btnLaunchSelected != null)
                 {
-                    btnLaunchSelected.Enabled = hasGame && _selectedModIds.Any();
+                    bool hasSelection = _selectedModIds.Any();
+                    btnLaunchSelected.Enabled = hasGame && hasSelection;
+
+                    // Update button text to show selected mods
+                    if (hasSelection)
+                    {
+                        var selectedMods = _availableMods?
+                            .Where(m => _selectedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
+                            .Select(m => m.Name)
+                            .ToList() ?? new List<string>();
+
+                        if (selectedMods.Count == 0)
+                        {
+                            // Fallback to mod IDs if names aren't available
+                            selectedMods = _selectedModIds.ToList();
+                        }
+
+                        string buttonText;
+                        if (selectedMods.Count == 1)
+                        {
+                            buttonText = $"Launch Selected Mods ({selectedMods[0]})";
+                        }
+                        else if (selectedMods.Count <= 3)
+                        {
+                            buttonText = $"Launch Selected Mods ({string.Join(", ", selectedMods)})";
+                        }
+                        else
+                        {
+                            var firstThree = selectedMods.Take(3);
+                            var remaining = selectedMods.Count - 3;
+                            buttonText = $"Launch Selected Mods ({string.Join(", ", firstThree)}, +{remaining} more)";
+                        }
+
+                        btnLaunchSelected.Text = buttonText;
+                    }
+                    else
+                    {
+                        btnLaunchSelected.Text = "Launch Selected Mods";
+                    }
                 }
             });
         }
