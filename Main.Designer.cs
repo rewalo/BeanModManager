@@ -38,6 +38,8 @@
             this.lblEmptyStore = new System.Windows.Forms.Label();
             this.panelStore = new System.Windows.Forms.FlowLayoutPanel();
             this.tabSettings = new System.Windows.Forms.TabPage();
+            this.btnRestoreAmongUsData = new System.Windows.Forms.Button();
+            this.btnBackupAmongUsData = new System.Windows.Forms.Button();
             this.btnUpdateAllMods = new System.Windows.Forms.Button();
             this.chkShowBetaVersions = new System.Windows.Forms.CheckBox();
             this.chkAutoUpdateMods = new System.Windows.Forms.CheckBox();
@@ -171,6 +173,8 @@
             // 
             // tabSettings
             // 
+            this.tabSettings.Controls.Add(this.btnRestoreAmongUsData);
+            this.tabSettings.Controls.Add(this.btnBackupAmongUsData);
             this.tabSettings.Controls.Add(this.btnUpdateAllMods);
             this.tabSettings.Controls.Add(this.chkShowBetaVersions);
             this.tabSettings.Controls.Add(this.chkAutoUpdateMods);
@@ -193,6 +197,28 @@
             this.tabSettings.TabIndex = 2;
             this.tabSettings.Text = "Settings";
             this.tabSettings.UseVisualStyleBackColor = true;
+            // 
+            // btnRestoreAmongUsData
+            // 
+            this.btnRestoreAmongUsData.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnRestoreAmongUsData.Location = new System.Drawing.Point(190, 385);
+            this.btnRestoreAmongUsData.Name = "btnRestoreAmongUsData";
+            this.btnRestoreAmongUsData.Size = new System.Drawing.Size(150, 35);
+            this.btnRestoreAmongUsData.TabIndex = 15;
+            this.btnRestoreAmongUsData.Text = "Restore Among Us Data";
+            this.btnRestoreAmongUsData.UseVisualStyleBackColor = true;
+            this.btnRestoreAmongUsData.Click += new System.EventHandler(this.btnRestoreAmongUsData_Click);
+            // 
+            // btnBackupAmongUsData
+            // 
+            this.btnBackupAmongUsData.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnBackupAmongUsData.Location = new System.Drawing.Point(20, 385);
+            this.btnBackupAmongUsData.Name = "btnBackupAmongUsData";
+            this.btnBackupAmongUsData.Size = new System.Drawing.Size(150, 35);
+            this.btnBackupAmongUsData.TabIndex = 14;
+            this.btnBackupAmongUsData.Text = "Backup Among Us Data";
+            this.btnBackupAmongUsData.UseVisualStyleBackColor = true;
+            this.btnBackupAmongUsData.Click += new System.EventHandler(this.btnBackupAmongUsData_Click);
             // 
             // btnUpdateAllMods
             // 
@@ -436,6 +462,8 @@
         private System.Windows.Forms.CheckBox chkAutoUpdateMods;
         private System.Windows.Forms.CheckBox chkShowBetaVersions;
         private System.Windows.Forms.Button btnUpdateAllMods;
+        private System.Windows.Forms.Button btnBackupAmongUsData;
+        private System.Windows.Forms.Button btnRestoreAmongUsData;
         private System.Windows.Forms.Label lblMods;
     }
 }

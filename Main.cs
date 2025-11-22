@@ -20,6 +20,7 @@ namespace BeanModManager
         private ModDownloader _modDownloader;
         private ModInstaller _modInstaller;
         private BepInExInstaller _bepInExInstaller;
+        private SteamDepotService _steamDepotService;
         private List<Mod> _availableMods;
         private Dictionary<string, ModCard> _modCards;
         private bool _isInstalling = false;
@@ -38,6 +39,8 @@ namespace BeanModManager
             _modDownloader.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _modInstaller.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _bepInExInstaller.ProgressChanged += (s, msg) => UpdateStatus(msg);
+            _steamDepotService = new SteamDepotService();
+            _steamDepotService.ProgressChanged += (s, msg) => UpdateStatus(msg);
 
             LoadSettings();
             LoadMods();
@@ -202,14 +205,39 @@ namespace BeanModManager
                         
                         if (mod.InstalledVersion == null)
                         {
-                            mod.InstalledVersion = mod.Versions.FirstOrDefault() 
-                                ?? new ModVersion { Version = detectedMod.Version };
+                            // For installed mods, always prefer detected version over "Unknown" from store
+                            if (!string.IsNullOrEmpty(detectedMod.Version) && detectedMod.Version != "Unknown")
+                            {
+                                mod.InstalledVersion = new ModVersion { Version = detectedMod.Version };
+                            }
+                            else
+                            {
+                                // Fall back to versions list, but skip "Unknown" entries if we have any real versions
+                                mod.InstalledVersion = mod.Versions.FirstOrDefault(v => v.Version != "Unknown")
+                                    ?? mod.Versions.FirstOrDefault()
+                                    ?? new ModVersion { Version = detectedMod.Version ?? "Unknown" };
+                            }
+                        }
+                        
+                        // If we ended up with "Unknown" from store but have a detected version, use detected version
+                        if (mod.InstalledVersion != null && mod.InstalledVersion.Version == "Unknown" && 
+                            !string.IsNullOrEmpty(detectedMod.Version) && detectedMod.Version != "Unknown")
+                        {
+                            mod.InstalledVersion.Version = detectedMod.Version;
                         }
                     }
                     else
                     {
+                        // Mod folder exists but not detected - try to find version from config or versions list
                         mod.InstalledVersion = mod.Versions.FirstOrDefault(v => _config.IsModInstalled(mod.Id, v.Version))
                             ?? mod.Versions.FirstOrDefault();
+                        
+                        // If still no version found, try to detect it
+                        var fallbackDetectedMod = ModDetector.DetectInstalledMods(_config.AmongUsPath).FirstOrDefault(m => m.ModId == mod.Id);
+                        if (fallbackDetectedMod != null && mod.InstalledVersion == null)
+                        {
+                            mod.InstalledVersion = new ModVersion { Version = fallbackDetectedMod.Version ?? "Unknown" };
+                        }
                     }
                 }
                 else
@@ -491,17 +519,6 @@ namespace BeanModManager
                         MessageBox.Show($"Failed to download {mod.Name}. Please check the download URL.",
                             "Download Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
-                    }
-
-                    // Store the installed version in a metadata file for accurate version detection
-                    var versionFile = Path.Combine(modStoragePath, ".modversion");
-                    try
-                    {
-                        File.WriteAllText(versionFile, version.Version);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Warning: Could not write version file: {ex.Message}");
                     }
 
                     mod.IsInstalled = true;
@@ -884,6 +901,13 @@ namespace BeanModManager
 
         private void LaunchGameWithMod(Mod mod)
         {
+            // Special handling for mods that require Steam depot
+            if (mod.Id == "AllTheRoles" || mod.Id == "TheOtherRoles")
+            {
+                LaunchModWithDepot(mod);
+                return;
+            }
+
             var exePath = Path.Combine(_config.AmongUsPath, "Among Us.exe");
             var pluginsPath = Path.Combine(_config.AmongUsPath, "BepInEx", "plugins");
             
@@ -920,6 +944,205 @@ namespace BeanModManager
             }
 
             UpdateStatus($"Launched {mod.Name}");
+        }
+
+        private async void LaunchModWithDepot(Mod mod)
+        {
+            try
+            {
+                var modStoragePath = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
+                if (!Directory.Exists(modStoragePath))
+                {
+                    MessageBox.Show($"Mod folder not found: {modStoragePath}\n\nPlease reinstall {mod.Name}.", "Mod Not Found",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                UpdateStatus($"Checking Steam depot for {mod.Name}...");
+
+                var depotPath = _steamDepotService.GetDepotPath(mod.Id);
+                bool depotExists = _steamDepotService.IsDepotDownloaded(mod.Id);
+                string depotVersion = _steamDepotService.GetDepotVersion(mod.Id);
+                string depotManifest = _steamDepotService.GetDepotManifest(mod.Id);
+                string depotCommand = $"download_depot 945360 945361 {depotManifest}";
+
+                if (!depotExists)
+                {
+                    var result = MessageBox.Show(
+                        $"This mod requires Among Us {depotVersion} (older version).\n\n" +
+                        $"Command (copied to clipboard):\n{depotCommand}\n\n" +
+                        $"This will download and install Among Us {depotVersion} from Steam.\n\n" +
+                        $"Steps:\n" +
+                        $"1. Steam console will open\n" +
+                        $"2. Press Ctrl+V to paste, then Enter\n" +
+                        $"3. Wait for download (app detects completion automatically)\n\n" +
+                        $"Continue?",
+                        "Download Older Version Required",
+                        MessageBoxButtons.OKCancel,
+                        MessageBoxIcon.Information);
+
+                    if (result != DialogResult.OK)
+                    {
+                        UpdateStatus("Launch cancelled.");
+                        return;
+                    }
+
+                    // Use async download method that waits automatically
+                    UpdateStatus($"Starting depot download for {mod.Name}...");
+                    bool downloadSuccess = await _steamDepotService.DownloadDepotAsync(depotCommand);
+
+                    if (!downloadSuccess)
+                    {
+                        var retryResult = MessageBox.Show(
+                            "Depot download did not complete automatically.\n\n" +
+                            "Did you successfully run the command in Steam console?\n\n" +
+                            "Click Yes to check again, or No to cancel.",
+                            "Download Check",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Question);
+
+                        if (retryResult == DialogResult.Yes)
+                        {
+                            downloadSuccess = _steamDepotService.IsBaseDepotDownloaded();
+                        }
+                    }
+
+                    if (downloadSuccess)
+                    {
+                        // Copy base depot to mod-specific folder
+                        var baseDepotPath = _steamDepotService.GetBaseDepotPath();
+                        depotPath = _steamDepotService.GetDepotPath(mod.Id);
+                        
+                        UpdateStatus($"Copying depot to mod-specific folder...");
+                        try
+                        {
+                            if (Directory.Exists(depotPath))
+                            {
+                                Directory.Delete(depotPath, true);
+                            }
+                            _steamDepotService.CopyDirectoryContents(baseDepotPath, depotPath, false);
+                            depotExists = _steamDepotService.IsDepotDownloaded(mod.Id);
+                            if (depotExists)
+                            {
+                                UpdateStatus("Depot copied successfully!");
+                            }
+                            else
+                            {
+                                UpdateStatus("Warning: Depot copy completed but verification failed.");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            UpdateStatus($"Error copying depot: {ex.Message}");
+                            System.Diagnostics.Debug.WriteLine($"Error copying depot: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        UpdateStatus("Depot download cancelled or failed.");
+                        return;
+                    }
+                }
+
+                // Final check - if mod-specific depot doesn't exist, check base depot and copy it
+                if (!depotExists || string.IsNullOrEmpty(depotPath) || !Directory.Exists(depotPath))
+                {
+                    bool baseDepotExists = _steamDepotService.IsBaseDepotDownloaded();
+                    if (baseDepotExists)
+                    {
+                        // Copy base depot to mod-specific folder
+                        var baseDepotPath = _steamDepotService.GetBaseDepotPath();
+                        depotPath = _steamDepotService.GetDepotPath(mod.Id);
+                        
+                        UpdateStatus($"Copying depot to mod-specific folder...");
+                        try
+                        {
+                            if (Directory.Exists(depotPath))
+                            {
+                                Directory.Delete(depotPath, true);
+                            }
+                            _steamDepotService.CopyDirectoryContents(baseDepotPath, depotPath, false);
+                            depotExists = _steamDepotService.IsDepotDownloaded(mod.Id);
+                            if (depotExists)
+                            {
+                                UpdateStatus("Depot copied successfully!");
+                            }
+                            else
+                            {
+                                UpdateStatus("Warning: Depot copy completed but verification failed.");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            UpdateStatus($"Error copying depot: {ex.Message}");
+                            System.Diagnostics.Debug.WriteLine($"Error copying depot: {ex.Message}");
+                        }
+                    }
+                    
+                    if (!depotExists || string.IsNullOrEmpty(depotPath) || !Directory.Exists(depotPath))
+                    {
+                        var baseDepotPath = _steamDepotService.GetBaseDepotPath();
+                        MessageBox.Show(
+                            "Steam depot not found. Please ensure:\n\n" +
+                            "1. Steam console command completed successfully\n" +
+                            "2. Depot is located at: steamapps/content/app_945360/depot_945361/\n\n" +
+                            $"Expected base depot path: {baseDepotPath}\n\n" +
+                            "You can check your Steam installation folder.",
+                            "Depot Not Found",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return;
+                    }
+                }
+
+                UpdateStatus($"Installing {mod.Name} to depot...");
+                bool installSuccess = _steamDepotService.InstallModToDepot(modStoragePath, depotPath, mod.Id);
+
+                if (!installSuccess)
+                {
+                    MessageBox.Show("Failed to install mod files to depot.", "Installation Failed",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                // Delete entire Innersloth folder to prevent blackscreen
+                _steamDepotService.DeleteInnerslothFolder();
+
+                var depotExePath = Path.Combine(depotPath, "Among Us.exe");
+                if (!File.Exists(depotExePath))
+                {
+                    MessageBox.Show($"Among Us.exe not found in depot: {depotPath}", "File Not Found",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                UpdateStatus($"Launching {mod.Name} from depot...");
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = depotExePath,
+                    WorkingDirectory = depotPath,
+                    UseShellExecute = true
+                };
+                var process = Process.Start(startInfo);
+
+                if (process != null)
+                {
+                    process.EnableRaisingEvents = true;
+                    process.Exited += (s, e) =>
+                    {
+                        // Check if blackscreen occurred (process exited quickly)
+                        // User can manually delete settings.mogus if needed
+                    };
+                }
+
+                UpdateStatus($"Launched {mod.Name}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error launching {mod.Name}: {ex.Message}", "Launch Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus($"Error: {ex.Message}");
+            }
         }
 
         private Mod ShowBetterCrewLinkModSelection()
@@ -1397,6 +1620,120 @@ namespace BeanModManager
             else
             {
                 RefreshModCards();
+            }
+        }
+
+        private void btnBackupAmongUsData_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var innerslothPath = _steamDepotService.GetInnerslothFolderPath();
+                var localLowPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "..", "LocalLow");
+                var backupPath = Path.Combine(localLowPath, "Innersloth_bak");
+                
+                UpdateStatus("Backing up Innersloth folder...");
+                
+                bool success = _steamDepotService.BackupInnerslothFolder(backupPath);
+                
+                if (success)
+                {
+                    MessageBox.Show($"Innersloth folder backed up successfully!\n\n" +
+                        $"Source: {innerslothPath}\n" +
+                        $"Backup: {backupPath}",
+                        "Backup Complete",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                else
+                {
+                    MessageBox.Show("Failed to backup Innersloth folder. Check status for details.",
+                        "Backup Failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error backing up Among Us data: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnRestoreAmongUsData_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var localLowPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "..", "LocalLow");
+                var backupPath = Path.Combine(localLowPath, "Innersloth_bak");
+                
+                if (!Directory.Exists(backupPath))
+                {
+                    // If default backup doesn't exist, ask user to select a backup folder
+                    using (var dialog = new CommonOpenFileDialog())
+                    {
+                        dialog.IsFolderPicker = true;
+                        dialog.Title = "Select backup folder to restore from";
+                        dialog.InitialDirectory = localLowPath;
+
+                        if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+                        {
+                            backupPath = dialog.FileName;
+                            
+                            if (!Directory.Exists(backupPath))
+                            {
+                                MessageBox.Show("Selected backup folder does not exist.",
+                                    "Backup Not Found",
+                                    MessageBoxButtons.OK,
+                                    MessageBoxIcon.Warning);
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            return; // User cancelled
+                        }
+                    }
+                }
+
+                var innerslothPath = _steamDepotService.GetInnerslothFolderPath();
+                var result = MessageBox.Show(
+                    $"This will restore the Innersloth folder from:\n{backupPath}\n\n" +
+                    $"This will replace your current Innersloth folder at:\n{innerslothPath}\n\n" +
+                    $"Continue?",
+                    "Confirm Restore",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.Yes)
+                {
+                    UpdateStatus("Restoring Innersloth folder...");
+                    
+                    bool success = _steamDepotService.RestoreInnerslothFolder(backupPath);
+                    
+                    if (success)
+                    {
+                        MessageBox.Show("Innersloth folder restored successfully!",
+                            "Restore Complete",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Failed to restore Innersloth folder. Check status for details.",
+                            "Restore Failed",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error restoring Among Us data: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
         }
 

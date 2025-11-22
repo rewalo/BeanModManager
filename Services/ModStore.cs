@@ -61,6 +61,17 @@ namespace BeanModManager.Services
                     GitHubRepo = "TheOtherRoles",
                     Category = "Mod",
                     Versions = new List<ModVersion>()
+                },
+                new Mod
+                {
+                    Id = "AllTheRoles",
+                    Name = "All The Roles",
+                    Author = "Zeo666",
+                    Description = "A mod for Among Us which adds many new roles, modifiers, game modes, map settings, hats and more",
+                    GitHubOwner = "Zeo666",
+                    GitHubRepo = "AllTheRoles",
+                    Category = "Mod",
+                    Versions = new List<ModVersion>()
                 }
             };
         }
@@ -251,6 +262,42 @@ namespace BeanModManager.Services
                                 mod.Versions.Add(dllVersion);
                             }
                         }
+                        else if (mod.Id == "AllTheRoles")
+                        {
+                            var steamVersion = new ModVersion
+                            {
+                                Version = release.tag_name,
+                                ReleaseTag = release.tag_name,
+                                ReleaseDate = DateTime.Parse(release.published_at),
+                                DownloadUrl = release.assets?.FirstOrDefault(a => 
+                                    !string.IsNullOrEmpty(a.name) && 
+                                    (a.name.ToLower().Contains("x86-steam-itch") ||
+                                     a.name.ToLower().Contains("steam-itch")))?.browser_download_url,
+                                GameVersion = "Steam/Itch.io",
+                                IsPreRelease = release.prerelease
+                            };
+                            if (steamVersion.DownloadUrl != null)
+                            {
+                                mod.Versions.Add(steamVersion);
+                            }
+
+                            var epicVersion = new ModVersion
+                            {
+                                Version = release.tag_name,
+                                ReleaseTag = release.tag_name,
+                                ReleaseDate = DateTime.Parse(release.published_at),
+                                DownloadUrl = release.assets?.FirstOrDefault(a => 
+                                    !string.IsNullOrEmpty(a.name) && 
+                                    (a.name.ToLower().Contains("x64-epic-msstore") ||
+                                     a.name.ToLower().Contains("epic-msstore")))?.browser_download_url,
+                                GameVersion = "Epic/MS Store",
+                                IsPreRelease = release.prerelease
+                            };
+                            if (epicVersion.DownloadUrl != null)
+                            {
+                                mod.Versions.Add(epicVersion);
+                            }
+                        }
                         else if (mod.Id == "BetterCrewLink")
                         {
                             var zipAsset = release.assets?.FirstOrDefault(a => 
@@ -375,7 +422,7 @@ namespace BeanModManager.Services
 
                         foreach (var release in releases)
                         {
-                            if (string.IsNullOrEmpty(release.tag_name))
+                            if (release == null || string.IsNullOrEmpty(release.tag_name))
                                 continue;
 
                             var releaseDate = DateTime.Parse(release.published_at);
@@ -413,6 +460,10 @@ namespace BeanModManager.Services
                             {
                                 AddTheOtherRolesVersions(mod, release, isPreRelease);
                             }
+                            else if (mod.Id == "AllTheRoles")
+                            {
+                                AddAllTheRolesVersions(mod, release, isPreRelease);
+                            }
                             else if (mod.Id == "BetterCrewLink")
                             {
                                 AddBetterCrewLinkVersions(mod, release, isPreRelease);
@@ -421,6 +472,15 @@ namespace BeanModManager.Services
                             {
                                 AddGenericVersions(mod, release, isPreRelease);
                             }
+                        }
+                    }
+                    else
+                    {
+                        // No releases found, fall back to latest release only
+                        System.Diagnostics.Debug.WriteLine($"No releases found for {mod.Name}, falling back to latest release");
+                        if (!mod.Versions.Any())
+                        {
+                            await FetchModVersions(mod);
                         }
                     }
                 }
@@ -583,6 +643,43 @@ namespace BeanModManager.Services
             if (dllVersion.DownloadUrl != null)
             {
                 mod.Versions.Add(dllVersion);
+            }
+        }
+
+        private void AddAllTheRolesVersions(Mod mod, GitHubRelease release, bool isPreRelease)
+        {
+            var steamVersion = new ModVersion
+            {
+                Version = release.tag_name,
+                ReleaseTag = release.tag_name,
+                ReleaseDate = DateTime.Parse(release.published_at),
+                DownloadUrl = release.assets?.FirstOrDefault(a => 
+                    !string.IsNullOrEmpty(a.name) && 
+                    (a.name.ToLower().Contains("x86-steam-itch") ||
+                     a.name.ToLower().Contains("steam-itch")))?.browser_download_url,
+                GameVersion = "Steam/Itch.io",
+                IsPreRelease = isPreRelease
+            };
+            if (steamVersion.DownloadUrl != null)
+            {
+                mod.Versions.Add(steamVersion);
+            }
+
+            var epicVersion = new ModVersion
+            {
+                Version = release.tag_name,
+                ReleaseTag = release.tag_name,
+                ReleaseDate = DateTime.Parse(release.published_at),
+                DownloadUrl = release.assets?.FirstOrDefault(a => 
+                    !string.IsNullOrEmpty(a.name) && 
+                    (a.name.ToLower().Contains("x64-epic-msstore") ||
+                     a.name.ToLower().Contains("epic-msstore")))?.browser_download_url,
+                GameVersion = "Epic/MS Store",
+                IsPreRelease = isPreRelease
+            };
+            if (epicVersion.DownloadUrl != null)
+            {
+                mod.Versions.Add(epicVersion);
             }
         }
 

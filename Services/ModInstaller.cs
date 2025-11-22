@@ -378,6 +378,10 @@ namespace BeanModManager.Services
                             if (fileName.Contains("theotherroles") || fileName == "theotherroles.dll")
                                 shouldRemove = true;
                             break;
+                        case "ALLTHEROLES":
+                            if (fileName.Contains("alltheroles") || fileName.Contains("atr"))
+                                shouldRemove = true;
+                            break;
                     }
 
                     if (!shouldRemove && modPath != null && Directory.Exists(modPath))
