@@ -14,6 +14,12 @@ namespace BeanModManager.Services
         private const int AmongUsAppId = 945360;
         private const int AmongUsDepotId = 945361; // Depot ID 945361 is used for all mods (All The Roles, The Other Roles, etc.)
         
+        // Depot download timeout constants
+        private const int MaxDepotWaitTimeSeconds = 600; // 10 minutes max
+        private const int DepotCheckIntervalSeconds = 3; // Check every 3 seconds
+        private const int DepotProgressUpdateIntervalSeconds = 15; // Update progress every 15 seconds
+        private const int SteamConsoleOpenDelayMs = 1000; // Wait 1 second for Steam console to open
+        
         // Depot manifests for different Among Us versions
         // v16.0.5 manifest: 1110308242604365209
         // v15.11.0 manifest: (needs to be found)
@@ -217,19 +223,17 @@ namespace BeanModManager.Services
                 });
 
                 // Wait a moment for Steam console to open
-                await Task.Delay(1000);
+                await Task.Delay(SteamConsoleOpenDelayMs).ConfigureAwait(false);
 
                 OnProgressChanged("Paste command in Steam console (Ctrl+V), then press Enter. Waiting for download...");
 
                 // Wait and check for depot
-                int maxWaitTime = 600; // 10 minutes max (depot downloads can take a while)
-                int checkInterval = 3; // Check every 3 seconds
                 int elapsed = 0;
 
-                while (elapsed < maxWaitTime)
+                while (elapsed < MaxDepotWaitTimeSeconds)
                 {
-                    await Task.Delay(checkInterval * 1000);
-                    elapsed += checkInterval;
+                    await Task.Delay(DepotCheckIntervalSeconds * 1000).ConfigureAwait(false);
+                    elapsed += DepotCheckIntervalSeconds;
 
                     if (IsBaseDepotDownloaded())
                     {
@@ -246,7 +250,7 @@ namespace BeanModManager.Services
                         isDownloading = File.Exists(patchFilePath);
                     }
 
-                    if (elapsed % 15 == 0) // Update every 15 seconds
+                    if (elapsed % DepotProgressUpdateIntervalSeconds == 0)
                     {
                         int minutes = elapsed / 60;
                         int seconds = elapsed % 60;

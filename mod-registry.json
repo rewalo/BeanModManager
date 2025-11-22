@@ -122,7 +122,36 @@
         "manifestId": "1110308242604365209",
         "gameVersion": "v16.0.5"
       }
+    },
+    {
+      "id": "LaunchpadReloaded",
+      "name": "Launchpad: Reloaded",
+      "author": "All-Of-Us-Mods",
+      "description": "A vanilla oriented fun and unique Among Us client mod",
+      "githubOwner": "All-Of-Us-Mods",
+      "githubRepo": "LaunchpadReloaded",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor"
+        },
+        {
+          "name": "MiraAPI",
+          "fileName": "MiraAPI.dll",
+          "githubOwner": "All-Of-Us-Mods",
+          "githubRepo": "MiraAPI"
+        }
+      ]
     }
   ]
 }
-

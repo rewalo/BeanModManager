@@ -10,6 +10,7 @@ using BeanModManager.Models;
 using BeanModManager.Services;
 using System.Text;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using System.Reflection;
 
 namespace BeanModManager
 {
@@ -29,6 +30,7 @@ namespace BeanModManager
         public Main()
         {
             InitializeComponent();
+            InitializeUiPerformanceTweaks();
             _config = Config.Load();
             _modStore = new ModStore();
             _modDownloader = new ModDownloader();
@@ -77,59 +79,40 @@ namespace BeanModManager
         private async void LoadMods()
         {
             UpdateStatus("Loading mods...");
-            if (InvokeRequired)
-            {
-                Invoke(new Action(() => progressBar.Visible = true));
-            }
-            else
-            {
-                progressBar.Visible = true;
-            }
+            SafeInvoke(() => progressBar.Visible = true);
 
             try
             {
-                _availableMods = await _modStore.GetAvailableModsWithAllVersions();
+                _availableMods = await _modStore.GetAvailableModsWithAllVersions().ConfigureAwait(false);
                 
-                if (InvokeRequired)
+                if (_modStore.IsRateLimited())
                 {
-                    Invoke(new Action(RefreshModCards));
+                    SafeInvoke(() => MessageBox.Show(
+                        "GitHub API rate limit reached. Some mod versions may not be available.\n\nPlease wait a few minutes and try again, or refresh the mod list later.",
+                        "GitHub Rate Limit",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning));
                 }
-                else
-                {
-                    RefreshModCards();
-                }
+                
+                SafeInvoke(RefreshModCards);
 
                 if (_config.AutoUpdateMods)
                 {
-                    _ = Task.Run(async () => await CheckForUpdatesAsync());
+                    _ = Task.Run(async () => await CheckForUpdatesAsync().ConfigureAwait(false));
                 }
             }
             catch (Exception ex)
             {
-                if (InvokeRequired)
-                {
-                    Invoke(new Action(() => MessageBox.Show($"Error loading mods: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)));
-                }
-                else
-                {
-                    MessageBox.Show($"Error loading mods: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                System.Diagnostics.Debug.WriteLine($"Error loading mods: {ex.Message}");
+                SafeInvoke(() => MessageBox.Show($"Error loading mods: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error));
             }
             finally
             {
-                if (InvokeRequired)
-                {
-                    Invoke(new Action(() =>
-                    {
-                        progressBar.Visible = false;
-                        UpdateStatus("Ready");
-                    }));
-                }
-                else
+                SafeInvoke(() =>
                 {
                     progressBar.Visible = false;
                     UpdateStatus("Ready");
-                }
+                });
             }
         }
 
@@ -333,16 +316,8 @@ namespace BeanModManager
                 var selectedVersion = card.SelectedVersion;
                 if (selectedVersion == null || string.IsNullOrEmpty(selectedVersion.DownloadUrl))
                 {
-                    if (InvokeRequired)
-                    {
-                        Invoke(new Action(() => MessageBox.Show("Please select a version to update to.", "Version Required",
-                            MessageBoxButtons.OK, MessageBoxIcon.Warning)));
-                    }
-                    else
-                    {
-                        MessageBox.Show("Please select a version to update to.", "Version Required",
-                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    }
+                    SafeInvoke(() => MessageBox.Show("Please select a version to update to.", "Version Required",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning));
                     return;
                 }
                 
@@ -369,19 +344,16 @@ namespace BeanModManager
 
         private void SetInstallButtonsEnabled(bool enabled)
         {
-            if (InvokeRequired)
+            SafeInvoke(() =>
             {
-                Invoke(new Action<bool>(SetInstallButtonsEnabled), enabled);
-                return;
-            }
-
-            foreach (Control control in panelStore.Controls)
-            {
-                if (control is ModCard card)
+                foreach (Control control in panelStore.Controls)
                 {
-                    card.SetInstallButtonEnabled(enabled);
+                    if (control is ModCard card)
+                    {
+                        card.SetInstallButtonEnabled(enabled);
+                    }
                 }
-            }
+            });
         }
 
         private async Task InstallMod(Mod mod, ModVersion version)
@@ -390,81 +362,70 @@ namespace BeanModManager
             {
                 if (_isInstalling)
                 {
-                    MessageBox.Show("An installation is already in progress. Please wait for it to complete.",
-                        "Installation In Progress", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    SafeInvoke(() => MessageBox.Show("An installation is already in progress. Please wait for it to complete.",
+                        "Installation In Progress", MessageBoxButtons.OK, MessageBoxIcon.Information));
                     return;
                 }
                 _isInstalling = true;
             }
 
-            SetInstallButtonsEnabled(false);
-
             try
             {
+                SafeInvoke(() => SetInstallButtonsEnabled(false));
+
                 if (string.IsNullOrEmpty(_config.AmongUsPath))
                 {
-                    MessageBox.Show("Please set your Among Us path in Settings first.", "Path Required",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    tabControl.SelectedTab = tabSettings;
+                    SafeInvoke(() =>
+                    {
+                        MessageBox.Show("Please set your Among Us path in Settings first.", "Path Required",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        tabControl.SelectedTab = tabSettings;
+                    });
                     return;
                 }
 
                 if (!AmongUsDetector.ValidateAmongUsPath(_config.AmongUsPath))
                 {
-                    MessageBox.Show("Invalid Among Us path. Please check your settings.", "Invalid Path",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    SafeInvoke(() => MessageBox.Show("Invalid Among Us path. Please check your settings.", "Invalid Path",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error));
                     return;
                 }
 
                 if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
                 {
-                    var bepInExResult = MessageBox.Show(
+                    var bepInExResult = SafeInvoke(() => MessageBox.Show(
                         "BepInEx is not installed. Mods require BepInEx to work.\n\nWould you like to install BepInEx now?",
                         "BepInEx Required",
                         MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Question);
+                        MessageBoxIcon.Question));
 
                     if (bepInExResult == DialogResult.Yes)
                     {
-                        progressBar.Visible = true;
-                        progressBar.Style = ProgressBarStyle.Marquee;
-                        btnInstallBepInEx.Enabled = false;
+                        SafeInvoke(() =>
+                        {
+                            progressBar.Visible = true;
+                            progressBar.Style = ProgressBarStyle.Marquee;
+                            btnInstallBepInEx.Enabled = false;
+                        });
 
                         try
                         {
-                            var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath);
+                            var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath).ConfigureAwait(false);
                             if (!installed)
                             {
-                                if (InvokeRequired)
-                                {
-                                    Invoke(new Action(() => MessageBox.Show("Failed to install BepInEx. Please install it manually from Settings.", "Installation Failed",
-                                        MessageBoxButtons.OK, MessageBoxIcon.Error)));
-                                }
-                                else
-                                {
-                                    MessageBox.Show("Failed to install BepInEx. Please install it manually from Settings.", "Installation Failed",
-                                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                                }
+                                SafeInvoke(() => MessageBox.Show("Failed to install BepInEx. Please install it manually from Settings.", "Installation Failed",
+                                    MessageBoxButtons.OK, MessageBoxIcon.Error));
                                 return;
                             }
                         }
                         finally
                         {
-                            if (InvokeRequired)
-                            {
-                                Invoke(new Action(() =>
-                                {
-                                    progressBar.Visible = false;
-                                    btnInstallBepInEx.Enabled = true;
-                                    UpdateBepInExButtonState();
-                                }));
-                            }
-                            else
+                            SafeInvoke(() =>
                             {
                                 progressBar.Visible = false;
                                 btnInstallBepInEx.Enabled = true;
                                 UpdateBepInExButtonState();
-                            }
+                            });
                         }
                     }
                     else
@@ -473,17 +434,20 @@ namespace BeanModManager
                     }
                 }
 
-                var installResult = MessageBox.Show(
+                var installResult = SafeInvoke(() => MessageBox.Show(
                     $"Install {mod.Name} {version.Version}?\n\nThis will copy mod files to your Among Us directory.",
                     "Install Mod",
                     MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
+                    MessageBoxIcon.Question));
 
                 if (installResult != DialogResult.Yes)
                     return;
 
-                progressBar.Visible = true;
-                progressBar.Style = ProgressBarStyle.Marquee;
+                SafeInvoke(() =>
+                {
+                    progressBar.Visible = true;
+                    progressBar.Style = ProgressBarStyle.Marquee;
+                });
 
                 try
                 {
@@ -513,11 +477,20 @@ namespace BeanModManager
                     System.Diagnostics.Debug.WriteLine($"Downloading and extracting to: {modStoragePath}");
                     System.Diagnostics.Debug.WriteLine($"Download URL: {version.DownloadUrl}");
 
-                    var downloaded = await _modDownloader.DownloadMod(mod, version, modStoragePath);
+                    var dependencies = _modStore.GetDependencies(mod.Id);
+                    System.Diagnostics.Debug.WriteLine($"Retrieved {dependencies?.Count ?? 0} dependencies for {mod.Id}");
+                    if (dependencies != null && dependencies.Any())
+                    {
+                        foreach (var dep in dependencies)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"  Dependency: {dep.name}, GitHub: {dep.githubOwner}/{dep.githubRepo}, URL: {dep.downloadUrl}");
+                        }
+                    }
+                    var downloaded = await _modDownloader.DownloadMod(mod, version, modStoragePath, dependencies).ConfigureAwait(false);
                     if (!downloaded)
                     {
-                        MessageBox.Show($"Failed to download {mod.Name}. Please check the download URL.",
-                            "Download Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        SafeInvoke(() => MessageBox.Show($"Failed to download {mod.Name}. Please check the download URL.",
+                            "Download Failed", MessageBoxButtons.OK, MessageBoxIcon.Error));
                         return;
                     }
 
@@ -525,75 +498,43 @@ namespace BeanModManager
                     mod.InstalledVersion = version;
                     
                     _config.AddInstalledMod(mod.Id, version.Version);
-                    await _config.SaveAsync();
+                    await _config.SaveAsync().ConfigureAwait(false);
                     
-                    if (InvokeRequired)
-                    {
-                        BeginInvoke(new Action(() =>
-                        {
-                            RefreshModCards();
-                            MessageBox.Show($"{mod.Name} installed successfully!", "Success",
-                                MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        }));
-                    }
-                    else
+                    SafeInvoke(() =>
                     {
                         RefreshModCards();
                         MessageBox.Show($"{mod.Name} installed successfully!", "Success",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
+                    });
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error installing mod: {ex.Message}", "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    System.Diagnostics.Debug.WriteLine($"Error installing mod: {ex.Message}");
+                    SafeInvoke(() => MessageBox.Show($"Error installing mod: {ex.Message}", "Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error));
                 }
             }
             finally
             {
-                if (InvokeRequired)
-                {
-                    Invoke(new Action(() =>
-                    {
-                        progressBar.Visible = false;
-                        SetInstallButtonsEnabled(true);
-                        lock (_installLock)
-                        {
-                            _isInstalling = false;
-                        }
-                    }));
-                }
-                else
+                SafeInvoke(() =>
                 {
                     progressBar.Visible = false;
                     SetInstallButtonsEnabled(true);
-                    lock (_installLock)
-                    {
-                        _isInstalling = false;
-                    }
+                });
+                lock (_installLock)
+                {
+                    _isInstalling = false;
                 }
             }
         }
 
         private async void UninstallMod(Mod mod, ModVersion version)
         {
-            DialogResult result;
-            if (InvokeRequired)
-            {
-                result = (DialogResult)Invoke(new Func<DialogResult>(() => MessageBox.Show(
-                    $"Uninstall {mod.Name} {version.Version}?",
-                    "Uninstall Mod",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question)));
-            }
-            else
-            {
-                result = MessageBox.Show(
-                    $"Uninstall {mod.Name} {version.Version}?",
-                    "Uninstall Mod",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-            }
+            var result = SafeInvoke(() => MessageBox.Show(
+                $"Uninstall {mod.Name} {version.Version}?",
+                "Uninstall Mod",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question));
 
             if (result != DialogResult.Yes)
                 return;
@@ -601,7 +542,8 @@ namespace BeanModManager
             try
             {
                 // Run uninstall on background thread
-                var uninstalled = await Task.Run(() => _modInstaller.UninstallMod(mod, _config.AmongUsPath));
+                var modStoragePath = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
+                var uninstalled = await Task.Run(() => _modInstaller.UninstallMod(mod, _config.AmongUsPath, modStoragePath)).ConfigureAwait(false);
                 
                 if (uninstalled)
                 {
@@ -611,48 +553,24 @@ namespace BeanModManager
                     _config.RemoveInstalledMod(mod.Id, version.Version);
                     _ = _config.SaveAsync();
                     
-                    if (InvokeRequired)
-                    {
-                        BeginInvoke(new Action(() =>
-                        {
-                            RefreshModCards();
-                            MessageBox.Show($"{mod.Name} uninstalled!", "Success",
-                                MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        }));
-                    }
-                    else
+                    SafeInvoke(() =>
                     {
                         RefreshModCards();
                         MessageBox.Show($"{mod.Name} uninstalled!", "Success",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
+                    });
                 }
                 else
                 {
-                    if (InvokeRequired)
-                    {
-                        Invoke(new Action(() => MessageBox.Show($"Failed to uninstall {mod.Name}. Some files may still be present.", "Warning",
-                            MessageBoxButtons.OK, MessageBoxIcon.Warning)));
-                    }
-                    else
-                    {
-                        MessageBox.Show($"Failed to uninstall {mod.Name}. Some files may still be present.", "Warning",
-                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    }
+                    SafeInvoke(() => MessageBox.Show($"Failed to uninstall {mod.Name}. Some files may still be present.", "Warning",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning));
                 }
             }
             catch (Exception ex)
             {
-                if (InvokeRequired)
-                {
-                    Invoke(new Action(() => MessageBox.Show($"Error uninstalling mod: {ex.Message}", "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error)));
-                }
-                else
-                {
-                    MessageBox.Show($"Error uninstalling mod: {ex.Message}", "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                System.Diagnostics.Debug.WriteLine($"Error uninstalling mod: {ex.Message}");
+                SafeInvoke(() => MessageBox.Show($"Error uninstalling mod: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error));
             }
         }
 
@@ -899,8 +817,25 @@ namespace BeanModManager
             UpdateStatus("Launched Vanilla Among Us");
         }
 
-        private void LaunchGameWithMod(Mod mod)
+        private async void LaunchGameWithMod(Mod mod)
         {
+            // Check if BepInEx is installed, if not try to install it
+            if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
+            {
+                UpdateStatus("BepInEx not found. Installing BepInEx...");
+                var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath);
+                if (!installed)
+                {
+                    MessageBox.Show(
+                        "Failed to install BepInEx. Please install BepInEx from the Settings tab before launching mods.",
+                        "BepInEx Installation Failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return;
+                }
+                UpdateStatus("BepInEx installed successfully!");
+            }
+
             // Special handling for mods that require Steam depot
             if (_modStore.ModRequiresDepot(mod.Id))
             {
@@ -927,8 +862,41 @@ namespace BeanModManager
             UpdateStatus($"Preparing {mod.Name}...");
             CleanPluginsFolder(pluginsPath);
 
-            UpdateStatus($"Copying {mod.Name} files...");
-            CopyDirectoryContents(modStoragePath, _config.AmongUsPath, true);
+            // Check if this is a DLL-only mod (no BepInEx structure, just DLL files)
+            var dllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
+            var hasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
+            var hasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
+
+            if (dllFiles.Any() && !hasBepInExStructure && !hasSubdirectories)
+            {
+                // DLL-only mod - copy DLLs directly to BepInEx/plugins
+                UpdateStatus($"Copying {mod.Name} DLL files to plugins...");
+                foreach (var dllFile in dllFiles)
+                {
+                    var fileName = Path.GetFileName(dllFile);
+                    var destPath = Path.Combine(pluginsPath, fileName);
+                    try
+                    {
+                        if (File.Exists(destPath))
+                        {
+                            File.SetAttributes(destPath, FileAttributes.Normal);
+                            File.Delete(destPath);
+                        }
+                        File.Copy(dllFile, destPath, true);
+                        System.Diagnostics.Debug.WriteLine($"Copied DLL: {fileName} -> {destPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
+                    }
+                }
+            }
+            else
+            {
+                // Full mod structure - copy everything
+                UpdateStatus($"Copying {mod.Name} files...");
+                CopyDirectoryContents(modStoragePath, _config.AmongUsPath, true);
+            }
 
             var startInfo = new ProcessStartInfo
             {
@@ -950,6 +918,23 @@ namespace BeanModManager
         {
             try
             {
+                // Check if BepInEx is installed, if not try to install it
+                if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
+                {
+                    UpdateStatus("BepInEx not found. Installing BepInEx...");
+                    var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath).ConfigureAwait(false);
+                    if (!installed)
+                    {
+                        MessageBox.Show(
+                            "Failed to install BepInEx. Please install BepInEx from the Settings tab before launching mods.",
+                            "BepInEx Installation Failed",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                        return;
+                    }
+                    UpdateStatus("BepInEx installed successfully!");
+                }
+
                 var modStoragePath = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
                 if (!Directory.Exists(modStoragePath))
                 {
@@ -992,7 +977,7 @@ namespace BeanModManager
 
                     // Use async download method that waits automatically
                     UpdateStatus($"Starting depot download for {mod.Name}...");
-                    bool downloadSuccess = await _steamDepotService.DownloadDepotAsync(depotCommand);
+                    bool downloadSuccess = await _steamDepotService.DownloadDepotAsync(depotCommand).ConfigureAwait(false);
 
                     if (!downloadSuccess)
                     {
@@ -1267,6 +1252,31 @@ namespace BeanModManager
             Application.DoEvents();
         }
 
+        // Helper methods for thread-safe UI updates
+        private void SafeInvoke(Action action)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(action);
+            }
+            else
+            {
+                action();
+            }
+        }
+
+        private T SafeInvoke<T>(Func<T> func)
+        {
+            if (InvokeRequired)
+            {
+                return (T)Invoke(func);
+            }
+            else
+            {
+                return func();
+            }
+        }
+
 
         private void btnLaunchVanilla_Click(object sender, EventArgs e)
         {
@@ -1314,14 +1324,7 @@ namespace BeanModManager
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
                         UpdateBepInExButtonState();
                         
-                        if (InvokeRequired)
-                        {
-                            Invoke(new Action(RefreshModCards));
-                        }
-                        else
-                        {
-                            RefreshModCards();
-                        }
+                        SafeInvoke(RefreshModCards);
                     }
                 }
                 catch (Exception ex)
@@ -1362,7 +1365,7 @@ namespace BeanModManager
 
                 if (result == DialogResult.Yes)
                 {
-                    await InstallBepInExAsync();
+                    await InstallBepInExAsync().ConfigureAwait(false);
                     
                     if (!Directory.Exists(pluginsPath))
                     {
@@ -1397,53 +1400,59 @@ namespace BeanModManager
 
         private async Task InstallBepInExAsync()
         {
-            progressBar.Visible = true;
-            progressBar.Style = ProgressBarStyle.Marquee;
-            btnInstallBepInEx.Enabled = false;
+            SafeInvoke(() =>
+            {
+                progressBar.Visible = true;
+                progressBar.Style = ProgressBarStyle.Marquee;
+                btnInstallBepInEx.Enabled = false;
+            });
 
             try
             {
-                var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath);
+                var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath).ConfigureAwait(false);
                 if (installed)
                 {
-                    MessageBox.Show("BepInEx installed successfully!", "Success",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    UpdateBepInExButtonState();
+                    SafeInvoke(() =>
+                    {
+                        MessageBox.Show("BepInEx installed successfully!", "Success",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        UpdateBepInExButtonState();
+                    });
                 }
                 else
                 {
-                    MessageBox.Show("Failed to install BepInEx. Check the status bar for details.", "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    SafeInvoke(() => MessageBox.Show("Failed to install BepInEx. Check the status bar for details.", "Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error));
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error installing BepInEx: {ex.Message}", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                SafeInvoke(() => MessageBox.Show($"Error installing BepInEx: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error));
             }
             finally
             {
-                progressBar.Visible = false;
-                btnInstallBepInEx.Enabled = true;
+                SafeInvoke(() =>
+                {
+                    progressBar.Visible = false;
+                    btnInstallBepInEx.Enabled = true;
+                });
             }
         }
 
         private void UpdateBepInExButtonState()
         {
-            if (InvokeRequired)
+            SafeInvoke(() =>
             {
-                Invoke(new Action(UpdateBepInExButtonState));
-                return;
-            }
-
-            if (!string.IsNullOrEmpty(_config.AmongUsPath) && ModDetector.IsBepInExInstalled(_config.AmongUsPath))
-            {
-                btnInstallBepInEx.Text = "Uninstall BepInEx";
-            }
-            else
-            {
-                btnInstallBepInEx.Text = "Install BepInEx";
-            }
+                if (!string.IsNullOrEmpty(_config.AmongUsPath) && ModDetector.IsBepInExInstalled(_config.AmongUsPath))
+                {
+                    btnInstallBepInEx.Text = "Uninstall BepInEx";
+                }
+                else
+                {
+                    btnInstallBepInEx.Text = "Install BepInEx";
+                }
+            });
         }
 
         private void btnDetectPath_Click(object sender, EventArgs e)
@@ -1541,6 +1550,26 @@ namespace BeanModManager
             }
         }
 
+        private void btnOpenAmongUsFolder_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(_config.AmongUsPath))
+            {
+                MessageBox.Show("Please set your Among Us path first.", "Path Required",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                Process.Start("explorer.exe", _config.AmongUsPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening folder: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void btnOpenBepInExFolder_Click(object sender, EventArgs e)
         {
             if (string.IsNullOrEmpty(_config.AmongUsPath))
@@ -1607,7 +1636,7 @@ namespace BeanModManager
         private async void chkAutoUpdateMods_CheckedChanged(object sender, EventArgs e)
         {
             _config.AutoUpdateMods = chkAutoUpdateMods.Checked;
-            await _config.SaveAsync();
+            await _config.SaveAsync().ConfigureAwait(false);
         }
 
         private async void chkShowBetaVersions_CheckedChanged(object sender, EventArgs e)
@@ -1616,14 +1645,7 @@ namespace BeanModManager
             _ = _config.SaveAsync(); // Fire and forget
             
             // Refresh mod cards to show/hide beta versions
-            if (InvokeRequired)
-            {
-                Invoke(new Action(RefreshModCards));
-            }
-            else
-            {
-                RefreshModCards();
-            }
+            SafeInvoke(RefreshModCards);
         }
 
         private void btnBackupAmongUsData_Click(object sender, EventArgs e)
@@ -1740,6 +1762,31 @@ namespace BeanModManager
             }
         }
 
+        private void InitializeUiPerformanceTweaks()
+        {
+            DoubleBuffered = true;
+            EnableDoubleBuffering(tabControl);
+            EnableDoubleBuffering(panelInstalled);
+            EnableDoubleBuffering(panelStore);
+            EnableDoubleBuffering(tabSettings);
+            EnableDoubleBuffering(settingsLayout);
+            EnableDoubleBuffering(flowBepInEx);
+            EnableDoubleBuffering(flowFolders);
+            EnableDoubleBuffering(flowMods);
+            EnableDoubleBuffering(flowData);
+        }
+
+        private void EnableDoubleBuffering(Control control)
+        {
+            if (control == null || SystemInformation.TerminalServerSession)
+                return;
+
+            var propertyInfo = control.GetType()
+                .GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            propertyInfo?.SetValue(control, true, null);
+        }
+
         private async void btnUpdateAllMods_Click(object sender, EventArgs e)
         {
             await UpdateAllModsAsync();
@@ -1785,7 +1832,7 @@ namespace BeanModManager
 
                         if (result == DialogResult.Yes)
                         {
-                            _ = Task.Run(async () => await UpdateModsAsync(updatesAvailable));
+                            _ = Task.Run(async () => await UpdateModsAsync(updatesAvailable).ConfigureAwait(false));
                         }
                     }));
                 }
@@ -1832,14 +1879,7 @@ namespace BeanModManager
 
         private async Task UpdateModsAsync(List<Mod> modsToUpdate)
         {
-            if (InvokeRequired)
-            {
-                Invoke(new Action(() => progressBar.Visible = true));
-            }
-            else
-            {
-                progressBar.Visible = true;
-            }
+            SafeInvoke(() => progressBar.Visible = true);
 
             try
             {
@@ -1863,7 +1903,7 @@ namespace BeanModManager
 
                     try
                     {
-                        await InstallMod(mod, latestVersion);
+                        await InstallMod(mod, latestVersion).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -1872,27 +1912,13 @@ namespace BeanModManager
                     }
                 }
 
-                if (InvokeRequired)
-                {
-                    Invoke(new Action(RefreshModCards));
-                }
-                else
-                {
-                    RefreshModCards();
-                }
+                SafeInvoke(RefreshModCards);
 
                 UpdateStatus("Updates completed!");
             }
             finally
             {
-                if (InvokeRequired)
-                {
-                    Invoke(new Action(() => progressBar.Visible = false));
-                }
-                else
-                {
-                    progressBar.Visible = false;
-                }
+                SafeInvoke(() => progressBar.Visible = false);
             }
         }
 

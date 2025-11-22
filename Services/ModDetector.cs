@@ -218,7 +218,10 @@ namespace BeanModManager.Services
                     return fileInfo.ProductVersion;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error reading DLL version from {dllPath}: {ex.Message}");
+            }
             return null;
         }
 
@@ -228,8 +231,16 @@ namespace BeanModManager.Services
                 return false;
 
             var bepInExPath = Path.Combine(amongUsPath, "BepInEx");
-            return Directory.Exists(bepInExPath) && 
-                   File.Exists(Path.Combine(bepInExPath, "core", "BepInEx.dll"));
+            if (!Directory.Exists(bepInExPath))
+                return false;
+
+            var corePath = Path.Combine(bepInExPath, "core");
+            if (!Directory.Exists(corePath))
+                return false;
+
+            // Check for standard BepInEx.dll or bleeding edge BepInEx.Core.dll
+            return File.Exists(Path.Combine(corePath, "BepInEx.dll")) ||
+                   File.Exists(Path.Combine(corePath, "BepInEx.Core.dll"));
         }
     }
 

@@ -4,8 +4,10 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using BeanModManager.Models;
+using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -13,7 +15,7 @@ namespace BeanModManager.Services
     {
         public event EventHandler<string> ProgressChanged;
 
-        public async Task<bool> DownloadMod(Mod mod, ModVersion version, string extractToPath)
+        public async Task<bool> DownloadMod(Mod mod, ModVersion version, string extractToPath, List<Dependency> dependencies = null)
         {
             try
             {
@@ -38,69 +40,240 @@ namespace BeanModManager.Services
                 System.Diagnostics.Debug.WriteLine($"Extracting to: {extractToPath}");
                 System.Diagnostics.Debug.WriteLine($"Download URL: {version.DownloadUrl}");
 
-                var tempZipPath = Path.Combine(Path.GetTempPath(), $"mod_{Guid.NewGuid()}.zip");
+                // Check if this is a direct DLL download
+                var downloadUrlLower = version.DownloadUrl.ToLower();
+                bool isDirectDll = downloadUrlLower.EndsWith(".dll");
 
-                using (var client = new WebClient())
+                if (isDirectDll)
                 {
-                    client.Headers.Add("User-Agent", "BeanModManager");
-                    client.DownloadProgressChanged += (s, e) =>
+                    // Direct DLL download - no extraction needed
+                    var fileName = Path.GetFileName(version.DownloadUrl);
+                    if (string.IsNullOrEmpty(fileName))
                     {
-                        OnProgressChanged($"Downloading... {e.ProgressPercentage}%");
-                    };
+                        fileName = $"{mod.Id}.dll";
+                    }
+                    var destinationPath = Path.Combine(extractToPath, fileName);
+
+                    var progress = new Progress<int>(percent =>
+                    {
+                        OnProgressChanged($"Downloading... {percent}%");
+                    });
 
                     try
                     {
-                        await client.DownloadFileTaskAsync(new Uri(version.DownloadUrl), tempZipPath);
+                        await HttpDownloadHelper.DownloadFileAsync(version.DownloadUrl, destinationPath, progress).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (File.Exists(destinationPath))
+                        {
+                            try 
+                            { 
+                                File.Delete(destinationPath); 
+                            } 
+                            catch (Exception deleteEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Warning: Could not delete partial download {destinationPath}: {deleteEx.Message}");
+                            }
+                        }
+                        throw new Exception($"Download failed: {ex.Message}", ex);
+                    }
+                }
+                else
+                {
+                    // ZIP file download
+                    var tempZipPath = Path.Combine(Path.GetTempPath(), $"mod_{Guid.NewGuid()}.zip");
+
+                    var progress = new Progress<int>(percent =>
+                    {
+                        OnProgressChanged($"Downloading... {percent}%");
+                    });
+
+                    try
+                    {
+                        await HttpDownloadHelper.DownloadFileAsync(version.DownloadUrl, tempZipPath, progress).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
                         if (File.Exists(tempZipPath))
                         {
-                            try { File.Delete(tempZipPath); } catch { }
+                            try 
+                            { 
+                                File.Delete(tempZipPath); 
+                            } 
+                            catch (Exception deleteEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Warning: Could not delete temp ZIP {tempZipPath}: {deleteEx.Message}");
+                            }
                         }
                         throw new Exception($"Download failed: {ex.Message}", ex);
                     }
-                }
 
-                OnProgressChanged($"Validating {mod.Name} download...");
-                if (!ValidateZipFile(tempZipPath))
-                {
-                    if (File.Exists(tempZipPath))
+                    OnProgressChanged($"Validating {mod.Name} download...");
+                    if (!ValidateZipFile(tempZipPath))
                     {
-                        try { File.Delete(tempZipPath); } catch { }
-                    }
-                    throw new Exception("Downloaded file is corrupted or incomplete. Please try again.");
-                }
-
-                OnProgressChanged($"Extracting {mod.Name}...");
-
-                try
-                {
-                    ExtractMod(tempZipPath, extractToPath);
-                }
-                catch (Exception ex)
-                {
-                    if (Directory.Exists(extractToPath))
-                    {
-                        try { Directory.Delete(extractToPath, true); } catch { }
-                    }
-                    throw new Exception($"Extraction failed: {ex.Message}", ex);
-                }
-                finally
-                {
-                    if (File.Exists(tempZipPath))
-                    {
-                        try
+                        if (File.Exists(tempZipPath))
                         {
-                            File.Delete(tempZipPath);
+                            try 
+                            { 
+                                File.Delete(tempZipPath); 
+                            } 
+                            catch (Exception deleteEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Warning: Could not delete invalid ZIP {tempZipPath}: {deleteEx.Message}");
+                            }
                         }
-                        catch
+                        throw new Exception("Downloaded file is corrupted or incomplete. Please try again.");
+                    }
+
+                    OnProgressChanged($"Extracting {mod.Name}...");
+
+                    try
+                    {
+                        ExtractMod(tempZipPath, extractToPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (Directory.Exists(extractToPath))
                         {
+                            try 
+                            { 
+                                Directory.Delete(extractToPath, true); 
+                            } 
+                            catch (Exception deleteEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Warning: Could not clean up extract directory {extractToPath}: {deleteEx.Message}");
+                            }
+                        }
+                        throw new Exception($"Extraction failed: {ex.Message}", ex);
+                    }
+                    finally
+                    {
+                        if (File.Exists(tempZipPath))
+                        {
+                            try
+                            {
+                                File.Delete(tempZipPath);
+                            }
+                            catch
+                            {
+                            }
                         }
                     }
                 }
 
                 OnProgressChanged($"{mod.Name} downloaded successfully!");
+
+                // Download dependencies if specified
+                System.Diagnostics.Debug.WriteLine($"Dependencies check: dependencies={dependencies?.Count ?? 0}, null={dependencies == null}");
+                if (dependencies != null && dependencies.Any())
+                {
+                    System.Diagnostics.Debug.WriteLine($"Downloading {dependencies.Count} dependencies for {mod.Name}...");
+                    OnProgressChanged($"Downloading dependencies for {mod.Name}...");
+                    
+                    // Dependencies go in the same folder as the mod files
+                    // For DLL-only mods: same folder as mod DLL
+                    // For full mods: BepInEx/plugins within mod storage
+                    string dependencyPath = extractToPath;
+                    
+                    // Check if this is a DLL-only mod
+                    downloadUrlLower = version.DownloadUrl.ToLower();
+                    isDirectDll = downloadUrlLower.EndsWith(".dll");
+                    
+                    if (!isDirectDll)
+                    {
+                        // Full mod structure - dependencies go in BepInEx/plugins
+                        dependencyPath = Path.Combine(extractToPath, "BepInEx", "plugins");
+                        if (!Directory.Exists(dependencyPath))
+                        {
+                            Directory.CreateDirectory(dependencyPath);
+                        }
+                    }
+                    // For DLL-only mods, dependencies go directly in extractToPath (same folder as mod DLL)
+                    
+                    foreach (var dependency in dependencies)
+                    {
+                        try
+                        {
+                            OnProgressChanged($"Downloading {dependency.name}...");
+                            
+                            string downloadUrl = dependency.downloadUrl;
+                            
+                            // If dependency has GitHub repo info, fetch latest release DLL
+                            if (!string.IsNullOrEmpty(dependency.githubOwner) && !string.IsNullOrEmpty(dependency.githubRepo))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Fetching latest release for {dependency.name} from {dependency.githubOwner}/{dependency.githubRepo}");
+                                try
+                                {
+                                    var apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/latest";
+                                    var json = await HttpDownloadHelper.DownloadStringAsync(apiUrl).ConfigureAwait(false);
+                                    var release = JsonHelper.Deserialize<GitHubRelease>(json);
+
+                                    if (release != null && release.assets != null)
+                                    {
+                                        System.Diagnostics.Debug.WriteLine($"Found {release.assets.Count} assets in release");
+                                        // Look for DLL file matching the fileName
+                                        var dllAsset = release.assets.FirstOrDefault(a =>
+                                            !string.IsNullOrEmpty(a.name) &&
+                                            a.name.Equals(dependency.fileName, StringComparison.OrdinalIgnoreCase));
+
+                                        if (dllAsset == null)
+                                        {
+                                            System.Diagnostics.Debug.WriteLine($"Exact match not found for {dependency.fileName}, trying any DLL");
+                                            // Fallback: look for any DLL file
+                                            dllAsset = release.assets.FirstOrDefault(a =>
+                                                !string.IsNullOrEmpty(a.name) &&
+                                                a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+                                        }
+
+                                        if (dllAsset != null)
+                                        {
+                                            downloadUrl = dllAsset.browser_download_url;
+                                            System.Diagnostics.Debug.WriteLine($"Found DLL: {dllAsset.name} -> {downloadUrl}");
+                                        }
+                                        else
+                                        {
+                                            System.Diagnostics.Debug.WriteLine($"No DLL asset found in release");
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Error fetching dependency {dependency.name}: {ex.Message}");
+                                    OnProgressChanged($"Warning: Failed to fetch latest release for {dependency.name}: {ex.Message}");
+                                    continue; // Skip if we can't get the URL
+                                }
+                            }
+                            else
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Dependency {dependency.name} has no GitHub info, using downloadUrl: {downloadUrl}");
+                            }
+                            
+                            if (string.IsNullOrEmpty(downloadUrl))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"No download URL available for {dependency.name}");
+                                OnProgressChanged($"Warning: No download URL available for {dependency.name}");
+                                continue;
+                            }
+                            
+                            var fileName = dependency.fileName ?? Path.GetFileName(downloadUrl);
+                            if (string.IsNullOrEmpty(fileName))
+                            {
+                                fileName = $"{dependency.name}.dll";
+                            }
+                            var dependencyFilePath = Path.Combine(dependencyPath, fileName);
+
+                            await HttpDownloadHelper.DownloadFileAsync(downloadUrl, dependencyFilePath).ConfigureAwait(false);
+
+                            OnProgressChanged($"{dependency.name} downloaded successfully!");
+                        }
+                        catch (Exception ex)
+                        {
+                            OnProgressChanged($"Warning: Failed to download {dependency.name}: {ex.Message}");
+                        }
+                    }
+                }
+
                 return true;
             }
             catch (Exception ex)
@@ -113,7 +286,10 @@ namespace BeanModManager.Services
                     {
                         Directory.Delete(extractToPath, true);
                     }
-                    catch { }
+                    catch (Exception cleanupEx)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Warning: Could not clean up extract directory {extractToPath}: {cleanupEx.Message}");
+                    }
                 }
                 
                 return false;
@@ -258,6 +434,20 @@ namespace BeanModManager.Services
         protected virtual void OnProgressChanged(string message)
         {
             ProgressChanged?.Invoke(this, message);
+        }
+
+        private class GitHubRelease
+        {
+            public string tag_name { get; set; }
+            public string published_at { get; set; }
+            public List<GitHubAsset> assets { get; set; }
+            public bool prerelease { get; set; }
+        }
+
+        private class GitHubAsset
+        {
+            public string browser_download_url { get; set; }
+            public string name { get; set; }
         }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using BeanModManager.Helpers;
 
@@ -19,6 +20,8 @@ namespace BeanModManager.Models
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "BeanModManager",
             "config.json");
+
+        private static readonly SemaphoreSlim _saveLock = new SemaphoreSlim(1, 1);
 
         public Config()
         {
@@ -58,6 +61,7 @@ namespace BeanModManager.Models
 
         public async Task SaveAsync()
         {
+            await _saveLock.WaitAsync();
             try
             {
                 await Task.Run(() =>
@@ -69,12 +73,44 @@ namespace BeanModManager.Models
                     }
 
                     var json = JsonHelper.Serialize(this);
-                    File.WriteAllText(ConfigPath, json);
+                    
+                    // Write to temp file first, then rename (atomic operation)
+                    const int MaxSaveRetries = 5;
+                    const int InitialRetryDelayMs = 100;
+                    var tempPath = ConfigPath + ".tmp";
+                    int retries = MaxSaveRetries;
+                    int delay = InitialRetryDelayMs;
+                    
+                    while (retries > 0)
+                    {
+                        try
+                        {
+                            File.WriteAllText(tempPath, json);
+                            
+                            // Delete existing file if it exists, then move temp file
+                            if (File.Exists(ConfigPath))
+                            {
+                                File.Delete(ConfigPath);
+                            }
+                            File.Move(tempPath, ConfigPath);
+                            break;
+                        }
+                        catch (IOException) when (retries > 1)
+                        {
+                            retries--;
+                            Thread.Sleep(delay);
+                            delay *= 2; // Exponential backoff
+                        }
+                    }
                 });
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error saving config: {ex.Message}");
+            }
+            finally
+            {
+                _saveLock.Release();
             }
         }
 

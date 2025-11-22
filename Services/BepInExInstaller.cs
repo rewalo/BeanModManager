@@ -11,7 +11,7 @@ namespace BeanModManager.Services
     {
         public event EventHandler<string> ProgressChanged;
 
-        private const string BEPINEX_URL = "https://github.com/BepInEx/BepInEx/releases/download/v5.4.22/BepInEx_x64_5.4.22.0.zip";
+        private const string BEPINEX_URL = "https://builds.bepinex.dev/projects/bepinex_be/752/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.752%2Bdd0655f.zip";
 
         public async Task<bool> InstallBepInEx(string amongUsPath)
         {
@@ -33,14 +33,12 @@ namespace BeanModManager.Services
 
                 var tempZip = Path.Combine(Path.GetTempPath(), "BepInEx.zip");
                 
-                using (var client = new WebClient())
+                var progress = new Progress<int>(percent =>
                 {
-                    client.DownloadProgressChanged += (s, e) =>
-                    {
-                        OnProgressChanged($"Downloading BepInEx... {e.ProgressPercentage}%");
-                    };
-                    await client.DownloadFileTaskAsync(new Uri(BEPINEX_URL), tempZip);
-                }
+                    OnProgressChanged($"Downloading BepInEx... {percent}%");
+                });
+                
+                await HttpDownloadHelper.DownloadFileAsync(BEPINEX_URL, tempZip, progress).ConfigureAwait(false);
 
                 OnProgressChanged("Extracting BepInEx...");
 
@@ -64,8 +62,10 @@ namespace BeanModManager.Services
                                 {
                                     File.Delete(destinationPath);
                                 }
-                                catch
+                                catch (Exception ex)
                                 {
+                                    System.Diagnostics.Debug.WriteLine($"Warning: Could not delete existing file {destinationPath}: {ex.Message}");
+                                    // Try to overwrite anyway
                                 }
                             }
                             entry.ExtractToFile(destinationPath, true);

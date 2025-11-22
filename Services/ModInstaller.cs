@@ -85,7 +85,11 @@ namespace BeanModManager.Services
                         File.Copy(file, targetFile, true);
                         OnProgressChanged($"Copied {fileName}");
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Warning: Could not copy file {fileName}: {ex.Message}");
+                        OnProgressChanged($"Warning: Could not copy {fileName}");
+                    }
                 }
 
                 OnProgressChanged($"{mod.Name} installed successfully!");
@@ -320,77 +324,88 @@ namespace BeanModManager.Services
                 bool modFolderRemoved = false;
                 
                 var modStoragePath = Path.Combine(amongUsPath, "Mods", mod.Id);
-                if (Directory.Exists(modStoragePath))
-                {
-                    try
-                    {
-                        Directory.Delete(modStoragePath, true);
-                        modFolderRemoved = true;
-                        OnProgressChanged($"Removed mod folder: {modStoragePath}");
-                    }
-                    catch (Exception ex)
-                    {
-                        OnProgressChanged($"Warning: Could not remove mod folder: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    modFolderRemoved = true;
-                }
-
+                
                 var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
                 if (!Directory.Exists(pluginsPath))
                 {
+                    // No plugins folder, just delete mod storage and return
+                    if (Directory.Exists(modStoragePath))
+                    {
+                        try
+                        {
+                            Directory.Delete(modStoragePath, true);
+                            modFolderRemoved = true;
+                            OnProgressChanged($"Removed mod folder: {modStoragePath}");
+                        }
+                        catch (Exception ex)
+                        {
+                            OnProgressChanged($"Warning: Could not remove mod folder: {ex.Message}");
+                        }
+                    }
+                    
                     OnProgressChanged($"{mod.Name} uninstalled!");
-                    return true;
+                    return modFolderRemoved;
                 }
 
                 bool removedAny = false;
 
+                // Get list of files that belong to this mod from the mod storage folder
+                // IMPORTANT: Check BEFORE deleting the mod storage folder!
+                var modFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var modFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                
+                if (Directory.Exists(modStoragePath))
+                {
+                    // Get all DLL files from mod storage (including subdirectories)
+                    var modDllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.AllDirectories);
+                    foreach (var dllFile in modDllFiles)
+                    {
+                        var fileName = Path.GetFileName(dllFile);
+                        modFiles.Add(fileName);
+                        System.Diagnostics.Debug.WriteLine($"Found mod DLL in storage: {fileName}");
+                    }
+                    
+                    // Get all folders from mod storage (for plugins subfolders)
+                    var modStorageFolders = Directory.GetDirectories(modStoragePath, "*", SearchOption.AllDirectories);
+                    foreach (var folder in modStorageFolders)
+                    {
+                        var relativePath = folder.Substring(modStoragePath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        if (relativePath.StartsWith("BepInEx", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var pluginsRelativePath = relativePath.Substring("BepInEx".Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                            if (pluginsRelativePath.StartsWith("plugins", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var folderName = pluginsRelativePath.Substring("plugins".Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                                if (!string.IsNullOrEmpty(folderName))
+                                {
+                                    var folderParts = folderName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                                    if (folderParts.Length > 0)
+                                    {
+                                        modFolders.Add(folderParts[0]); // First level folder name
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Also check for DLLs that match the mod name/ID pattern as a fallback
+                var modIdLower = mod.Id.ToLower();
+                var modNameLower = mod.Name.ToLower();
+
+                // Remove DLL files that match mod files
                 var dllFiles = Directory.GetFiles(pluginsPath, "*.dll", SearchOption.AllDirectories);
                 foreach (var dll in dllFiles)
                 {
-                    var fileName = Path.GetFileName(dll).ToLower();
-                    bool shouldRemove = false;
-
-                    switch (mod.Id.ToUpper())
+                    var fileName = Path.GetFileName(dll);
+                    var fileNameLower = fileName.ToLower();
+                    bool shouldRemove = modFiles.Contains(fileName);
+                    
+                    // Fallback: also check if filename matches mod ID or name
+                    if (!shouldRemove)
                     {
-                        case "TOHE":
-                            if (fileName.Contains("tohe") || fileName == "tohe.dll")
-                                shouldRemove = true;
-                            break;
-                        case "TOWNOFUS":
-                            if (fileName.Contains("townofus") || 
-                                fileName.Contains("town.of.us") || 
-                                fileName.Contains("town-of-us") ||
-                                fileName.Contains("tou-mira") ||
-                                fileName.Contains("toumira") ||
-                                fileName.StartsWith("townofus"))
-                            {
-                                shouldRemove = true;
-                            }
-                            break;
-                        case "BETTERCREWLINK":
-                            if (fileName.Contains("bettercrewlink") || fileName.Contains("bcl"))
-                                shouldRemove = true;
-                            break;
-                        case "THEOTHERROLES":
-                            if (fileName.Contains("theotherroles") || fileName == "theotherroles.dll")
-                                shouldRemove = true;
-                            break;
-                        case "ALLTHEROLES":
-                            if (fileName.Contains("alltheroles") || fileName.Contains("atr"))
-                                shouldRemove = true;
-                            break;
-                    }
-
-                    if (!shouldRemove && modPath != null && Directory.Exists(modPath))
-                    {
-                        var modDllPath = Path.Combine(modPath, "BepInEx", "plugins", Path.GetFileName(dll));
-                        if (File.Exists(modDllPath))
-                        {
-                            shouldRemove = true;
-                        }
+                        shouldRemove = fileNameLower.Contains(modIdLower) || 
+                                       fileNameLower.Contains(modNameLower.Replace(":", "").Replace(" ", ""));
                     }
 
                     if (shouldRemove)
@@ -404,7 +419,8 @@ namespace BeanModManager.Services
                                 {
                                     File.Delete(dll);
                                     removedAny = true;
-                                    OnProgressChanged($"Removed {Path.GetFileName(dll)}");
+                                    OnProgressChanged($"Removed {fileName}");
+                                    System.Diagnostics.Debug.WriteLine($"Deleted DLL: {dll}");
                                     break;
                                 }
                                 catch (IOException)
@@ -424,43 +440,62 @@ namespace BeanModManager.Services
                     }
                 }
 
-                if (mod.Id.ToUpper() == "TOHE")
+                // Remove plugin subfolders that match mod folders
+                foreach (var folderName in modFolders)
                 {
-                    var toheDataPath = Path.Combine(amongUsPath, "TOHE-DATA");
-                    if (Directory.Exists(toheDataPath))
+                    var pluginFolder = Path.Combine(pluginsPath, folderName);
+                    if (Directory.Exists(pluginFolder))
                     {
                         try
                         {
-                            Directory.Delete(toheDataPath, true);
+                            Directory.Delete(pluginFolder, true);
                             removedAny = true;
-                            OnProgressChanged("Removed TOHE-DATA folder");
+                            OnProgressChanged($"Removed {folderName} folder");
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error deleting folder {pluginFolder}: {ex.Message}");
+                        }
                     }
                 }
-                else if (mod.Id.ToUpper() == "TOWNOFUS")
+
+                // Now delete the mod storage folder after we've checked what files to remove
+                if (Directory.Exists(modStoragePath))
                 {
-                    var townOfUsFolders = Directory.GetDirectories(pluginsPath)
-                        .Where(d =>
-                        {
-                            var folderName = Path.GetFileName(d).ToLower();
-                            return folderName.Contains("townofus") ||
-                                   folderName.Contains("town-of-us") ||
-                                   folderName.Contains("town.of.us") ||
-                                   folderName.Contains("tou-mira") ||
-                                   folderName.Contains("toumira");
-                        })
-                        .ToList();
-                    
-                    foreach (var folder in townOfUsFolders)
+                    try
+                    {
+                        Directory.Delete(modStoragePath, true);
+                        modFolderRemoved = true;
+                        OnProgressChanged($"Removed mod folder: {modStoragePath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        OnProgressChanged($"Warning: Could not remove mod folder: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    modFolderRemoved = true;
+                }
+
+                // Check for special folders in the Among Us root directory (like TOHE-DATA)
+                // These are typically named after the mod ID or contain mod-specific data
+                var specialFolders = new[] { $"{mod.Id}-DATA", $"{mod.Id}_DATA", mod.Id };
+                foreach (var specialFolderName in specialFolders)
+                {
+                    var specialFolderPath = Path.Combine(amongUsPath, specialFolderName);
+                    if (Directory.Exists(specialFolderPath))
                     {
                         try
                         {
-                            Directory.Delete(folder, true);
+                            Directory.Delete(specialFolderPath, true);
                             removedAny = true;
-                            OnProgressChanged($"Removed {Path.GetFileName(folder)} folder");
+                            OnProgressChanged($"Removed {specialFolderName} folder");
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error deleting special folder {specialFolderPath}: {ex.Message}");
+                        }
                     }
                 }
 
