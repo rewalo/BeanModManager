@@ -902,7 +902,7 @@ namespace BeanModManager
         private void LaunchGameWithMod(Mod mod)
         {
             // Special handling for mods that require Steam depot
-            if (mod.Id == "AllTheRoles" || mod.Id == "TheOtherRoles")
+            if (_modStore.ModRequiresDepot(mod.Id))
             {
                 LaunchModWithDepot(mod);
                 return;
@@ -960,11 +960,14 @@ namespace BeanModManager
 
                 UpdateStatus($"Checking Steam depot for {mod.Name}...");
 
+                var depotConfig = _modStore.GetDepotConfig(mod.Id);
+                string depotVersion = depotConfig?.gameVersion ?? _steamDepotService.GetDepotVersion(mod.Id);
+                string depotManifest = depotConfig?.manifestId ?? _steamDepotService.GetDepotManifest(mod.Id);
+                int depotId = depotConfig?.depotId ?? 945361;
+                
                 var depotPath = _steamDepotService.GetDepotPath(mod.Id);
                 bool depotExists = _steamDepotService.IsDepotDownloaded(mod.Id);
-                string depotVersion = _steamDepotService.GetDepotVersion(mod.Id);
-                string depotManifest = _steamDepotService.GetDepotManifest(mod.Id);
-                string depotCommand = $"download_depot 945360 945361 {depotManifest}";
+                string depotCommand = $"download_depot 945360 {depotId} {depotManifest}";
 
                 if (!depotExists)
                 {

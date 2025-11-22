@@ -1,0 +1,128 @@
+{
+  "version": "1.0",
+  "mods": [
+    {
+      "id": "TOHE",
+      "name": "Town of Host Enhanced",
+      "author": "EnhancedNetwork",
+      "description": "A host-only modpack for Among Us with enhanced features",
+      "githubOwner": "EnhancedNetwork",
+      "githubRepo": "TownofHost-Enhanced",
+      "category": "Host Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": ["steamitchio"],
+          "exclude": ["epic"]
+        },
+        "epic": {
+          "patterns": ["epicmsstore", "epicms"],
+          "exclude": []
+        },
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": ["steam", "epic"]
+        }
+      },
+      "requiresDepot": false
+    },
+    {
+      "id": "TownOfUs",
+      "name": "Town of Us Mira",
+      "author": "AU-Avengers",
+      "description": "Town of Us Reactivated, but cleaner using MiraAPI with many improvements!",
+      "githubOwner": "AU-Avengers",
+      "githubRepo": "TOU-Mira",
+      "category": "Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": ["steam-itch"],
+          "exclude": []
+        },
+        "epic": {
+          "patterns": ["epic-msstore"],
+          "exclude": []
+        },
+        "dll": {
+          "patterns": ["MiraAPI.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false
+    },
+    {
+      "id": "BetterCrewLink",
+      "name": "Better CrewLink",
+      "author": "OhMyGuus",
+      "description": "Voice proximity chat for Among Us",
+      "githubOwner": "OhMyGuus",
+      "githubRepo": "BetterCrewLink",
+      "category": "Utility",
+      "assetFilters": {
+        "default": {
+          "patterns": [".zip"],
+          "exclude": ["source"]
+        }
+      },
+      "requiresDepot": false
+    },
+    {
+      "id": "TheOtherRoles",
+      "name": "The Other Roles",
+      "author": "TheOtherRolesAU",
+      "description": "A mod for Among Us which adds many new roles, new Settings and new Custom Hats to the game",
+      "githubOwner": "TheOtherRolesAU",
+      "githubRepo": "TheOtherRoles",
+      "category": "Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": ["theotherroles.zip"],
+          "exclude": [],
+          "exactMatch": true
+        },
+        "epic": {
+          "patterns": ["theotherroles_msstore.zip"],
+          "exclude": [],
+          "exactMatch": true
+        },
+        "dll": {
+          "patterns": ["theotherroles.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": true,
+      "depotConfig": {
+        "depotId": 945361,
+        "manifestId": "5207443046106116882",
+        "gameVersion": "v15.11.0"
+      }
+    },
+    {
+      "id": "AllTheRoles",
+      "name": "All The Roles",
+      "author": "Zeo666",
+      "description": "A mod for Among Us which adds many new roles, modifiers, game modes, map settings, hats and more",
+      "githubOwner": "Zeo666",
+      "githubRepo": "AllTheRoles",
+      "category": "Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": ["x86-steam-itch", "steam-itch"],
+          "exclude": []
+        },
+        "epic": {
+          "patterns": ["x64-epic-msstore", "epic-msstore"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": true,
+      "depotConfig": {
+        "depotId": 945361,
+        "manifestId": "1110308242604365209",
+        "gameVersion": "v16.0.5"
+      }
+    }
+  ]
+}
+

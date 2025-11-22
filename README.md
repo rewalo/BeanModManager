@@ -24,11 +24,11 @@ Mods are stored separately in `Among Us/Mods/{ModId}/`. When you click Play, it 
 
 ## Supported Mods
 
-- **All The Roles** - Adds new roles, game modes, map settings, and custom cosmetics (hats, visors, nameplates)
+- **All The Roles** - A mod for Among Us which adds many new roles, modifiers, game modes, map settings, hats and more
 - **Town of Host Enhanced (TOHE)** - Host-only modpack with enhanced features
 - **Town of Us Mira** - Town of Us Reactivated with MiraAPI
 - **Better CrewLink** - Voice proximity chat for Among Us
-- **The Other Roles (TOR)** - Popular role mod
+- **The Other Roles (TOR)** - A mod for Among Us which adds many new roles, new Settings and new Custom Hats to the game
 
 Epic/MS Store versions are automatically detected - mod dropdowns will prefer the right version for your game.
 
