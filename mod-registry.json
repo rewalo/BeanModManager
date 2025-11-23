@@ -233,6 +233,32 @@
         }
       ],
       "incompatibilities": []
+	},
+	{
+      "id": "StellarRolesAU",
+      "name": "StellarRoles",
+      "author": "Mr-Fluuff",
+      "description": "A mod for Among Us which adds new Roles & Modifiers, new Settings and new Custom Cosmetics to the game.",
+      "githubOwner": "Mr-Fluuff",
+      "githubRepo": "StellarRolesAU",
+      "category": "Mod",
+      "assetFilters": {
+        "default": {
+          "patterns": [".zip"],
+          "exclude": ["source"]
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor"
+        }
+      ],
+      "incompatibilities": []
 	}
   ]
 }

@@ -31,6 +31,7 @@ Mods are stored separately in `Among Us/Mods/{ModId}/`. When you click Play, it 
 - **Better CrewLink** - Voice proximity chat for Among Us
 - **The Other Roles (TOR)** - A mod for Among Us which adds many new roles, new Settings and new Custom Hats to the game
 - **Submerged** - A mod for Among Us which adds a new map into the game
+- **StellarRoles** - A mod for Among Us which adds new Roles & Modifiers, new Settings and new Custom Cosmetics to the game
 
 Epic/MS Store versions are automatically detected - mod dropdowns will prefer the right version for your game.
 
