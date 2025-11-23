@@ -118,15 +118,38 @@ namespace BeanModManager
 
             try
             {
+                // Check if Among Us path is set, if not show warning but don't open browse dialog
+                if (string.IsNullOrEmpty(_config.AmongUsPath))
+                {
+                    SafeInvoke(() =>
+                    {
+                        MessageBox.Show("Could not automatically detect Among Us installation.\nYou can still browse the mod store, but you'll need to set the path to install mods.",
+                            "Detection Failed", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    });
+                }
+
                 // Detect installed mods first (doesn't require GitHub API)
-                var modsFolder = GetModsFolder();
-                var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, modsFolder);
-                var installedModIds = new HashSet<string>(
-                    detectedMods.Select(m => m.ModId)
-                        .Concat(_config.InstalledMods.Select(m => m.ModId))
-                        .Distinct(),
-                    StringComparer.OrdinalIgnoreCase
-                );
+                // Only detect if Among Us path is available
+                HashSet<string> installedModIds;
+                if (!string.IsNullOrEmpty(_config.AmongUsPath))
+                {
+                    var modsFolder = GetModsFolder();
+                    var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, modsFolder);
+                    installedModIds = new HashSet<string>(
+                        detectedMods.Select(m => m.ModId)
+                            .Concat(_config.InstalledMods.Select(m => m.ModId))
+                            .Distinct(),
+                        StringComparer.OrdinalIgnoreCase
+                    );
+                }
+                else
+                {
+                    // If Among Us path is not set, only use mods from config (if any)
+                    installedModIds = new HashSet<string>(
+                        _config.InstalledMods.Select(m => m.ModId),
+                        StringComparer.OrdinalIgnoreCase
+                    );
+                }
 
                 // Fetch versions prioritizing installed mods
                 _availableMods = await _modStore.GetAvailableModsWithAllVersions(installedModIds).ConfigureAwait(false);
@@ -189,7 +212,8 @@ namespace BeanModManager
                 return;
             }
 
-            if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
+            // Only check BepInEx installation if Among Us path is set
+            if (!string.IsNullOrEmpty(_config.AmongUsPath) && !ModDetector.IsBepInExInstalled(_config.AmongUsPath))
             {
                 _config.InstalledMods.Clear();
                 _ = _config.SaveAsync();
@@ -4030,6 +4054,14 @@ namespace BeanModManager
 
         private string GetModsFolder()
         {
+            // Ensure DataPath is initialized (for backward compatibility with old configs)
+            if (string.IsNullOrEmpty(_config.DataPath))
+            {
+                _config.DataPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "BeanModManager");
+            }
+            
             var modsFolder = Path.Combine(_config.DataPath, "Mods");
             if (!Directory.Exists(modsFolder))
             {
@@ -4452,13 +4484,6 @@ namespace BeanModManager
 
         private void btnOpenModsFolder_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(_config.AmongUsPath))
-            {
-                MessageBox.Show("Please set your Among Us path first.", "Path Required",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
             var modsPath = GetModsFolder();
             
             try

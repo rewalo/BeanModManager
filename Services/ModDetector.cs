@@ -137,6 +137,12 @@ namespace BeanModManager.Services
                 }
             }
 
+            // Only check plugins path if amongUsPath is provided and valid
+            if (string.IsNullOrEmpty(amongUsPath) || !Directory.Exists(amongUsPath))
+            {
+                return installedMods;
+            }
+
             var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
             if (Directory.Exists(pluginsPath))
             {
