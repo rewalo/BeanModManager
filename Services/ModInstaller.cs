@@ -10,7 +10,7 @@ namespace BeanModManager.Services
     {
         public event EventHandler<string> ProgressChanged;
 
-        public bool InstallMod(Mod mod, ModVersion version, string modPath, string amongUsPath)
+        public bool InstallMod(Mod mod, ModVersion version, string modPath, string amongUsPath, List<string> dontInclude = null, string modStoragePath = null)
         {
             try
             {
@@ -28,13 +28,25 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                var modsFolder = Path.Combine(amongUsPath, "Mods");
-                if (!Directory.Exists(modsFolder))
+                // Use provided modStoragePath, or construct from amongUsPath for backward compatibility
+                if (string.IsNullOrEmpty(modStoragePath))
                 {
-                    Directory.CreateDirectory(modsFolder);
+                    var modsFolder = Path.Combine(amongUsPath, "Mods");
+                    if (!Directory.Exists(modsFolder))
+                    {
+                        Directory.CreateDirectory(modsFolder);
+                    }
+                    modStoragePath = Path.Combine(modsFolder, mod.Id);
                 }
-
-                var modStoragePath = Path.Combine(modsFolder, mod.Id);
+                else
+                {
+                    // Ensure the modStoragePath directory exists
+                    var modsFolder = Path.GetDirectoryName(modStoragePath);
+                    if (!string.IsNullOrEmpty(modsFolder) && !Directory.Exists(modsFolder))
+                    {
+                        Directory.CreateDirectory(modsFolder);
+                    }
+                }
                 if (Directory.Exists(modStoragePath))
                 {
                     try
@@ -81,11 +93,21 @@ namespace BeanModManager.Services
                 
                 OnProgressChanged("Copying mod files to storage...");
                 
+                dontInclude = dontInclude ?? new List<string>();
+                
                 foreach (var dir in Directory.GetDirectories(modContentRoot))
                 {
                     var dirName = Path.GetFileName(dir);
+                    
+                    // Skip directories in dontInclude list
+                    if (dontInclude.Any(item => string.Equals(item, dirName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Skipping directory {dirName} (in dontInclude list)");
+                        continue;
+                    }
+                    
                     var targetDir = Path.Combine(modStoragePath, dirName);
-                    CopyDirectoryContents(dir, targetDir, true);
+                    CopyDirectoryContents(dir, targetDir, true, dontInclude);
                 }
                 
                 foreach (var file in Directory.GetFiles(modContentRoot))
@@ -95,6 +117,13 @@ namespace BeanModManager.Services
                     
                     if (fileNameLower.EndsWith(".zip"))
                         continue;
+                    
+                    // Skip files in dontInclude list
+                    if (dontInclude.Any(item => string.Equals(item, fileName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Skipping file {fileName} (in dontInclude list)");
+                        continue;
+                    }
                     
                     var targetFile = Path.Combine(modStoragePath, fileName);
                     try
@@ -192,7 +221,7 @@ namespace BeanModManager.Services
         }
 
 
-        private void CopyDirectoryContents(string sourceDir, string destDir, bool overwrite)
+        private void CopyDirectoryContents(string sourceDir, string destDir, bool overwrite, List<string> dontInclude = null)
         {
             if (!Directory.Exists(sourceDir))
             {
@@ -204,12 +233,21 @@ namespace BeanModManager.Services
                 Directory.CreateDirectory(destDir);
             }
 
+            dontInclude = dontInclude ?? new List<string>();
+
             foreach (var file in Directory.GetFiles(sourceDir))
             {
                 var fileName = Path.GetFileName(file);
                 
                 if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
+                    continue;
+                }
+                
+                // Skip files in dontInclude list
+                if (dontInclude.Any(item => string.Equals(item, fileName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Skipping file {fileName} (in dontInclude list)");
                     continue;
                 }
                 
@@ -257,8 +295,15 @@ namespace BeanModManager.Services
                     continue;
                 }
                 
+                // Skip directories in dontInclude list
+                if (dontInclude.Any(item => string.Equals(item, dirName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Skipping directory {dirName} (in dontInclude list)");
+                    continue;
+                }
+                
                 var destSubDir = Path.Combine(destDir, dirName);
-                CopyDirectoryContents(dir, destSubDir, overwrite);
+                CopyDirectoryContents(dir, destSubDir, overwrite, dontInclude);
             }
         }
 
@@ -332,7 +377,7 @@ namespace BeanModManager.Services
             }
         }
 
-        public bool UninstallMod(Mod mod, string amongUsPath, string modPath = null)
+        public bool UninstallMod(Mod mod, string amongUsPath, string modStoragePath = null)
         {
             try
             {
@@ -340,7 +385,11 @@ namespace BeanModManager.Services
 
                 bool modFolderRemoved = false;
                 
-                var modStoragePath = Path.Combine(amongUsPath, "Mods", mod.Id);
+                // Use provided modStoragePath, or construct from amongUsPath for backward compatibility
+                if (string.IsNullOrEmpty(modStoragePath))
+                {
+                    modStoragePath = Path.Combine(amongUsPath, "Mods", mod.Id);
+                }
                 
                 var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
                 if (!Directory.Exists(pluginsPath))

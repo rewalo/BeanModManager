@@ -8,16 +8,20 @@ namespace BeanModManager.Services
 {
     public static class ModDetector
     {
-        public static List<InstalledModInfo> DetectInstalledMods(string amongUsPath)
+        public static List<InstalledModInfo> DetectInstalledMods(string amongUsPath, string modsFolder = null)
         {
             var installedMods = new List<InstalledModInfo>();
             
-            if (string.IsNullOrEmpty(amongUsPath) || !Directory.Exists(amongUsPath))
+            // If modsFolder is provided, use it; otherwise fall back to Among Us path (for backward compatibility)
+            if (string.IsNullOrEmpty(modsFolder))
             {
-                return installedMods;
+                if (string.IsNullOrEmpty(amongUsPath) || !Directory.Exists(amongUsPath))
+                {
+                    return installedMods;
+                }
+                modsFolder = Path.Combine(amongUsPath, "Mods");
             }
-
-            var modsFolder = Path.Combine(amongUsPath, "Mods");
+            
             if (Directory.Exists(modsFolder))
             {
                 var toheModPath = Path.Combine(modsFolder, "TOHE");

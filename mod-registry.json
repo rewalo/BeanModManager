@@ -105,7 +105,7 @@
         }
       },
       "requiresDepot": true,
-      "incompatibilities": ["AllTheRoles", "TownOfUs", "TOHE", "LaunchpadReloaded"],
+      "incompatibilities": ["AllTheRoles", "TownOfUs", "TOHE", "LaunchpadReloaded", "StellarRolesAU"],
       "depotConfig": {
         "depotId": 945361,
         "manifestId": "5207443046106116882",
@@ -131,7 +131,7 @@
         }
       },
       "requiresDepot": true,
-      "incompatibilities": ["TheOtherRoles", "TownOfUs", "TOHE", "LaunchpadReloaded"],
+      "incompatibilities": ["TheOtherRoles", "TownOfUs", "TOHE", "LaunchpadReloaded", "StellarRolesAU"],
       "depotConfig": {
         "depotId": 945361,
         "manifestId": "1110308242604365209",
@@ -169,7 +169,7 @@
           "githubRepo": "MiraAPI"
         }
       ],
-      "incompatibilities": ["TOHE", "TownOfUs", "TheOtherRoles", "AllTheRoles"]
+      "incompatibilities": ["TOHE", "TownOfUs", "TheOtherRoles", "AllTheRoles", "StellarRolesAU"]
     },
     {
       "id": "Reactor",
@@ -260,10 +260,11 @@
           "name": "Reactor",
           "fileName": "Reactor.dll",
           "githubOwner": "NuclearPowered",
-          "githubRepo": "Reactor"
+          "githubRepo": "Reactor",
+          "version": "2.4.0"
         }
       ],
-      "incompatibilities": []
+      "incompatibilities": ["TOHE", "TownOfUs", "TheOtherRoles", "AllTheRoles", "LaunchpadReloaded"]
 	}
   ]
 }

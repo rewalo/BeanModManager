@@ -122,7 +122,12 @@ namespace BeanModManager.Models
 
         public void AddInstalledMod(string modId, string version)
         {
-            if (!InstalledMods.Any(m => m.ModId == modId && m.Version == version))
+            // Remove any existing entries for this mod to prevent duplicates
+            // We only want one version entry per mod (the most recent installation)
+            InstalledMods.RemoveAll(m => m.ModId == modId);
+            
+            // Add the new version entry
+            if (!string.IsNullOrEmpty(version))
             {
                 InstalledMods.Add(new InstalledMod { ModId = modId, Version = version });
             }

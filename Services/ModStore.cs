@@ -227,6 +227,14 @@ namespace BeanModManager.Services
             return "flat"; // Default to flat extraction
         }
 
+        public List<string> GetDontInclude(string modId)
+        {
+            if (_registryEntries.ContainsKey(modId) && _registryEntries[modId].dontInclude != null)
+                return _registryEntries[modId].dontInclude;
+
+            return new List<string>();
+        }
+
         public List<string> GetDependents(string dependencyId)
         {
             if (string.IsNullOrEmpty(dependencyId))

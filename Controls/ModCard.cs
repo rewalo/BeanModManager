@@ -133,8 +133,20 @@ namespace BeanModManager
                 .OrderByDescending(v => v.ReleaseDate)
                 .FirstOrDefault();
 
-            HasUpdateAvailable = latestVersion != null && 
-                                latestVersion.Version != _mod.InstalledVersion.Version;
+            if (latestVersion == null)
+            {
+                HasUpdateAvailable = false;
+                return;
+            }
+
+            // Compare using ReleaseTag if available, otherwise use Version
+            // This handles cases where installed version might be from config (ReleaseTag) 
+            // and latest version might have different Version string but same ReleaseTag
+            var installedTag = _mod.InstalledVersion.ReleaseTag ?? _mod.InstalledVersion.Version;
+            var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
+            
+            // Only show update if the tags are different (not just the Version strings)
+            HasUpdateAvailable = !string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase);
         }
 
         public ModCard(Mod mod, ModVersion version, Config config, bool isInstalledView = false)

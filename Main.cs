@@ -119,7 +119,8 @@ namespace BeanModManager
             try
             {
                 // Detect installed mods first (doesn't require GitHub API)
-                var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath);
+                var modsFolder = GetModsFolder();
+                var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, modsFolder);
                 var installedModIds = new HashSet<string>(
                     detectedMods.Select(m => m.ModId)
                         .Concat(_config.InstalledMods.Select(m => m.ModId))
@@ -194,30 +195,43 @@ namespace BeanModManager
                 _ = _config.SaveAsync();
             }
 
-            var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath);
+            var modsFolder = GetModsFolder();
+            var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, modsFolder);
             
             var detectedModIds = detectedMods.Select(m => m.ModId).ToList();
+            
+            // Also check for mod folders that exist but might not be detected
+            modsFolder = GetModsFolder();
+            var existingModFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (Directory.Exists(modsFolder))
+            {
+                foreach (var modDir in Directory.GetDirectories(modsFolder))
+                {
+                    var modId = Path.GetFileName(modDir);
+                    if (!string.IsNullOrEmpty(modId))
+                    {
+                        existingModFolders.Add(modId);
+                    }
+                }
+            }
             
             var configModIds = _config.InstalledMods.Select(m => m.ModId).Distinct().ToList();
             foreach (var modId in configModIds)
             {
-                if (!detectedModIds.Contains(modId))
+                // Only remove if not detected AND mod folder doesn't exist
+                if (!detectedModIds.Contains(modId) && !existingModFolders.Contains(modId))
                 {
                     _config.RemoveInstalledMod(modId, null); // Remove all versions
                 }
             }
             
-            foreach (var detected in detectedMods)
-            {
-                _config.AddInstalledMod(detected.ModId, detected.Version);
-            }
-            
-            _ = _config.SaveAsync();
+            // Don't add detected mods here - they'll be added during installation with proper version format
+            // This prevents duplicates where detected version differs from installed version format
 
             foreach (var mod in _availableMods)
             {
                 bool addedToInstalledList = false;
-                var modsFolder = Path.Combine(_config.AmongUsPath, "Mods");
+                modsFolder = GetModsFolder();
                 var modStoragePath = Path.Combine(modsFolder, mod.Id);
                 bool modFolderExists = !string.IsNullOrEmpty(_config.AmongUsPath) && Directory.Exists(modStoragePath);
                 
@@ -227,56 +241,84 @@ namespace BeanModManager
                 if (isInstalled)
                 {
                     mod.IsInstalled = true;
-                    if (detectedMod != null)
+                    
+                    // For installed mods, ALWAYS use version from config first (never rely on GitHub API)
+                    var configMod = _config.InstalledMods.FirstOrDefault(m => m.ModId == mod.Id);
+                    if (configMod != null && !string.IsNullOrEmpty(configMod.Version) && configMod.Version != "Unknown")
                     {
-                        mod.InstalledVersion = mod.Versions.FirstOrDefault(v => v.Version == detectedMod.Version);
+                        // Parse version and GameVersion from config (format: "version (GameVersion)" or just "version")
+                        var versionString = configMod.Version;
+                        string gameVersion = null;
                         
-                        if (mod.InstalledVersion == null)
+                        // Check if GameVersion is included in parentheses
+                        var parenIndex = versionString.LastIndexOf(" (");
+                        if (parenIndex > 0 && versionString.EndsWith(")"))
                         {
-                            mod.InstalledVersion = mod.Versions.FirstOrDefault(v => 
-                                v.Version.StartsWith(detectedMod.Version, StringComparison.OrdinalIgnoreCase) ||
-                                detectedMod.Version.StartsWith(v.Version, StringComparison.OrdinalIgnoreCase));
+                            gameVersion = versionString.Substring(parenIndex + 2, versionString.Length - parenIndex - 3);
+                            versionString = versionString.Substring(0, parenIndex);
                         }
                         
-                        if (mod.InstalledVersion == null)
+                        // Use the version saved in config - this is what was saved during installation
+                        mod.InstalledVersion = new ModVersion 
+                        { 
+                            Version = versionString,
+                            GameVersion = gameVersion,
+                            ReleaseTag = versionString // Use the base version as ReleaseTag for comparison
+                        };
+                    }
+                    else if (configMod != null && !string.IsNullOrEmpty(configMod.Version) && configMod.Version == "Unknown")
+                    {
+                        // Config has "Unknown" - try to detect from mod folder
+                        var fallbackModsFolder = GetModsFolder();
+                        var fallbackDetectedMod = ModDetector.DetectInstalledMods(_config.AmongUsPath, fallbackModsFolder).FirstOrDefault(m => m.ModId == mod.Id);
+                        if (fallbackDetectedMod != null && !string.IsNullOrEmpty(fallbackDetectedMod.Version) && fallbackDetectedMod.Version != "Unknown")
                         {
-                            mod.InstalledVersion = mod.Versions.FirstOrDefault(v => _config.IsModInstalled(mod.Id, v.Version));
+                            // Use detected version and update config
+                            mod.InstalledVersion = new ModVersion 
+                            { 
+                                Version = fallbackDetectedMod.Version,
+                                ReleaseTag = fallbackDetectedMod.Version
+                            };
+                            _config.AddInstalledMod(mod.Id, fallbackDetectedMod.Version);
+                            _ = _config.SaveAsync();
                         }
-                        
-                        if (mod.InstalledVersion == null)
+                        else
                         {
-                            // For installed mods, always prefer detected version over "Unknown" from store
-                            if (!string.IsNullOrEmpty(detectedMod.Version) && detectedMod.Version != "Unknown")
-                            {
-                                mod.InstalledVersion = new ModVersion { Version = detectedMod.Version };
-                            }
-                            else
-                            {
-                                // Fall back to versions list, but skip "Unknown" entries if we have any real versions
-                                mod.InstalledVersion = mod.Versions.FirstOrDefault(v => v.Version != "Unknown")
-                                    ?? mod.Versions.FirstOrDefault()
-                                    ?? new ModVersion { Version = detectedMod.Version ?? "Unknown" };
-                            }
+                            // Keep "Unknown" if we can't detect it
+                            mod.InstalledVersion = new ModVersion { Version = "Unknown" };
                         }
-                        
-                        // If we ended up with "Unknown" from store but have a detected version, use detected version
-                        if (mod.InstalledVersion != null && mod.InstalledVersion.Version == "Unknown" && 
-                            !string.IsNullOrEmpty(detectedMod.Version) && detectedMod.Version != "Unknown")
-                        {
-                            mod.InstalledVersion.Version = detectedMod.Version;
-                        }
+                    }
+                    else if (detectedMod != null && !string.IsNullOrEmpty(detectedMod.Version) && detectedMod.Version != "Unknown")
+                    {
+                        // Fallback to detected version if config doesn't have it
+                        mod.InstalledVersion = new ModVersion 
+                        { 
+                            Version = detectedMod.Version,
+                            ReleaseTag = detectedMod.Version
+                        };
                     }
                     else
                     {
-                        // Mod folder exists but not detected - try to find version from config or versions list
-                        mod.InstalledVersion = mod.Versions.FirstOrDefault(v => _config.IsModInstalled(mod.Id, v.Version))
-                            ?? mod.Versions.FirstOrDefault();
-                        
-                        // If still no version found, try to detect it
-                        var fallbackDetectedMod = ModDetector.DetectInstalledMods(_config.AmongUsPath).FirstOrDefault(m => m.ModId == mod.Id);
-                        if (fallbackDetectedMod != null && mod.InstalledVersion == null)
+                        // Last resort: use detected version even if it's "Unknown" or try to get from folder
+                        var fallbackModsFolder = GetModsFolder();
+                        var fallbackDetectedMod = ModDetector.DetectInstalledMods(_config.AmongUsPath, fallbackModsFolder).FirstOrDefault(m => m.ModId == mod.Id);
+                        if (fallbackDetectedMod != null && !string.IsNullOrEmpty(fallbackDetectedMod.Version))
                         {
-                            mod.InstalledVersion = new ModVersion { Version = fallbackDetectedMod.Version ?? "Unknown" };
+                            mod.InstalledVersion = new ModVersion 
+                            { 
+                                Version = fallbackDetectedMod.Version,
+                                ReleaseTag = fallbackDetectedMod.Version
+                            };
+                        }
+                        else if (configMod != null && !string.IsNullOrEmpty(configMod.Version))
+                        {
+                            // Even if config says "Unknown", use it (better than nothing)
+                            mod.InstalledVersion = new ModVersion { Version = configMod.Version };
+                        }
+                        else
+                        {
+                            // Absolute last resort - should never happen for properly installed mods
+                            mod.InstalledVersion = new ModVersion { Version = "Unknown" };
                         }
                     }
                 }
@@ -289,28 +331,46 @@ namespace BeanModManager
                 if (isInstalled)
                 {
                     addedToInstalledList = true;
-                    var installedVersion = mod.InstalledVersion ?? mod.Versions.FirstOrDefault();
-                    if (installedVersion != null)
+                    
+                    // mod.InstalledVersion should already be set from the code above using config
+                    // But ensure it's never null for installed mods
+                    if (mod.InstalledVersion == null)
                     {
-                        var installedCard = CreateModCard(mod, installedVersion, true);
-                        installedCard.CheckForUpdate();
-                        if (installedCard.IsSelectable)
+                        // This should never happen, but as a safety net, use config version
+                        var configMod = _config.InstalledMods.FirstOrDefault(m => m.ModId == mod.Id);
+                        if (configMod != null && !string.IsNullOrEmpty(configMod.Version))
                         {
-                            var currentMod = mod;
-                            installedCard.SelectionChanged += (cardControl, isSelected) =>
-                                HandleModSelectionChanged(currentMod, cardControl, isSelected, true);
-                            if (_selectedModIds.Contains(mod.Id))
-                            {
-                                installedCard.SetSelected(true, true);
-                            }
+                            mod.InstalledVersion = new ModVersion { Version = configMod.Version };
+                        }
+                        else if (detectedMod != null && !string.IsNullOrEmpty(detectedMod.Version))
+                        {
+                            mod.InstalledVersion = new ModVersion { Version = detectedMod.Version };
                         }
                         else
                         {
-                            _selectedModIds.Remove(mod.Id);
+                            mod.InstalledVersion = new ModVersion { Version = "Unknown" };
                         }
-                        installedCards.Add(installedCard);
-                        nextCardMap[mod.Id] = installedCard;
                     }
+                    
+                    // Always create a card for installed mods, even if version info is limited
+                    var installedCard = CreateModCard(mod, mod.InstalledVersion, true);
+                    installedCard.CheckForUpdate();
+                    if (installedCard.IsSelectable)
+                    {
+                        var currentMod = mod;
+                        installedCard.SelectionChanged += (cardControl, isSelected) =>
+                            HandleModSelectionChanged(currentMod, cardControl, isSelected, true);
+                        if (_selectedModIds.Contains(mod.Id))
+                        {
+                            installedCard.SetSelected(true, true);
+                        }
+                    }
+                    else
+                    {
+                        _selectedModIds.Remove(mod.Id);
+                    }
+                    installedCards.Add(installedCard);
+                    nextCardMap[mod.Id] = installedCard;
                 }
                 else
                 {
@@ -432,22 +492,66 @@ namespace BeanModManager
             };
             card.UpdateClicked += async (s, e) =>
             {
-                var selectedVersion = card.SelectedVersion;
-                if (selectedVersion == null || string.IsNullOrEmpty(selectedVersion.DownloadUrl))
+                // Auto-detect the latest version based on game type and beta settings (like dropdown default)
+                ModVersion updateVersion = null;
+                
+                if (mod.Versions != null && mod.Versions.Any())
                 {
-                    SafeInvoke(() => MessageBox.Show("Please select a version to update to.", "Version Required",
+                    // Filter versions based on beta setting
+                    var availableVersions = mod.Versions.AsEnumerable();
+                    if (!_config.ShowBetaVersions)
+                    {
+                        availableVersions = availableVersions.Where(v => !v.IsPreRelease);
+                    }
+                    var versionsList = availableVersions.ToList();
+                    
+                    if (versionsList.Any())
+                    {
+                        // Auto-detect game type
+                        bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) && 
+                                              AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                        
+                        // Get latest version matching game type
+                        if (isEpicOrMsStore)
+                        {
+                            updateVersion = versionsList
+                                .Where(v => v.GameVersion == "Epic/MS Store" && !string.IsNullOrEmpty(v.DownloadUrl))
+                                .OrderByDescending(v => v.ReleaseDate)
+                                .FirstOrDefault()
+                                ?? versionsList
+                                    .Where(v => !string.IsNullOrEmpty(v.DownloadUrl))
+                                    .OrderByDescending(v => v.ReleaseDate)
+                                    .FirstOrDefault();
+                        }
+                        else
+                        {
+                            updateVersion = versionsList
+                                .Where(v => v.GameVersion == "Steam/Itch.io" && !string.IsNullOrEmpty(v.DownloadUrl))
+                                .OrderByDescending(v => v.ReleaseDate)
+                                .FirstOrDefault()
+                                ?? versionsList
+                                    .Where(v => !string.IsNullOrEmpty(v.DownloadUrl))
+                                    .OrderByDescending(v => v.ReleaseDate)
+                                    .FirstOrDefault();
+                        }
+                    }
+                }
+                
+                if (updateVersion == null || string.IsNullOrEmpty(updateVersion.DownloadUrl))
+                {
+                    SafeInvoke(() => MessageBox.Show("No update version available.", "Update Unavailable",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning));
                     return;
                 }
                 
-                System.Diagnostics.Debug.WriteLine($"Updating {mod.Name} - Selected version: {selectedVersion.GameVersion}, URL: {selectedVersion.DownloadUrl}");
-                await InstallMod(mod, selectedVersion).ConfigureAwait(false);
+                System.Diagnostics.Debug.WriteLine($"Updating {mod.Name} - Auto-selected version: {updateVersion.Version} ({updateVersion.GameVersion}), URL: {updateVersion.DownloadUrl}");
+                await InstallMod(mod, updateVersion).ConfigureAwait(false);
             };
             card.UninstallClicked += (s, e) => UninstallMod(mod, version);
             card.PlayClicked += (s, e) => LaunchMod(mod, version);
             card.OpenFolderClicked += (s, e) =>
             {
-                var modFolder = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
+                var modFolder = Path.Combine(GetModsFolder(), mod.Id);
                 if (Directory.Exists(modFolder))
                 {
                     System.Diagnostics.Process.Start("explorer.exe", modFolder);
@@ -808,6 +912,29 @@ namespace BeanModManager
                    mod.Category.Equals("Dependency", StringComparison.OrdinalIgnoreCase);
         }
 
+        private List<string> GetDependencyFiles(Mod mod)
+        {
+            var files = new List<string>();
+            var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
+            
+            if (!Directory.Exists(modStoragePath))
+                return files;
+            
+            // Get all DLL files from the dependency mod
+            var dllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.AllDirectories);
+            files.AddRange(dllFiles);
+            
+            // Also check BepInEx/plugins if it exists
+            var pluginsPath = Path.Combine(modStoragePath, "BepInEx", "plugins");
+            if (Directory.Exists(pluginsPath))
+            {
+                var pluginDlls = Directory.GetFiles(pluginsPath, "*.dll", SearchOption.TopDirectoryOnly);
+                files.AddRange(pluginDlls);
+            }
+            
+            return files;
+        }
+
         private static bool IsBetterCrewLink(Mod mod)
         {
             return mod != null && mod.Id != null &&
@@ -826,7 +953,7 @@ namespace BeanModManager
             if (mod == null)
                 return false;
 
-            var modStoragePath = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
+            var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
             if (!Directory.Exists(modStoragePath))
             {
                 if (showErrors)
@@ -989,12 +1116,7 @@ namespace BeanModManager
 
                     UpdateStatus($"Installing dependency {depMod.Name}...");
 
-                    var modsFolder = Path.Combine(_config.AmongUsPath, "Mods");
-                    if (!Directory.Exists(modsFolder))
-                    {
-                        Directory.CreateDirectory(modsFolder);
-                    }
-
+                    var modsFolder = GetModsFolder();
                     var depStoragePath = Path.Combine(modsFolder, depMod.Id);
                     if (Directory.Exists(depStoragePath))
                     {
@@ -1011,7 +1133,7 @@ namespace BeanModManager
                     Directory.CreateDirectory(depStoragePath);
 
                     var depPackageType = _modStore.GetPackageType(depMod.Id);
-                    var downloadSuccess = await _modDownloader.DownloadMod(depMod, depVersion, depStoragePath, nestedDependencies, depPackageType).ConfigureAwait(false);
+                    var downloadSuccess = await _modDownloader.DownloadMod(depMod, depVersion, depStoragePath, nestedDependencies, depPackageType, null).ConfigureAwait(false);
                     if (!downloadSuccess)
                     {
                         SafeInvoke(() => MessageBox.Show(
@@ -1024,7 +1146,22 @@ namespace BeanModManager
 
                     depMod.IsInstalled = true;
                     depMod.InstalledVersion = depVersion;
-                    _config.AddInstalledMod(depMod.Id, depVersion.Version);
+                    
+                    // Always prefer ReleaseTag over Version when saving (ReleaseTag is the actual GitHub tag)
+                    // Only use Version if ReleaseTag is not available
+                    var depVersionToSave = (!string.IsNullOrEmpty(depVersion.ReleaseTag)) 
+                        ? depVersion.ReleaseTag 
+                        : ((!string.IsNullOrEmpty(depVersion.Version) && depVersion.Version != "Unknown") 
+                            ? depVersion.Version 
+                            : "Unknown");
+                    
+                    // Include GameVersion in the saved version string if present (based on registry patterns)
+                    if (!string.IsNullOrEmpty(depVersion.GameVersion))
+                    {
+                        depVersionToSave = $"{depVersionToSave} ({depVersion.GameVersion})";
+                    }
+                    
+                    _config.AddInstalledMod(depMod.Id, depVersionToSave);
                     await _config.SaveAsync().ConfigureAwait(false);
                 }
             }
@@ -1129,7 +1266,7 @@ namespace BeanModManager
                 }
 
                 var installResult = SafeInvoke(() => MessageBox.Show(
-                    $"Install {mod.Name} {version.Version}?\n\nThis will copy mod files to your Among Us directory.",
+                    $"Install {mod.Name} {version.Version}?",
                     "Install Mod",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question));
@@ -1145,12 +1282,7 @@ namespace BeanModManager
 
                 try
                 {
-                    var modsFolder = Path.Combine(_config.AmongUsPath, "Mods");
-                    if (!Directory.Exists(modsFolder))
-                    {
-                        Directory.CreateDirectory(modsFolder);
-                    }
-
+                    var modsFolder = GetModsFolder();
                     var modStoragePath = Path.Combine(modsFolder, mod.Id);
                     
                     if (Directory.Exists(modStoragePath))
@@ -1191,7 +1323,8 @@ namespace BeanModManager
                     }
 
                     var packageType = _modStore.GetPackageType(mod.Id);
-                    var downloaded = await _modDownloader.DownloadMod(mod, version, modStoragePath, dependencies, packageType).ConfigureAwait(false);
+                    var dontInclude = _modStore.GetDontInclude(mod.Id);
+                    var downloaded = await _modDownloader.DownloadMod(mod, version, modStoragePath, dependencies, packageType, dontInclude).ConfigureAwait(false);
                     if (!downloaded)
                     {
                         SafeInvoke(() => MessageBox.Show($"Failed to download {mod.Name}. Please check the download URL.",
@@ -1202,8 +1335,40 @@ namespace BeanModManager
                     mod.IsInstalled = true;
                     mod.InstalledVersion = version;
                     
-                    _config.AddInstalledMod(mod.Id, version.Version);
+                    // Always prefer ReleaseTag over Version when saving (ReleaseTag is the actual GitHub tag)
+                    // Only use Version if ReleaseTag is not available
+                    var versionToSave = (!string.IsNullOrEmpty(version.ReleaseTag)) 
+                        ? version.ReleaseTag 
+                        : ((!string.IsNullOrEmpty(version.Version) && version.Version != "Unknown") 
+                            ? version.Version 
+                            : "Unknown");
+                    
+                    // Include GameVersion in the saved version string if present (based on registry patterns)
+                    if (!string.IsNullOrEmpty(version.GameVersion))
+                    {
+                        versionToSave = $"{versionToSave} ({version.GameVersion})";
+                    }
+                    
+                    System.Diagnostics.Debug.WriteLine($"Saving mod to config: {mod.Id} = {versionToSave}");
+                    System.Diagnostics.Debug.WriteLine($"  Version.ReleaseTag = {version.ReleaseTag}");
+                    System.Diagnostics.Debug.WriteLine($"  Version.Version = {version.Version}");
+                    System.Diagnostics.Debug.WriteLine($"  Version.GameVersion = {version.GameVersion}");
+                    
+                    _config.AddInstalledMod(mod.Id, versionToSave);
                     await _config.SaveAsync().ConfigureAwait(false);
+                    
+                    // Verify it was saved
+                    if (!_config.IsModInstalled(mod.Id))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"ERROR: Failed to save {mod.Id} to config after installation!");
+                        // Try again
+                        _config.AddInstalledMod(mod.Id, versionToSave);
+                        await _config.SaveAsync().ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Successfully saved {mod.Id} to config");
+                    }
                     
                     SafeInvoke(() =>
                     {
@@ -1259,8 +1424,15 @@ namespace BeanModManager
             try
             {
                 // Run uninstall on background thread
-                var modStoragePath = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
+                var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
                 var uninstalled = await Task.Run(() => _modInstaller.UninstallMod(mod, _config.AmongUsPath, modStoragePath)).ConfigureAwait(false);
+                
+                // Delete depot if mod requires it
+                if (uninstalled && _modStore.ModRequiresDepot(mod.Id))
+                {
+                    UpdateStatus($"Removing depot for {mod.Name}...");
+                    await Task.Run(() => _steamDepotService.DeleteModDepot(mod.Id)).ConfigureAwait(false);
+                }
                 
                 if (uninstalled)
                 {
@@ -1522,7 +1694,16 @@ namespace BeanModManager
             if (mod == null)
                 return;
 
-            await LaunchModsAsync(new List<Mod> { mod });
+            try
+            {
+                var expandedMods = ExpandModsWithDependencies(new List<Mod> { mod });
+                await LaunchModsAsync(expandedMods);
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "Dependency Missing",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private async Task LaunchModsAsync(List<Mod> mods)
@@ -1644,6 +1825,47 @@ namespace BeanModManager
                     if (string.Equals(mod?.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase))
                         continue;
 
+                    // Skip dependency mods if their files already exist in another mod folder
+                    if (IsDependencyMod(mod))
+                    {
+                        var dependencyFiles = GetDependencyFiles(mod);
+                        bool alreadyExists = false;
+                        
+                        foreach (var otherMod in mods)
+                        {
+                            if (otherMod.Id == mod.Id || IsDependencyMod(otherMod))
+                                continue;
+                                
+                            var otherModPath = Path.Combine(_config.AmongUsPath, "Mods", otherMod.Id);
+                            if (Directory.Exists(otherModPath))
+                            {
+                                // Check if any dependency files exist in the other mod's folder
+                                foreach (var depFile in dependencyFiles)
+                                {
+                                    var fileName = Path.GetFileName(depFile);
+                                    var checkPath = Path.Combine(otherModPath, fileName);
+                                    var bepInExCheckPath = Path.Combine(otherModPath, "BepInEx", "plugins", fileName);
+                                    
+                                    if (File.Exists(checkPath) || File.Exists(bepInExCheckPath))
+                                    {
+                                        System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - {fileName} already exists in {otherMod.Name}");
+                                        alreadyExists = true;
+                                        break;
+                                    }
+                                }
+                                
+                                if (alreadyExists)
+                                    break;
+                            }
+                        }
+                        
+                        if (alreadyExists)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - files already exist in another mod");
+                            continue;
+                        }
+                    }
+
                     try
                     {
                         PrepareModForLaunch(mod, pluginsPath);
@@ -1667,6 +1889,11 @@ namespace BeanModManager
                 if (process != null)
                 {
                     process.EnableRaisingEvents = true;
+                    process.Exited += (s, e) =>
+                    {
+                        // Check for error log after game closes
+                        CheckAndDisplayErrorLog(_config.AmongUsPath);
+                    };
                 }
 
                 if (mods.Count == 1)
@@ -1686,9 +1913,133 @@ namespace BeanModManager
             }
         }
 
+        private void CheckAndDisplayErrorLog(string gamePath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(gamePath) || !Directory.Exists(gamePath))
+                    return;
+
+                // Check ErrorLog.log only (LogOutput.log is always written to, not a crash indicator)
+                var errorLogPath = Path.Combine(gamePath, "BepInEx", "ErrorLog.log");
+
+                if (!File.Exists(errorLogPath))
+                    return;
+
+                // Wait a moment for the log file to be fully written
+                System.Threading.Thread.Sleep(500);
+
+                var fileInfo = new FileInfo(errorLogPath);
+                if (fileInfo.Length == 0)
+                    return; // Empty file, no crash
+
+                // Read the error log
+                string errorLogContent = null;
+                try
+                {
+                    // Try reading with retries in case file is still being written
+                    for (int i = 0; i < 3; i++)
+                    {
+                        try
+                        {
+                            errorLogContent = File.ReadAllText(errorLogPath);
+                            break;
+                        }
+                        catch (IOException)
+                        {
+                            if (i < 2)
+                                System.Threading.Thread.Sleep(200);
+                            else
+                                throw;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error reading error log: {ex.Message}");
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(errorLogContent))
+                    return; // Only whitespace, likely no crash
+
+                // Show the error log in a dialog
+                SafeInvoke(() =>
+                {
+                    var form = new Form
+                    {
+                        Text = "BepInEx Error Log",
+                        Width = 800,
+                        Height = 600,
+                        StartPosition = FormStartPosition.CenterParent
+                    };
+
+                    var textBox = new TextBox
+                    {
+                        Multiline = true,
+                        ReadOnly = true,
+                        ScrollBars = ScrollBars.Both,
+                        Dock = DockStyle.Fill,
+                        Font = new System.Drawing.Font("Consolas", 9F),
+                        Text = errorLogContent
+                    };
+
+                    var buttonPanel = new Panel
+                    {
+                        Height = 40,
+                        Dock = DockStyle.Bottom
+                    };
+
+                    var closeButton = new Button
+                    {
+                        Text = "Close",
+                        DialogResult = DialogResult.OK,
+                        Dock = DockStyle.Right,
+                        Width = 100,
+                        Margin = new Padding(10)
+                    };
+
+                    var copyButton = new Button
+                    {
+                        Text = "Copy to Clipboard",
+                        Dock = DockStyle.Right,
+                        Width = 150,
+                        Margin = new Padding(10)
+                    };
+
+                    copyButton.Click += (s, e) =>
+                    {
+                        try
+                        {
+                            Clipboard.SetText(errorLogContent);
+                            MessageBox.Show("Error log copied to clipboard.", "Copied", 
+                                MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Failed to copy to clipboard: {ex.Message}", "Error",
+                                MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    };
+
+                    buttonPanel.Controls.Add(closeButton);
+                    buttonPanel.Controls.Add(copyButton);
+                    form.Controls.Add(textBox);
+                    form.Controls.Add(buttonPanel);
+                    form.AcceptButton = closeButton;
+
+                    form.ShowDialog();
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error checking error log: {ex.Message}");
+            }
+        }
+
         private void PrepareModForLaunch(Mod mod, string pluginsPath)
         {
-            var modStoragePath = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
+            var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
             if (!Directory.Exists(modStoragePath))
             {
                 throw new DirectoryNotFoundException($"Mod folder not found: {modStoragePath}\nPlease reinstall {mod.Name}.");
@@ -1753,7 +2104,7 @@ namespace BeanModManager
                     UpdateStatus("BepInEx installed successfully!");
                 }
 
-                var modStoragePath = Path.Combine(_config.AmongUsPath, "Mods", mod.Id);
+                var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
                 if (!Directory.Exists(modStoragePath))
                 {
                     MessageBox.Show($"Mod folder not found: {modStoragePath}\n\nPlease reinstall {mod.Name}.", "Mod Not Found",
@@ -1924,6 +2275,20 @@ namespace BeanModManager
                     _steamDepotService.InstallModToDepot(supportingPath, depotPath, supporting.Id);
                 }
 
+                // Backup Innersloth folder before deleting (if backup doesn't exist)
+                var localLowPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "..", "LocalLow");
+                var backupPath = Path.Combine(localLowPath, "Innersloth_bak");
+                
+                if (!Directory.Exists(backupPath))
+                {
+                    UpdateStatus("Backing up Innersloth folder before launching depot mod...");
+                    _steamDepotService.BackupInnerslothFolder(backupPath);
+                }
+                else
+                {
+                    UpdateStatus("Backup already exists, skipping backup.");
+                }
+                
                 // Delete entire Innersloth folder to prevent blackscreen
                 _steamDepotService.DeleteInnerslothFolder();
 
@@ -1949,8 +2314,8 @@ namespace BeanModManager
                     process.EnableRaisingEvents = true;
                     process.Exited += (s, e) =>
                     {
-                        // Check if blackscreen occurred (process exited quickly)
-                        // User can manually delete settings.mogus if needed
+                        // Check for error log after game closes (depot path)
+                        CheckAndDisplayErrorLog(depotPath);
                     };
                 }
 
@@ -1997,7 +2362,8 @@ namespace BeanModManager
             var vanillaOption = new { Name = "Vanilla Among Us", Mod = (Mod)null };
             listBox.Items.Add(vanillaOption);
 
-            var installedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath);
+            var modsFolder = GetModsFolder();
+            var installedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, modsFolder);
             foreach (var installedMod in installedMods)
             {
                 if (installedMod.ModId != "BetterCrewLink")
@@ -2010,7 +2376,6 @@ namespace BeanModManager
                 }
             }
 
-            var modsFolder = Path.Combine(_config.AmongUsPath, "Mods");
             if (Directory.Exists(modsFolder))
             {
                 foreach (var modDir in Directory.GetDirectories(modsFolder))
@@ -2072,6 +2437,16 @@ namespace BeanModManager
             return new Mod { Id = "__CANCELLED__" };
         }
 
+        private string GetModsFolder()
+        {
+            var modsFolder = Path.Combine(_config.DataPath, "Mods");
+            if (!Directory.Exists(modsFolder))
+            {
+                Directory.CreateDirectory(modsFolder);
+            }
+            return modsFolder;
+        }
+
         private void UpdateStatus(string message)
         {
             if (InvokeRequired)
@@ -2080,7 +2455,6 @@ namespace BeanModManager
                 return;
             }
             lblStatus.Text = message;
-            Application.DoEvents();
         }
 
         // Helper methods for thread-safe UI updates
@@ -2218,9 +2592,6 @@ namespace BeanModManager
                     if (Directory.Exists(bepInExPath))
                     {
                         Directory.Delete(bepInExPath, true);
-                        
-                        _config.InstalledMods.Clear();
-                        _config.Save();
                         
                         UpdateStatus("BepInEx uninstalled successfully");
                         MessageBox.Show("BepInEx and all mods have been uninstalled.", "Success",
@@ -2497,15 +2868,10 @@ namespace BeanModManager
                 return;
             }
 
-            var modsPath = Path.Combine(_config.AmongUsPath, "Mods");
+            var modsPath = GetModsFolder();
             
             try
             {
-                if (!Directory.Exists(modsPath))
-                {
-                    Directory.CreateDirectory(modsPath);
-                }
-                
                 Process.Start("explorer.exe", modsPath);
             }
             catch (Exception ex)
@@ -2691,6 +3057,17 @@ namespace BeanModManager
                 
                 UpdateStatus("Backing up Innersloth folder...");
                 
+                // Check if backup already exists
+                if (Directory.Exists(backupPath))
+                {
+                    MessageBox.Show($"A backup already exists at:\n{backupPath}\n\n" +
+                        "Please clear the existing backup first if you want to create a new one.",
+                        "Backup Already Exists",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+                
                 bool success = _steamDepotService.BackupInnerslothFolder(backupPath);
                 
                 if (success)
@@ -2750,7 +3127,7 @@ namespace BeanModManager
                         }
                         else
                         {
-                            return; // User cancelled
+return; // User cancelled
                         }
                     }
                 }
@@ -2789,6 +3166,61 @@ namespace BeanModManager
             catch (Exception ex)
             {
                 MessageBox.Show($"Error restoring Among Us data: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnClearBackup_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var localLowPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "..", "LocalLow");
+                var backupPath = Path.Combine(localLowPath, "Innersloth_bak");
+                
+                if (!Directory.Exists(backupPath))
+                {
+                    MessageBox.Show("No backup found to clear.",
+                        "No Backup",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                var result = MessageBox.Show(
+                    $"This will delete the backup folder at:\n{backupPath}\n\n" +
+                    $"This action cannot be undone.\n\n" +
+                    $"Continue?",
+                    "Confirm Clear Backup",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.Yes)
+                {
+                    UpdateStatus("Clearing backup...");
+                    
+                    try
+                    {
+                        Directory.Delete(backupPath, true);
+                        UpdateStatus("Backup cleared successfully.");
+                        MessageBox.Show("Backup cleared successfully!",
+                            "Clear Complete",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to clear backup: {ex.Message}",
+                            "Clear Failed",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error clearing backup: {ex.Message}",
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -2845,10 +3277,19 @@ namespace BeanModManager
                         .OrderByDescending(v => v.ReleaseDate)
                         .FirstOrDefault();
 
-                    if (latestVersion != null && 
-                        latestVersion.Version != mod.InstalledVersion.Version)
+                    if (latestVersion != null)
                     {
-                        updatesAvailable.Add(mod);
+                        // Compare using ReleaseTag if available, otherwise use Version
+                        // This handles cases where installed version might be from config (ReleaseTag) 
+                        // and latest version might have different Version string but same ReleaseTag
+                        var installedTag = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version;
+                        var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
+                        
+                        // Only show update if the tags are different (not just the Version strings)
+                        if (!string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase))
+                        {
+                            updatesAvailable.Add(mod);
+                        }
                     }
                 }
 
@@ -2929,7 +3370,17 @@ namespace BeanModManager
                         .OrderByDescending(v => v.ReleaseDate)
                         .FirstOrDefault();
 
-                    if (latestVersion == null || latestVersion.Version == mod.InstalledVersion.Version)
+                    if (latestVersion == null)
+                        continue;
+                    
+                    // Compare using ReleaseTag if available, otherwise use Version
+                    // This handles cases where installed version might be from config (ReleaseTag) 
+                    // and latest version might have different Version string but same ReleaseTag
+                    var installedTag = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version;
+                    var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
+                    
+                    // Only update if the tags are different (not just the Version strings)
+                    if (string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     UpdateStatus($"Updating {mod.Name} to {latestVersion.Version}...");

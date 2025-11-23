@@ -15,7 +15,7 @@ namespace BeanModManager.Services
     {
         public event EventHandler<string> ProgressChanged;
 
-        public async Task<bool> DownloadMod(Mod mod, ModVersion version, string extractToPath, List<Dependency> dependencies = null, string packageType = "flat")
+        public async Task<bool> DownloadMod(Mod mod, ModVersion version, string extractToPath, List<Dependency> dependencies = null, string packageType = "flat", List<string> dontInclude = null)
         {
             try
             {
@@ -130,7 +130,7 @@ namespace BeanModManager.Services
 
                     try
                     {
-                        ExtractMod(tempZipPath, extractToPath, packageType);
+                        ExtractMod(tempZipPath, extractToPath, packageType, dontInclude);
                     }
                     catch (Exception ex)
                     {
@@ -203,13 +203,26 @@ namespace BeanModManager.Services
                             
                             string downloadUrl = dependency.downloadUrl;
                             
-                            // If dependency has GitHub repo info, fetch latest release DLL
+                            // If dependency has GitHub repo info, fetch release DLL
                             if (!string.IsNullOrEmpty(dependency.githubOwner) && !string.IsNullOrEmpty(dependency.githubRepo))
                             {
-                                System.Diagnostics.Debug.WriteLine($"Fetching latest release for {dependency.name} from {dependency.githubOwner}/{dependency.githubRepo}");
+                                System.Diagnostics.Debug.WriteLine($"Fetching release for {dependency.name} from {dependency.githubOwner}/{dependency.githubRepo}");
                                 try
                                 {
-                                    var apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/latest";
+                                    string apiUrl;
+                                    // If version is specified, fetch that specific version, otherwise use latest
+                                    if (!string.IsNullOrEmpty(dependency.version))
+                                    {
+                                        // Try to find release by tag name (version)
+                                        apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/tags/{dependency.version}";
+                                        System.Diagnostics.Debug.WriteLine($"Fetching specific version {dependency.version} for {dependency.name}");
+                                    }
+                                    else
+                                    {
+                                        apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/latest";
+                                        System.Diagnostics.Debug.WriteLine($"Fetching latest release for {dependency.name}");
+                                    }
+                                    
                                     var json = await HttpDownloadHelper.DownloadStringAsync(apiUrl).ConfigureAwait(false);
                                     var release = JsonHelper.Deserialize<GitHubRelease>(json);
 
@@ -244,7 +257,7 @@ namespace BeanModManager.Services
                                 catch (Exception ex)
                                 {
                                     System.Diagnostics.Debug.WriteLine($"Error fetching dependency {dependency.name}: {ex.Message}");
-                                    OnProgressChanged($"Warning: Failed to fetch latest release for {dependency.name}: {ex.Message}");
+                                    OnProgressChanged($"Warning: Failed to fetch release for {dependency.name}: {ex.Message}");
                                     continue; // Skip if we can't get the URL
                                 }
                             }
@@ -300,7 +313,7 @@ namespace BeanModManager.Services
             }
         }
 
-        private void ExtractMod(string zipPath, string extractPath, string packageType = "flat")
+        private void ExtractMod(string zipPath, string extractPath, string packageType = "flat", List<string> dontInclude = null)
         {
             if (!File.Exists(zipPath))
             {
@@ -374,6 +387,8 @@ namespace BeanModManager.Services
                         }
                     }
 
+                    dontInclude = dontInclude ?? new List<string>();
+
                     foreach (var entry in archive.Entries)
                     {
                         if (string.IsNullOrEmpty(entry.Name))
@@ -383,6 +398,27 @@ namespace BeanModManager.Services
                         if (!string.IsNullOrEmpty(rootPrefix) && relativePath.StartsWith(rootPrefix))
                         {
                             relativePath = relativePath.Substring(rootPrefix.Length);
+                        }
+
+                        // Check if this entry should be excluded
+                        var entryName = Path.GetFileName(relativePath);
+                        var entryDir = Path.GetDirectoryName(relativePath);
+                        var topLevelDir = relativePath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                        
+                        bool shouldSkip = false;
+                        if (!string.IsNullOrEmpty(entryName))
+                        {
+                            shouldSkip = dontInclude.Any(item => string.Equals(item, entryName, StringComparison.OrdinalIgnoreCase));
+                        }
+                        if (!shouldSkip && !string.IsNullOrEmpty(topLevelDir))
+                        {
+                            shouldSkip = dontInclude.Any(item => string.Equals(item, topLevelDir, StringComparison.OrdinalIgnoreCase));
+                        }
+                        
+                        if (shouldSkip)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Skipping {relativePath} (in dontInclude list)");
+                            continue;
                         }
 
                         var destinationPath = Path.Combine(extractPath, relativePath);

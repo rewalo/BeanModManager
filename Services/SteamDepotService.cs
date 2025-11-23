@@ -146,6 +146,35 @@ namespace BeanModManager.Services
             return File.Exists(exePath);
         }
 
+        public bool DeleteModDepot(string modId)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(modId))
+                {
+                    return false;
+                }
+
+                var depotPath = GetDepotPath(modId);
+                if (string.IsNullOrEmpty(depotPath) || !Directory.Exists(depotPath))
+                {
+                    // Depot doesn't exist, nothing to delete
+                    return true;
+                }
+
+                OnProgressChanged($"Deleting depot folder for {modId}...");
+                Directory.Delete(depotPath, true);
+                OnProgressChanged($"Depot folder deleted successfully.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                OnProgressChanged($"Error deleting depot folder: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error deleting depot folder: {ex.Message}");
+                return false;
+            }
+        }
+
         public bool IsBaseDepotDownloaded()
         {
             var baseDepotPath = GetBaseDepotPath();
@@ -329,28 +358,6 @@ namespace BeanModManager.Services
 
                 if (Directory.Exists(innerslothPath))
                 {
-                    // Auto-backup before deleting (if backup doesn't exist)
-                    var backupPath = GetAutoBackupPath();
-                    if (!Directory.Exists(backupPath))
-                    {
-                        OnProgressChanged("Creating automatic backup of Innersloth folder...");
-                        try
-                        {
-                            Directory.CreateDirectory(Path.GetDirectoryName(backupPath));
-                            CopyDirectoryContents(innerslothPath, backupPath, true);
-                            OnProgressChanged($"Auto-backed up Innersloth folder to: {backupPath}");
-                        }
-                        catch (Exception backupEx)
-                        {
-                            OnProgressChanged($"Warning: Could not create auto-backup: {backupEx.Message}");
-                            System.Diagnostics.Debug.WriteLine($"Error creating auto-backup: {backupEx.Message}");
-                        }
-                    }
-                    else
-                    {
-                        OnProgressChanged("Auto-backup already exists, skipping backup.");
-                    }
-
                     Directory.Delete(innerslothPath, true);
                     OnProgressChanged("Deleted Innersloth folder to fix blackscreen issue.");
                 }
@@ -360,16 +367,6 @@ namespace BeanModManager.Services
                 OnProgressChanged($"Error deleting Innersloth folder: {ex.Message}");
                 System.Diagnostics.Debug.WriteLine($"Error deleting Innersloth folder: {ex.Message}");
             }
-        }
-
-        private string GetAutoBackupPath()
-        {
-            var appDataPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "BeanModManager",
-                "Backups",
-                "Innersloth_AutoBackup");
-            return appDataPath;
         }
 
         public string GetInnerslothFolderPath()
@@ -389,9 +386,11 @@ namespace BeanModManager.Services
                     return false;
                 }
 
+                // Check if backup already exists
                 if (Directory.Exists(backupPath))
                 {
-                    Directory.Delete(backupPath, true);
+                    OnProgressChanged("Backup already exists. Delete the existing backup first if you want to create a new one.");
+                    return false;
                 }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(backupPath));

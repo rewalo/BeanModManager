@@ -84,6 +84,7 @@
             this.flowData = new System.Windows.Forms.FlowLayoutPanel();
             this.btnBackupAmongUsData = new System.Windows.Forms.Button();
             this.btnRestoreAmongUsData = new System.Windows.Forms.Button();
+            this.btnClearBackup = new System.Windows.Forms.Button();
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.lblStatus = new System.Windows.Forms.ToolStripStatusLabel();
             this.progressBar = new System.Windows.Forms.ToolStripProgressBar();
@@ -781,6 +782,7 @@
             this.flowData.AutoScroll = true;
             this.flowData.Controls.Add(this.btnBackupAmongUsData);
             this.flowData.Controls.Add(this.btnRestoreAmongUsData);
+            this.flowData.Controls.Add(this.btnClearBackup);
             this.flowData.Dock = System.Windows.Forms.DockStyle.Fill;
             this.flowData.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             this.flowData.Location = new System.Drawing.Point(12, 28);
@@ -806,13 +808,25 @@
             // 
             this.btnRestoreAmongUsData.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnRestoreAmongUsData.Location = new System.Drawing.Point(0, 45);
-            this.btnRestoreAmongUsData.Margin = new System.Windows.Forms.Padding(0);
+            this.btnRestoreAmongUsData.Margin = new System.Windows.Forms.Padding(0, 0, 0, 10);
             this.btnRestoreAmongUsData.Name = "btnRestoreAmongUsData";
             this.btnRestoreAmongUsData.Size = new System.Drawing.Size(230, 35);
             this.btnRestoreAmongUsData.TabIndex = 1;
             this.btnRestoreAmongUsData.Text = "Restore Among Us Data";
             this.btnRestoreAmongUsData.UseVisualStyleBackColor = true;
             this.btnRestoreAmongUsData.Click += new System.EventHandler(this.btnRestoreAmongUsData_Click);
+            // 
+            // btnClearBackup
+            // 
+            this.btnClearBackup.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnClearBackup.Location = new System.Drawing.Point(0, 90);
+            this.btnClearBackup.Margin = new System.Windows.Forms.Padding(0);
+            this.btnClearBackup.Name = "btnClearBackup";
+            this.btnClearBackup.Size = new System.Drawing.Size(230, 35);
+            this.btnClearBackup.TabIndex = 2;
+            this.btnClearBackup.Text = "Clear Backup";
+            this.btnClearBackup.UseVisualStyleBackColor = true;
+            this.btnClearBackup.Click += new System.EventHandler(this.btnClearBackup_Click);
             // 
             // statusStrip
             // 
@@ -938,6 +952,7 @@
         private System.Windows.Forms.FlowLayoutPanel flowData;
         private System.Windows.Forms.Button btnBackupAmongUsData;
         private System.Windows.Forms.Button btnRestoreAmongUsData;
+        private System.Windows.Forms.Button btnClearBackup;
         private System.Windows.Forms.FlowLayoutPanel flowInstalledFilters;
         private System.Windows.Forms.Label lblInstalledSearch;
         private System.Windows.Forms.TextBox txtInstalledSearch;

@@ -23,6 +23,7 @@ namespace BeanModManager.Models
         public List<Dependency> dependencies { get; set; }
         public List<string> incompatibilities { get; set; }
         public string packageType { get; set; }
+        public List<string> dontInclude { get; set; }
     }
 
     public class Dependency
@@ -34,6 +35,7 @@ namespace BeanModManager.Models
         public string githubOwner { get; set; }
         public string githubRepo { get; set; }
         public bool optional { get; set; }
+        public string version { get; set; }
     }
 
     public class AssetFilters
