@@ -21,7 +21,7 @@ namespace BeanModManager.Services
 
         public ModStore(string registryUrl = null)
         {
-            _registryUrl = registryUrl ?? "https://raw.githubusercontent.com/rewalo/BeanModMaanager/master/mod-registry.json";
+            _registryUrl = registryUrl ?? "https://raw.githubusercontent.com/rewalo/BeanModManager/master/mod-registry.json";
 
             _availableMods = new List<Mod>();
             _registryEntries = new Dictionary<string, ModRegistryEntry>();
@@ -65,9 +65,9 @@ namespace BeanModManager.Services
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to load mod registry from {_registryUrl}: {ex.Message}");
             }
-            //MessageBox.Show("Failed to load mod registry from the internet.\n\n" + "Please check your internet connection and try again.", "Mod Registry Load Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            //Process.GetCurrentProcess().Kill();
-            LoadHardcodedMods();
+            MessageBox.Show("Failed to load mod registry from the internet.\n\n" + "Please check your internet connection and try again.", "Mod Registry Load Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Process.GetCurrentProcess().Kill();
+            //LoadHardcodedMods();
         }
 
         private void LoadHardcodedMods()
@@ -217,6 +217,62 @@ namespace BeanModManager.Services
                 return _registryEntries[modId].dependencies;
 
             return new List<Dependency>();
+        }
+
+        public List<VersionDependency> GetVersionDependencies(string modId, string modVersion)
+        {
+            if (!_registryEntries.ContainsKey(modId))
+                return new List<VersionDependency>();
+
+            var entry = _registryEntries[modId];
+            if (entry.versionDependencies == null || entry.versionDependencies.Count == 0)
+                return new List<VersionDependency>();
+
+            if (string.IsNullOrEmpty(modVersion))
+                return new List<VersionDependency>();
+
+            // Normalize the version (remove 'v' prefix, trim)
+            var normalizedVersion = modVersion.TrimStart('v', 'V').Trim();
+
+            // Try exact match first
+            if (entry.versionDependencies.ContainsKey(modVersion))
+            {
+                System.Diagnostics.Debug.WriteLine($"Found exact version match for {modId} version {modVersion}");
+                return entry.versionDependencies[modVersion];
+            }
+
+            // Try normalized version
+            if (entry.versionDependencies.ContainsKey(normalizedVersion))
+            {
+                System.Diagnostics.Debug.WriteLine($"Found normalized version match for {modId} version {normalizedVersion}");
+                return entry.versionDependencies[normalizedVersion];
+            }
+
+            // Try case-insensitive match
+            foreach (var kvp in entry.versionDependencies)
+            {
+                if (string.Equals(kvp.Key, modVersion, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(kvp.Key, normalizedVersion, StringComparison.OrdinalIgnoreCase))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Found case-insensitive version match for {modId}: {kvp.Key}");
+                    return kvp.Value;
+                }
+            }
+
+            // Try partial match (e.g., "2024.8.26" matches "v2024.8.26" or vice versa)
+            foreach (var kvp in entry.versionDependencies)
+            {
+                var normalizedKey = kvp.Key.TrimStart('v', 'V').Trim();
+                if (normalizedVersion.Equals(normalizedKey, StringComparison.OrdinalIgnoreCase) ||
+                    normalizedVersion.Contains(normalizedKey) || normalizedKey.Contains(normalizedVersion))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Found partial version match for {modId}: {kvp.Key} (searching for {modVersion})");
+                    return kvp.Value;
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"No version dependency match found for {modId} version {modVersion}");
+            return new List<VersionDependency>();
         }
 
         public string GetPackageType(string modId)

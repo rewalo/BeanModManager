@@ -211,11 +211,12 @@ namespace BeanModManager.Services
                                 {
                                     string apiUrl;
                                     // If version is specified, fetch that specific version, otherwise use latest
-                                    if (!string.IsNullOrEmpty(dependency.version))
+                                    var requiredVersion = dependency.GetRequiredVersion();
+                                    if (!string.IsNullOrEmpty(requiredVersion))
                                     {
                                         // Try to find release by tag name (version)
-                                        apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/tags/{dependency.version}";
-                                        System.Diagnostics.Debug.WriteLine($"Fetching specific version {dependency.version} for {dependency.name}");
+                                        apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/tags/{requiredVersion}";
+                                        System.Diagnostics.Debug.WriteLine($"Fetching specific version {requiredVersion} for {dependency.name}");
                                     }
                                     else
                                     {

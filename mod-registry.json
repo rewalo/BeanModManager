@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "mods": [
     {
       "id": "TOHE",
@@ -56,7 +56,9 @@
           "name": "MiraAPI",
           "fileName": "MiraAPI.dll",
           "githubOwner": "All-Of-Us-Mods",
-          "githubRepo": "MiraAPI"
+          "githubRepo": "MiraAPI",
+          "requiredVersion": null,
+          "optional": false
         }
       ],
       "packageType": "nested",
@@ -105,12 +107,23 @@
         }
       },
       "requiresDepot": true,
-      "incompatibilities": ["AllTheRoles", "TownOfUs", "TOHE", "LaunchpadReloaded", "StellarRolesAU"],
       "depotConfig": {
         "depotId": 945361,
         "manifestId": "5207443046106116882",
         "gameVersion": "v15.11.0"
-      }
+      },
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": "<=2.4.0",
+          "optional": false
+        }
+      ],
+      "incompatibilities": ["AllTheRoles", "TownOfUs", "TOHE", "LaunchpadReloaded", "StellarRolesAU"]
     },
     {
       "id": "AllTheRoles",
@@ -131,12 +144,12 @@
         }
       },
       "requiresDepot": true,
-      "incompatibilities": ["TheOtherRoles", "TownOfUs", "TOHE", "LaunchpadReloaded", "StellarRolesAU"],
       "depotConfig": {
         "depotId": 945361,
         "manifestId": "1110308242604365209",
         "gameVersion": "v16.0.5"
-      }
+      },
+      "incompatibilities": ["TheOtherRoles", "TownOfUs", "TOHE", "LaunchpadReloaded", "StellarRolesAU"]
     },
     {
       "id": "LaunchpadReloaded",
@@ -159,14 +172,18 @@
           "name": "Reactor",
           "fileName": "Reactor.dll",
           "githubOwner": "NuclearPowered",
-          "githubRepo": "Reactor"
+          "githubRepo": "Reactor",
+          "requiredVersion": ">=2.5.0",
+          "optional": false
         },
         {
           "modId": "MiraAPI",
           "name": "MiraAPI",
           "fileName": "MiraAPI.dll",
           "githubOwner": "All-Of-Us-Mods",
-          "githubRepo": "MiraAPI"
+          "githubRepo": "MiraAPI",
+          "requiredVersion": null,
+          "optional": false
         }
       ],
       "incompatibilities": ["TOHE", "TownOfUs", "TheOtherRoles", "AllTheRoles", "StellarRolesAU"]
@@ -175,7 +192,7 @@
       "id": "Reactor",
       "name": "Reactor",
       "author": "NuclearPowered",
-      "description": "Shared modding framework required by multiple mods.",
+      "description": "Shared modding framework required by multiple mods. Version conflicts will be detected automatically.",
       "githubOwner": "NuclearPowered",
       "githubRepo": "Reactor",
       "category": "Dependency",
@@ -207,7 +224,7 @@
       "requiresDepot": false,
       "incompatibilities": []
     },
-	{
+    {
       "id": "Submerged",
       "name": "Submerged",
       "author": "SubmergedAmongUs",
@@ -222,7 +239,7 @@
           "exactMatch": true
         }
       },
-            "requiresDepot": false,
+      "requiresDepot": false,
       "dependencies": [
         {
           "modId": "Reactor",
@@ -230,12 +247,33 @@
           "fileName": "Reactor.dll",
           "githubOwner": "NuclearPowered",
           "githubRepo": "Reactor",
-		  "version": "2.5.0"
+          "requiredVersion": ">=2.5.0",
+          "optional": false
         }
       ],
+      "versionDependencies": {
+        "2025.11.20": [
+          {
+            "modId": "Reactor",
+            "requiredVersion": ">=2.5.0"
+          }
+        ],
+		"2025.1.30": [
+          {
+            "modId": "Reactor",
+            "requiredVersion": ">=2.3.1"
+          }
+        ],
+        "2024.8.26": [
+          {
+            "modId": "Reactor",
+            "requiredVersion": ">=2.3.1"
+          }
+        ]
+      },
       "incompatibilities": []
-	},
-	{
+    },
+    {
       "id": "StellarRolesAU",
       "name": "StellarRoles",
       "author": "Mr-Fluuff",
@@ -262,10 +300,11 @@
           "fileName": "Reactor.dll",
           "githubOwner": "NuclearPowered",
           "githubRepo": "Reactor",
-          "version": "2.4.0"
+          "requiredVersion": "2.4.0",
+          "optional": false
         }
       ],
       "incompatibilities": ["TOHE", "TownOfUs", "TheOtherRoles", "AllTheRoles", "LaunchpadReloaded"]
-	}
+    }
   ]
 }

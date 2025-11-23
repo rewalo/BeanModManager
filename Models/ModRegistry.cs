@@ -21,9 +21,16 @@ namespace BeanModManager.Models
         public bool requiresDepot { get; set; }
         public DepotConfig depotConfig { get; set; }
         public List<Dependency> dependencies { get; set; }
+        public Dictionary<string, List<VersionDependency>> versionDependencies { get; set; }
         public List<string> incompatibilities { get; set; }
         public string packageType { get; set; }
         public List<string> dontInclude { get; set; }
+    }
+
+    public class VersionDependency
+    {
+        public string modId { get; set; }
+        public string requiredVersion { get; set; }
     }
 
     public class Dependency
@@ -35,7 +42,19 @@ namespace BeanModManager.Models
         public string githubOwner { get; set; }
         public string githubRepo { get; set; }
         public bool optional { get; set; }
+        
+        // Legacy field - use RequiredVersion instead
+        [System.Obsolete("Use RequiredVersion instead")]
         public string version { get; set; }
+        
+        // Preferred field name for clarity
+        public string requiredVersion { get; set; }
+        
+        // Helper property to get version from either field (backward compatible)
+        public string GetRequiredVersion()
+        {
+            return !string.IsNullOrEmpty(requiredVersion) ? requiredVersion : version;
+        }
     }
 
     public class AssetFilters

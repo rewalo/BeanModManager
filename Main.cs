@@ -258,13 +258,27 @@ namespace BeanModManager
                             versionString = versionString.Substring(0, parenIndex);
                         }
                         
-                        // Use the version saved in config - this is what was saved during installation
-                        mod.InstalledVersion = new ModVersion 
-                        { 
-                            Version = versionString,
-                            GameVersion = gameVersion,
-                            ReleaseTag = versionString // Use the base version as ReleaseTag for comparison
-                        };
+                        // Try to find the matching ModVersion from the mod's Versions list
+                        // This ensures the InstalledVersion matches exactly what's in the versions list for update detection
+                        var matchingVersion = mod.Versions?.FirstOrDefault(v => 
+                            (!string.IsNullOrEmpty(v.ReleaseTag) && string.Equals(v.ReleaseTag, versionString, StringComparison.OrdinalIgnoreCase)) ||
+                            (!string.IsNullOrEmpty(v.Version) && string.Equals(v.Version, versionString, StringComparison.OrdinalIgnoreCase)));
+                        
+                        if (matchingVersion != null)
+                        {
+                            // Use the exact ModVersion from the versions list
+                            mod.InstalledVersion = matchingVersion;
+                        }
+                        else
+                        {
+                            // Fallback: create a new ModVersion if we can't find a match
+                            mod.InstalledVersion = new ModVersion 
+                            { 
+                                Version = versionString,
+                                GameVersion = gameVersion,
+                                ReleaseTag = versionString // Use the base version as ReleaseTag for comparison
+                            };
+                        }
                     }
                     else if (configMod != null && !string.IsNullOrEmpty(configMod.Version) && configMod.Version == "Unknown")
                     {
@@ -492,6 +506,75 @@ namespace BeanModManager
             };
             card.UpdateClicked += async (s, e) =>
             {
+                // Check if this is a dependency mod and warn if other mods depend on it
+                if (IsDependencyMod(mod))
+                {
+                    var dependents = GetInstalledDependents(mod.Id);
+                    if (dependents.Any())
+                    {
+                        var dependentNames = string.Join(", ", dependents.Select(m => m.Name));
+                        var currentVersion = mod.InstalledVersion != null 
+                            ? (!string.IsNullOrEmpty(mod.InstalledVersion.ReleaseTag) 
+                                ? mod.InstalledVersion.ReleaseTag 
+                                : mod.InstalledVersion.Version)
+                            : "unknown";
+                        
+                        // Get the required version for each dependent
+                        var dependentDetails = new List<string>();
+                        foreach (var dependent in dependents)
+                        {
+                            var deps = _modStore.GetDependencies(dependent.Id);
+                            if (deps != null)
+                            {
+                                var dep = deps.FirstOrDefault(d => 
+                                    string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                                if (dep != null)
+                                {
+                                    var reqVersion = dep.GetRequiredVersion();
+                                    dependentDetails.Add($"{dependent.Name} requires {reqVersion}");
+                                }
+                            }
+                            
+                            // Also check per-version dependencies
+                            if (dependent.InstalledVersion != null)
+                            {
+                                var versionTag = !string.IsNullOrEmpty(dependent.InstalledVersion.ReleaseTag)
+                                    ? dependent.InstalledVersion.ReleaseTag
+                                    : dependent.InstalledVersion.Version;
+                                var versionDeps = _modStore.GetVersionDependencies(dependent.Id, versionTag);
+                                if (versionDeps != null)
+                                {
+                                    var vdep = versionDeps.FirstOrDefault(d => 
+                                        string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                                    if (vdep != null)
+                                    {
+                                        var existingDetail = dependentDetails.FirstOrDefault(d => d.StartsWith(dependent.Name));
+                                        if (existingDetail != null)
+                                        {
+                                            dependentDetails.Remove(existingDetail);
+                                        }
+                                        dependentDetails.Add($"{dependent.Name} requires {vdep.requiredVersion}");
+                                    }
+                                }
+                            }
+                        }
+                        
+                        var message = $"{mod.Name} is a dependency used by other mods:\n\n" +
+                                     string.Join("\n", dependentDetails) +
+                                     $"\n\nCurrent version: {currentVersion}\n\n" +
+                                     "Updating may break compatibility with these mods. Continue?";
+                        
+                        var result = SafeInvoke(() => MessageBox.Show(
+                            message,
+                            "Update Dependency Warning",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Warning));
+                        
+                        if (result == DialogResult.No)
+                            return;
+                    }
+                }
+                
                 // Auto-detect the latest version based on game type and beta settings (like dropdown default)
                 ModVersion updateVersion = null;
                 
@@ -1014,11 +1097,74 @@ namespace BeanModManager
                 string.Equals(m.Id, modId, StringComparison.OrdinalIgnoreCase));
         }
 
-        private ModVersion GetPreferredInstallVersion(Mod mod)
+        private ModVersion GetPreferredInstallVersion(Mod mod, string requiredVersion = null)
         {
             if (mod?.Versions == null || !mod.Versions.Any())
                 return null;
 
+            // If a specific version is required, try to find it
+            if (!string.IsNullOrEmpty(requiredVersion))
+            {
+                var normalizedRequired = NormalizeVersion(requiredVersion);
+                
+                // Check if it's a version range (>=, <=, >, <)
+                bool isRange = requiredVersion.TrimStart().StartsWith(">=") || 
+                              requiredVersion.TrimStart().StartsWith("<=") ||
+                              requiredVersion.TrimStart().StartsWith(">") ||
+                              requiredVersion.TrimStart().StartsWith("<");
+                
+                if (isRange)
+                {
+                    // For ranges, find the best version that satisfies the requirement
+                    var availableVersions = mod.Versions
+                        .Where(v => !string.IsNullOrEmpty(v.DownloadUrl))
+                        .ToList();
+                    
+                    // Try to find a version that satisfies the range
+                    foreach (var version in availableVersions.OrderByDescending(v => v.ReleaseDate))
+                    {
+                        var versionStr = !string.IsNullOrEmpty(version.ReleaseTag) 
+                            ? version.ReleaseTag 
+                            : version.Version;
+                        
+                        if (!string.IsNullOrEmpty(versionStr))
+                        {
+                            var normalizedVersion = NormalizeVersion(versionStr);
+                            if (VersionSatisfiesRequirement(normalizedVersion, requiredVersion))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Found version {versionStr} that satisfies requirement {requiredVersion} for {mod.Name}");
+                                return version;
+                            }
+                        }
+                    }
+                    
+                    System.Diagnostics.Debug.WriteLine($"Warning: No version found for {mod.Name} that satisfies requirement {requiredVersion}, using latest instead");
+                }
+                else
+                {
+                    // Exact version match
+                    // First, try exact match on ReleaseTag
+                    var exactMatch = mod.Versions.FirstOrDefault(v =>
+                        !string.IsNullOrEmpty(v.ReleaseTag) &&
+                        NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.OrdinalIgnoreCase));
+
+                    if (exactMatch != null && !string.IsNullOrEmpty(exactMatch.DownloadUrl))
+                        return exactMatch;
+
+                    // Try match on Version field
+                    exactMatch = mod.Versions.FirstOrDefault(v =>
+                        !string.IsNullOrEmpty(v.Version) &&
+                        NormalizeVersion(v.Version).Equals(normalizedRequired, StringComparison.OrdinalIgnoreCase));
+
+                    if (exactMatch != null && !string.IsNullOrEmpty(exactMatch.DownloadUrl))
+                        return exactMatch;
+
+                    // If exact match not found, log warning but continue with latest
+                    System.Diagnostics.Debug.WriteLine($"Warning: Required version {requiredVersion} not found for {mod.Name}, using latest instead");
+                }
+            }
+
+            // Default behavior: return latest stable version
             var stable = mod.Versions
                 .Where(v => !v.IsPreRelease && !string.IsNullOrEmpty(v.DownloadUrl))
                 .OrderByDescending(v => v.ReleaseDate)
@@ -1092,9 +1238,39 @@ namespace BeanModManager
                         return false;
                     }
 
+                    var requiredVersion = dependency.GetRequiredVersion();
+                    
                     if (depMod.IsInstalled)
                     {
-                        continue;
+                        // Check if the installed version satisfies the requirement
+                        var installedVersionStr = !string.IsNullOrEmpty(depMod.InstalledVersion?.ReleaseTag)
+                            ? depMod.InstalledVersion.ReleaseTag
+                            : depMod.InstalledVersion?.Version;
+                        
+                        if (!string.IsNullOrEmpty(installedVersionStr) && !string.IsNullOrEmpty(requiredVersion))
+                        {
+                            var normalizedInstalled = NormalizeVersion(installedVersionStr);
+                            var satisfies = VersionSatisfiesRequirement(normalizedInstalled, requiredVersion);
+                            
+                            if (satisfies)
+                            {
+                                // Installed version satisfies the requirement - use it as-is
+                                System.Diagnostics.Debug.WriteLine($"Dependency {depMod.Name} is already installed ({installedVersionStr}) and satisfies requirement ({requiredVersion}), skipping installation");
+                                continue;
+                            }
+                            else
+                            {
+                                // Installed version doesn't satisfy the requirement - need to update
+                                System.Diagnostics.Debug.WriteLine($"Dependency {depMod.Name} is installed ({installedVersionStr}) but doesn't satisfy requirement ({requiredVersion}), will update");
+                                // Continue to installation logic below
+                            }
+                        }
+                        else
+                        {
+                            // Can't verify version - skip to avoid breaking existing installation
+                            System.Diagnostics.Debug.WriteLine($"Dependency {depMod.Name} is already installed but version info unavailable, skipping installation");
+                            continue;
+                        }
                     }
 
                     var nestedDependencies = _modStore.GetDependencies(depMod.Id);
@@ -1102,8 +1278,7 @@ namespace BeanModManager
                     {
                         return false;
                     }
-
-                    var depVersion = GetPreferredInstallVersion(depMod);
+                    var depVersion = GetPreferredInstallVersion(depMod, requiredVersion);
                     if (depVersion == null || string.IsNullOrEmpty(depVersion.DownloadUrl))
                     {
                         SafeInvoke(() => MessageBox.Show(
@@ -1403,7 +1578,7 @@ namespace BeanModManager
             var blockingMods = GetInstalledDependents(mod.Id);
             if (blockingMods.Any())
             {
-                var blockingList = string.Join("\n", blockingMods.Select(m => $"• {m.Name}"));
+                var blockingList = string.Join("\n", blockingMods.Select(m => m.Name));
                 MessageBox.Show(
                     $"{mod.Name} cannot be uninstalled because the following mods depend on it:\n\n{blockingList}\n\nPlease uninstall those mods first.",
                     "Dependency Detected",
@@ -1689,6 +1864,1110 @@ namespace BeanModManager
             UpdateStatus("Launched Vanilla Among Us");
         }
 
+        // ==================== Version Conflict Detection & Resolution ====================
+        
+        private class DependencyRequirement
+        {
+            public string DependencyId { get; set; }
+            public string RequiredVersion { get; set; }
+            public string ModId { get; set; }
+            public string ModName { get; set; }
+        }
+
+        private class VersionConflict
+        {
+            public string DependencyId { get; set; }
+            public string DependencyName { get; set; }
+            public List<DependencyRequirement> ConflictingRequirements { get; set; }
+        }
+
+        private Dictionary<string, List<DependencyRequirement>> BuildDependencyGraph(List<Mod> mods)
+        {
+            var graph = new Dictionary<string, List<DependencyRequirement>>(StringComparer.OrdinalIgnoreCase);
+
+            System.Diagnostics.Debug.WriteLine("BuildDependencyGraph: Building dependency graph for mods:");
+            foreach (var mod in mods)
+            {
+                if (mod == null || string.IsNullOrEmpty(mod.Id))
+                    continue;
+
+                System.Diagnostics.Debug.WriteLine($"  Processing {mod.Name} (ID: {mod.Id})");
+
+                // Get the installed version of this mod
+                string modVersion = null;
+                if (mod.InstalledVersion != null)
+                {
+                    modVersion = !string.IsNullOrEmpty(mod.InstalledVersion.ReleaseTag) 
+                        ? mod.InstalledVersion.ReleaseTag 
+                        : mod.InstalledVersion.Version;
+                    System.Diagnostics.Debug.WriteLine($"    Installed version: {modVersion}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"    No installed version - will use default dependencies");
+                }
+
+                // First, check for per-version dependencies
+                List<VersionDependency> versionDeps = null;
+                if (!string.IsNullOrEmpty(modVersion))
+                {
+                    System.Diagnostics.Debug.WriteLine($"    Looking up per-version dependencies for version '{modVersion}'");
+                    versionDeps = _modStore.GetVersionDependencies(mod.Id, modVersion);
+                    System.Diagnostics.Debug.WriteLine($"    Found {versionDeps?.Count ?? 0} per-version dependencies");
+                }
+
+                // Use per-version dependencies if available, otherwise fall back to default dependencies
+                if (versionDeps != null && versionDeps.Any())
+                {
+                    System.Diagnostics.Debug.WriteLine($"    Using per-version dependencies:");
+                    foreach (var versionDep in versionDeps)
+                    {
+                        if (string.IsNullOrEmpty(versionDep.modId))
+                            continue;
+
+                        System.Diagnostics.Debug.WriteLine($"      {versionDep.modId}: {versionDep.requiredVersion}");
+
+                        if (!graph.ContainsKey(versionDep.modId))
+                        {
+                            graph[versionDep.modId] = new List<DependencyRequirement>();
+                        }
+
+                        graph[versionDep.modId].Add(new DependencyRequirement
+                        {
+                            DependencyId = versionDep.modId,
+                            RequiredVersion = versionDep.requiredVersion,
+                            ModId = mod.Id,
+                            ModName = mod.Name
+                        });
+                    }
+                }
+                else
+                {
+                    // Fall back to default dependencies
+                    System.Diagnostics.Debug.WriteLine($"    Using default dependencies");
+                    var dependencies = _modStore.GetDependencies(mod.Id);
+                    if (dependencies != null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"    Found {dependencies.Count} default dependencies");
+                        foreach (var dependency in dependencies)
+                        {
+                            if (string.IsNullOrEmpty(dependency.modId))
+                                continue;
+
+                            var requiredVersion = dependency.GetRequiredVersion();
+                            System.Diagnostics.Debug.WriteLine($"      {dependency.modId}: {requiredVersion ?? "null"}");
+                            
+                            if (!graph.ContainsKey(dependency.modId))
+                            {
+                                graph[dependency.modId] = new List<DependencyRequirement>();
+                            }
+
+                            graph[dependency.modId].Add(new DependencyRequirement
+                            {
+                                DependencyId = dependency.modId,
+                                RequiredVersion = requiredVersion,
+                                ModId = mod.Id,
+                                ModName = mod.Name
+                            });
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"    No dependencies found for {mod.Name}");
+                    }
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine("BuildDependencyGraph: Final graph:");
+            foreach (var kvp in graph)
+            {
+                System.Diagnostics.Debug.WriteLine($"  {kvp.Key}: {kvp.Value.Count} requirement(s)");
+                foreach (var req in kvp.Value)
+                {
+                    System.Diagnostics.Debug.WriteLine($"    {req.ModName} needs {req.RequiredVersion ?? "null"}");
+                }
+            }
+
+            return graph;
+        }
+
+        private List<VersionConflict> DetectVersionConflicts(Dictionary<string, List<DependencyRequirement>> dependencyGraph)
+        {
+            var conflicts = new List<VersionConflict>();
+
+            foreach (var kvp in dependencyGraph)
+            {
+                var dependencyId = kvp.Key;
+                var requirements = kvp.Value;
+
+                if (requirements.Count == 0)
+                    continue;
+
+                // Get the installed version of the dependency
+                var depMod = _availableMods?.FirstOrDefault(m => 
+                    string.Equals(m.Id, dependencyId, StringComparison.OrdinalIgnoreCase));
+                
+                string installedVersion = null;
+                if (depMod?.InstalledVersion != null)
+                {
+                    installedVersion = !string.IsNullOrEmpty(depMod.InstalledVersion.ReleaseTag)
+                        ? depMod.InstalledVersion.ReleaseTag
+                        : depMod.InstalledVersion.Version;
+                    // Normalize to remove 'v' prefix for comparison
+                    installedVersion = NormalizeVersion(installedVersion);
+                }
+
+                // Get all unique requirement strings
+                var allRequirementStrings = requirements
+                    .Where(r => !string.IsNullOrEmpty(r.RequiredVersion))
+                    .Select(r => r.RequiredVersion)
+                    .Distinct()
+                    .ToList();
+
+                if (allRequirementStrings.Count == 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: No requirements specified, skipping");
+                    continue;
+                }
+
+                // If we have multiple unique requirements, check if they're compatible
+                if (allRequirementStrings.Count > 1)
+                {
+                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Found {allRequirementStrings.Count} different requirements: {string.Join(", ", allRequirementStrings)}");
+
+                    // Check if requirements are compatible with each other
+                    // Two requirements are compatible if there exists a version that satisfies both
+                    bool requirementsAreCompatible = AreVersionRequirementsCompatible(allRequirementStrings);
+                    
+                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Requirements compatible? {requirementsAreCompatible}");
+
+                    // If requirements are incompatible, it's a conflict regardless of installed version
+                    if (!requirementsAreCompatible)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  {dependencyId}: CONFLICT DETECTED - requirements are incompatible");
+                        conflicts.Add(new VersionConflict
+                        {
+                            DependencyId = dependencyId,
+                            DependencyName = depMod?.Name ?? dependencyId,
+                            ConflictingRequirements = requirements.ToList()
+                        });
+                        continue;
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Single requirement: {allRequirementStrings[0]}");
+                }
+
+                // Check if installed version satisfies all requirements (whether single or multiple)
+                if (!string.IsNullOrEmpty(installedVersion))
+                {
+                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Checking if installed version '{installedVersion}' satisfies all requirements");
+                    var allSatisfied = true;
+                    var unsatisfiedReqs = new List<DependencyRequirement>();
+
+                    foreach (var req in requirements)
+                    {
+                        if (string.IsNullOrEmpty(req.RequiredVersion))
+                            continue;
+
+                        var satisfies = VersionSatisfiesRequirement(installedVersion, req.RequiredVersion);
+                        System.Diagnostics.Debug.WriteLine($"    {req.ModName} needs {req.RequiredVersion}: {satisfies}");
+                        
+                        if (!satisfies)
+                        {
+                            allSatisfied = false;
+                            unsatisfiedReqs.Add(req);
+                        }
+                    }
+
+                    // If installed version doesn't satisfy all requirements, it's a conflict
+                    if (!allSatisfied)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  {dependencyId}: CONFLICT DETECTED - installed version {installedVersion} doesn't satisfy all requirements");
+                        System.Diagnostics.Debug.WriteLine($"    Unsatisfied requirements: {string.Join(", ", unsatisfiedReqs.Select(r => $"{r.ModName} needs {r.RequiredVersion}"))}");
+                        conflicts.Add(new VersionConflict
+                        {
+                            DependencyId = dependencyId,
+                            DependencyName = depMod?.Name ?? dependencyId,
+                            ConflictingRequirements = requirements.ToList()
+                        });
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  {dependencyId}: No conflict - installed version {installedVersion} satisfies all requirements");
+                    }
+                }
+                else
+                {
+                    // No installed version - if requirements are compatible, no conflict
+                    // (we already checked above, so this shouldn't happen, but just in case)
+                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: No installed version, requirements are compatible - no conflict");
+                }
+            }
+
+            return conflicts;
+        }
+
+        private bool VersionSatisfiesRequirement(string version, string requirement)
+        {
+            if (string.IsNullOrEmpty(version) || string.IsNullOrEmpty(requirement))
+                return true; // No requirement means any version is OK
+
+            var normalizedVersion = NormalizeVersion(version);
+            var normalizedReq = requirement.Trim();
+
+            System.Diagnostics.Debug.WriteLine($"      VersionSatisfiesRequirement: checking if '{normalizedVersion}' satisfies '{normalizedReq}'");
+
+            // Handle version ranges - check longer prefixes first (>= before >)
+            if (normalizedReq.StartsWith(">=", StringComparison.OrdinalIgnoreCase))
+            {
+                var minVersion = NormalizeVersion(normalizedReq.Substring(2).Trim());
+                var result = CompareVersions(normalizedVersion, minVersion) >= 0;
+                System.Diagnostics.Debug.WriteLine($"        >= check: CompareVersions('{normalizedVersion}', '{minVersion}') = {result}");
+                return result;
+            }
+            else if (normalizedReq.StartsWith("<=", StringComparison.OrdinalIgnoreCase))
+            {
+                var maxVersion = NormalizeVersion(normalizedReq.Substring(2).Trim());
+                return CompareVersions(normalizedVersion, maxVersion) <= 0;
+            }
+            else if (normalizedReq.StartsWith(">", StringComparison.OrdinalIgnoreCase))
+            {
+                var minVersion = NormalizeVersion(normalizedReq.Substring(1).Trim());
+                return CompareVersions(normalizedVersion, minVersion) > 0;
+            }
+            else if (normalizedReq.StartsWith("<", StringComparison.OrdinalIgnoreCase))
+            {
+                var maxVersion = NormalizeVersion(normalizedReq.Substring(1).Trim());
+                return CompareVersions(normalizedVersion, maxVersion) < 0;
+            }
+            else
+            {
+                // Exact match
+                return normalizedVersion.Equals(NormalizeVersion(normalizedReq), StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private bool AreVersionRequirementsCompatible(List<string> requirements)
+        {
+            if (requirements.Count <= 1)
+                return true;
+
+            System.Diagnostics.Debug.WriteLine($"    AreVersionRequirementsCompatible: checking {string.Join(", ", requirements)}");
+
+            // Two requirements are compatible if there exists a version that satisfies both
+            // Try to find a version that satisfies all requirements
+            
+            // Get all exact versions
+            var exactVersions = requirements.Where(r => !r.StartsWith(">") && !r.StartsWith("<") && !r.StartsWith("=")).ToList();
+            
+            // If we have multiple different exact versions, they're incompatible
+            if (exactVersions.Count > 1)
+            {
+                var distinctVersions = exactVersions.Select(NormalizeVersion).Distinct().ToList();
+                if (distinctVersions.Count > 1)
+                {
+                    System.Diagnostics.Debug.WriteLine($"      Multiple exact versions found: {string.Join(", ", distinctVersions)} - INCOMPATIBLE");
+                    return false;
+                }
+            }
+
+            // If we have one exact version and ranges, check if the exact version satisfies the ranges
+            if (exactVersions.Count == 1)
+            {
+                var exactVersion = NormalizeVersion(exactVersions[0]);
+                var ranges = requirements.Where(r => r.StartsWith(">") || r.StartsWith("<") || r.StartsWith("=")).ToList();
+                
+                foreach (var range in ranges)
+                {
+                    if (!VersionSatisfiesRequirement(exactVersion, range))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"      Exact version {exactVersion} does not satisfy range {range} - INCOMPATIBLE");
+                        return false;
+                    }
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"      Exact version {exactVersion} satisfies all ranges - COMPATIBLE");
+                return true;
+            }
+
+            // If we only have ranges, check if they overlap
+            // For simplicity, if we have ">=2.3.1" and ">=2.5.0", they're compatible (2.5.0+ satisfies both)
+            // If we have ">=2.5.0" and "2.4.0" (exact), they're incompatible
+            // If we have ">=2.3.1" and "2.4.0" (exact), they're compatible (2.4.0 satisfies >=2.3.1)
+            
+            var minVersions = new List<string>();
+            var maxVersions = new List<string>();
+            
+            foreach (var req in requirements)
+            {
+                if (req.StartsWith(">="))
+                {
+                    minVersions.Add(NormalizeVersion(req.Substring(2).Trim()));
+                }
+                else if (req.StartsWith(">"))
+                {
+                    // For ">2.3.0", minimum is effectively "2.3.1" (next version)
+                    var v = NormalizeVersion(req.Substring(1).Trim());
+                    minVersions.Add(v);
+                }
+                else if (req.StartsWith("<="))
+                {
+                    maxVersions.Add(NormalizeVersion(req.Substring(2).Trim()));
+                }
+                else if (req.StartsWith("<"))
+                {
+                    maxVersions.Add(NormalizeVersion(req.Substring(1).Trim()));
+                }
+            }
+
+            // If we have minimums and maximums, check if there's overlap
+            if (minVersions.Any() && maxVersions.Any())
+            {
+                var maxMin = minVersions.OrderByDescending(v => v, new VersionComparer()).FirstOrDefault();
+                var minMax = maxVersions.OrderBy(v => v, new VersionComparer()).FirstOrDefault();
+                
+                if (maxMin != null && minMax != null)
+                {
+                    var compatible = CompareVersions(maxMin, minMax) <= 0;
+                    System.Diagnostics.Debug.WriteLine($"      Range overlap check: maxMin={maxMin}, minMax={minMax}, compatible={compatible}");
+                    return compatible;
+                }
+            }
+
+            // If we only have minimums, they're compatible (use the highest minimum)
+            if (minVersions.Any() && !maxVersions.Any())
+            {
+                System.Diagnostics.Debug.WriteLine($"      Only minimums found - COMPATIBLE (use highest: {minVersions.OrderByDescending(v => v, new VersionComparer()).First()})");
+                return true;
+            }
+
+            // If we only have maximums, they're compatible (use the lowest maximum)
+            if (maxVersions.Any() && !minVersions.Any())
+            {
+                System.Diagnostics.Debug.WriteLine($"      Only maximums found - COMPATIBLE (use lowest: {maxVersions.OrderBy(v => v, new VersionComparer()).First()})");
+                return true;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"      Could not determine compatibility - assuming INCOMPATIBLE");
+            return false;
+        }
+
+        private class VersionComparer : IComparer<string>
+        {
+            public int Compare(string x, string y)
+            {
+                return CompareVersions(x, y);
+            }
+        }
+
+        private static int CompareVersions(string v1, string v2)
+        {
+            if (string.IsNullOrEmpty(v1) && string.IsNullOrEmpty(v2)) return 0;
+            if (string.IsNullOrEmpty(v1)) return -1;
+            if (string.IsNullOrEmpty(v2)) return 1;
+
+            // Simple version comparison - split by dots and compare numerically
+            var parts1 = v1.Split('.');
+            var parts2 = v2.Split('.');
+
+            int maxLength = Math.Max(parts1.Length, parts2.Length);
+            for (int i = 0; i < maxLength; i++)
+            {
+                // Try to parse as integer, if fails try to compare as string
+                int part1 = 0, part2 = 0;
+                bool parsed1 = i < parts1.Length && int.TryParse(parts1[i], out part1);
+                bool parsed2 = i < parts2.Length && int.TryParse(parts2[i], out part2);
+
+                if (parsed1 && parsed2)
+                {
+                    if (part1 < part2) return -1;
+                    if (part1 > part2) return 1;
+                }
+                else if (parsed1)
+                {
+                    // v1 has number, v2 doesn't - v1 is greater
+                    return 1;
+                }
+                else if (parsed2)
+                {
+                    // v2 has number, v1 doesn't - v2 is greater
+                    return -1;
+                }
+                else
+                {
+                    // Both are non-numeric, compare as strings
+                    var s1 = i < parts1.Length ? parts1[i] : "";
+                    var s2 = i < parts2.Length ? parts2[i] : "";
+                    var cmp = string.Compare(s1, s2, StringComparison.OrdinalIgnoreCase);
+                    if (cmp != 0) return cmp;
+                }
+            }
+
+            return 0;
+        }
+
+        private string NormalizeVersion(string version)
+        {
+            if (string.IsNullOrEmpty(version))
+                return version;
+
+            // Remove 'v' prefix if present
+            return version.TrimStart('v', 'V');
+        }
+
+        private bool ValidateDependencyVersionsBeforeLaunch(List<Mod> mods, out List<VersionConflict> conflicts)
+        {
+            conflicts = new List<VersionConflict>();
+
+            if (mods == null || !mods.Any())
+                return true;
+
+            var dependencyGraph = BuildDependencyGraph(mods);
+            conflicts = DetectVersionConflicts(dependencyGraph);
+
+            return conflicts.Count == 0;
+        }
+
+        private async Task<bool> ResolveVersionConflictsAsync(List<Mod> mods, List<VersionConflict> conflicts)
+        {
+            if (conflicts == null || !conflicts.Any())
+                return true;
+
+            // Build simple conflict message
+            var conflictSummary = new List<string>();
+            foreach (var conflict in conflicts)
+            {
+                var modNames = conflict.ConflictingRequirements.Select(r => r.ModName).Distinct().ToList();
+                var versions = conflict.ConflictingRequirements.Select(r => r.RequiredVersion).Distinct().ToList();
+                conflictSummary.Add($"{string.Join(" & ", modNames)} need different versions of {conflict.DependencyName}");
+            }
+
+            var message = "Version Conflict Detected\n\n" +
+                         string.Join("\n", conflictSummary) +
+                         "\n\nSearch for compatible versions automatically?";
+
+            var result = SafeInvoke(() => MessageBox.Show(
+                message,
+                "Version Conflict",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning));
+
+            if (result == DialogResult.No)
+                return false;
+
+            // Try to find compatible versions
+            UpdateStatus("Searching for compatible mod versions...");
+            var foundCompatible = await FindCompatibleVersionsAsync(mods, conflicts);
+            
+            return foundCompatible;
+        }
+
+        private async Task<bool> FindCompatibleVersionsAsync(List<Mod> mods, List<VersionConflict> conflicts)
+        {
+            var compatibleSolutions = new List<string>();
+            var modsToUpdate = new Dictionary<string, ModVersion>();
+
+            foreach (var conflict in conflicts)
+            {
+                System.Diagnostics.Debug.WriteLine($"Processing conflict for {conflict.DependencyName}:");
+                foreach (var req in conflict.ConflictingRequirements)
+                {
+                    System.Diagnostics.Debug.WriteLine($"  {req.ModName} needs {req.RequiredVersion}");
+                }
+
+                // Group mods by their required version
+                var versionGroups = conflict.ConflictingRequirements
+                    .GroupBy(r => r.RequiredVersion)
+                    .ToList();
+
+                if (versionGroups.Count < 2)
+                {
+                    System.Diagnostics.Debug.WriteLine($"  Only {versionGroups.Count} version group(s), skipping");
+                    continue;
+                }
+
+                // Find the target dependency version - prefer exact versions over ranges (they're more restrictive)
+                // Also prefer versions that more mods need
+                var exactVersions = versionGroups.Where(g => !g.Key.StartsWith(">") && !g.Key.StartsWith("<")).ToList();
+                IGrouping<string, DependencyRequirement> targetGroup;
+                
+                if (exactVersions.Any())
+                {
+                    // Prefer exact version that most mods need
+                    targetGroup = exactVersions.OrderByDescending(g => g.Count()).First();
+                }
+                else
+                {
+                    // No exact versions, use the range that most mods need
+                    targetGroup = versionGroups.OrderByDescending(g => g.Count()).First();
+                }
+                
+                var targetDepVersion = targetGroup.Key;
+                System.Diagnostics.Debug.WriteLine($"  Target dependency version: {targetDepVersion} (needed by {targetGroup.Count()} mod(s))");
+                
+                // Get ALL mods that need a different version (not just from second group)
+                var allModIds = conflict.ConflictingRequirements.Select(r => r.ModId).Distinct().ToList();
+                var modsNeedingTargetVersion = targetGroup.Select(r => r.ModId).Distinct().ToList();
+                var modsNeedingOtherVersions = allModIds.Where(id => !modsNeedingTargetVersion.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+                
+                System.Diagnostics.Debug.WriteLine($"  Mods needing target version ({targetDepVersion}): {string.Join(", ", modsNeedingTargetVersion)}");
+                System.Diagnostics.Debug.WriteLine($"  Mods needing other versions: {string.Join(", ", modsNeedingOtherVersions)}");
+
+                // For each mod that needs a different version, try to find a compatible mod version
+                foreach (var modId in modsNeedingOtherVersions)
+                {
+                    var mod = _availableMods?.FirstOrDefault(m => 
+                        string.Equals(m.Id, modId, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (mod == null)
+                        continue;
+
+                    // Fetch all versions if not already fetched
+                    System.Diagnostics.Debug.WriteLine($"  Mod {mod.Name} has {mod.Versions.Count} versions");
+                    if (mod.Versions.Count <= 1)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  Fetching all versions for {mod.Name}...");
+                        var installedModIds = new HashSet<string> { modId };
+                        await _modStore.GetAvailableModsWithAllVersions(installedModIds);
+                        System.Diagnostics.Debug.WriteLine($"  Now has {mod.Versions.Count} versions");
+                    }
+
+                    // Check each version of this mod to find one compatible with target dependency version
+                    ModVersion compatibleVersion = null;
+                    System.Diagnostics.Debug.WriteLine($"Searching for compatible version of {mod.Name} that works with {conflict.DependencyName} {targetDepVersion}");
+                    System.Diagnostics.Debug.WriteLine($"  Available versions: {string.Join(", ", mod.Versions.Select(v => v.ReleaseTag ?? v.Version))}");
+                    
+                    foreach (var version in mod.Versions.OrderByDescending(v => v.ReleaseDate))
+                    {
+                        var versionTag = !string.IsNullOrEmpty(version.ReleaseTag) 
+                            ? version.ReleaseTag 
+                            : version.Version;
+
+                        if (string.IsNullOrEmpty(versionTag))
+                            continue;
+
+                        System.Diagnostics.Debug.WriteLine($"  Checking {mod.Name} version {versionTag}...");
+
+                        // Get per-version dependencies for this mod version
+                        System.Diagnostics.Debug.WriteLine($"    Looking up version dependencies for tag: '{versionTag}'");
+                        var versionDeps = _modStore.GetVersionDependencies(mod.Id, versionTag);
+                        System.Diagnostics.Debug.WriteLine($"    Per-version deps found: {versionDeps?.Count ?? 0}");
+                        if (versionDeps != null && versionDeps.Any())
+                        {
+                            foreach (var vdep in versionDeps)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"      - {vdep.modId}: {vdep.requiredVersion}");
+                            }
+                        }
+                        
+                        // Check if this version's Reactor requirement is compatible with target
+                        var reactorDep = versionDeps?.FirstOrDefault(d => 
+                            string.Equals(d.modId, conflict.DependencyId, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (reactorDep != null)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"    Found per-version dependency: {conflict.DependencyName} {reactorDep.requiredVersion}");
+                            // Check if target dependency version satisfies this mod version's requirement
+                            // e.g., if mod needs ">=2.3.1" and we have 2.4.0, that works
+                            // VersionSatisfiesRequirement checks if the first version satisfies the second requirement
+                            var isCompatible = VersionSatisfiesRequirement(targetDepVersion, reactorDep.requiredVersion);
+                            System.Diagnostics.Debug.WriteLine($"    Checking compatibility: VersionSatisfiesRequirement('{targetDepVersion}', '{reactorDep.requiredVersion}') = {isCompatible}");
+                            
+                            if (isCompatible)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"    COMPATIBLE FOUND: {mod.Name} {versionTag} works with {conflict.DependencyName} {targetDepVersion}");
+                                compatibleVersion = version;
+                                break;
+                            }
+                            else
+                            {
+                                System.Diagnostics.Debug.WriteLine($"    Not compatible: {targetDepVersion} does not satisfy {reactorDep.requiredVersion}");
+                            }
+                        }
+                        else
+                        {
+                            // No per-version deps, check default dependencies
+                            var defaultDeps = _modStore.GetDependencies(mod.Id);
+                            var defaultReactorDep = defaultDeps?.FirstOrDefault(d => 
+                                string.Equals(d.modId, conflict.DependencyId, StringComparison.OrdinalIgnoreCase));
+                            
+                            if (defaultReactorDep != null)
+                            {
+                                var reqVersion = defaultReactorDep.GetRequiredVersion();
+                                System.Diagnostics.Debug.WriteLine($"    Using default dependency: {conflict.DependencyName} {reqVersion}");
+                                // Check if target dependency version satisfies this mod version's requirement
+                                var isCompatible = VersionSatisfiesRequirement(targetDepVersion, reqVersion);
+                                System.Diagnostics.Debug.WriteLine($"    Checking compatibility: VersionSatisfiesRequirement('{targetDepVersion}', '{reqVersion}') = {isCompatible}");
+                                
+                                if (isCompatible)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"    COMPATIBLE FOUND: {mod.Name} {versionTag} works with {conflict.DependencyName} {targetDepVersion}");
+                                    compatibleVersion = version;
+                                    break;
+                                }
+                                else
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"    Not compatible: {targetDepVersion} does not satisfy {reqVersion}");
+                                }
+                            }
+                            else
+                            {
+                                // No dependency requirement for this mod version - it's compatible
+                                System.Diagnostics.Debug.WriteLine($"    No dependency requirement - assuming compatible");
+                                compatibleVersion = version;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (compatibleVersion != null)
+                    {
+                        var versionTag = !string.IsNullOrEmpty(compatibleVersion.ReleaseTag) 
+                            ? compatibleVersion.ReleaseTag 
+                            : compatibleVersion.Version;
+                        
+                        // Check if this version is already installed
+                        var isAlreadyInstalled = false;
+                        if (mod.IsInstalled && mod.InstalledVersion != null)
+                        {
+                            var installedTag = !string.IsNullOrEmpty(mod.InstalledVersion.ReleaseTag)
+                                ? mod.InstalledVersion.ReleaseTag
+                                : mod.InstalledVersion.Version;
+                            
+                            // Compare normalized versions
+                            var normalizedInstalled = NormalizeVersion(installedTag);
+                            var normalizedCompatible = NormalizeVersion(versionTag);
+                            
+                            isAlreadyInstalled = string.Equals(normalizedInstalled, normalizedCompatible, StringComparison.OrdinalIgnoreCase);
+                        }
+                        
+                        if (isAlreadyInstalled)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"  {mod.Name} {versionTag} is already installed, skipping");
+                            compatibleSolutions.Add(
+                                $"{mod.Name} {versionTag} is already installed and compatible");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"  FOUND COMPATIBLE: {mod.Name} {versionTag} works with {conflict.DependencyName} {targetDepVersion}");
+                            compatibleSolutions.Add(
+                                $"{mod.Name} {versionTag} is compatible with {conflict.DependencyName} {targetDepVersion}");
+                            
+                            modsToUpdate[mod.Id] = compatibleVersion;
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  NO COMPATIBLE VERSION FOUND for {mod.Name}");
+                        compatibleSolutions.Add(
+                            $"Could not find compatible version of {mod.Name} for {conflict.DependencyName} {targetDepVersion}");
+                    }
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"Compatible version search complete:");
+            System.Diagnostics.Debug.WriteLine($"  Solutions found: {compatibleSolutions.Count}");
+            System.Diagnostics.Debug.WriteLine($"  Mods to update: {modsToUpdate.Count}");
+            
+            // Also track which dependency versions need to be installed
+            var dependencyVersionsToInstall = new Dictionary<string, string>();
+            System.Diagnostics.Debug.WriteLine($"  Checking dependency versions to install...");
+            
+            foreach (var conflict in conflicts)
+            {
+                // Find the target dependency version for this conflict
+                var versionGroups = conflict.ConflictingRequirements
+                    .GroupBy(r => r.RequiredVersion)
+                    .ToList();
+                
+                // Even with a single requirement, we need to check if the installed version satisfies it
+                // If not, we need to update the dependency to the required version
+                if (versionGroups.Count == 0)
+                    continue;
+                
+                // Determine target dependency version
+                // For single requirement, use it directly
+                // For multiple requirements, prefer exact versions
+                string targetDepVersion;
+                if (versionGroups.Count == 1)
+                {
+                    // Single requirement - use it as the target
+                    targetDepVersion = versionGroups[0].Key;
+                    System.Diagnostics.Debug.WriteLine($"  Single requirement: {targetDepVersion}");
+                }
+                else
+                {
+                    // Multiple requirements - prefer exact versions
+                    var exactVersions = versionGroups.Where(g => !g.Key.StartsWith(">") && !g.Key.StartsWith("<")).ToList();
+                    IGrouping<string, DependencyRequirement> targetGroup;
+                    
+                    if (exactVersions.Any())
+                    {
+                        targetGroup = exactVersions.OrderByDescending(g => g.Count()).First();
+                    }
+                    else
+                    {
+                        targetGroup = versionGroups.OrderByDescending(g => g.Count()).First();
+                    }
+                    
+                    targetDepVersion = targetGroup.Key;
+                }
+                
+                // Check if we need to install/update the dependency
+                var depMod = _availableMods?.FirstOrDefault(m => 
+                    string.Equals(m.Id, conflict.DependencyId, StringComparison.OrdinalIgnoreCase));
+                
+                if (depMod != null)
+                {
+                    var installedVersionStr = depMod.InstalledVersion != null
+                        ? (!string.IsNullOrEmpty(depMod.InstalledVersion.ReleaseTag)
+                            ? depMod.InstalledVersion.ReleaseTag
+                            : depMod.InstalledVersion.Version)
+                        : null;
+                    
+                    if (!string.IsNullOrEmpty(installedVersionStr))
+                    {
+                        var normalizedInstalled = NormalizeVersion(installedVersionStr);
+                        var satisfies = VersionSatisfiesRequirement(normalizedInstalled, targetDepVersion);
+                        
+                        if (!satisfies)
+                        {
+                            // Need to install/update the dependency to the target version
+                            dependencyVersionsToInstall[conflict.DependencyId] = targetDepVersion;
+                            System.Diagnostics.Debug.WriteLine($"  Will install/update {conflict.DependencyName} from {installedVersionStr} to {targetDepVersion}");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"  {conflict.DependencyName} is already at compatible version {installedVersionStr} (satisfies {targetDepVersion})");
+                        }
+                    }
+                    else
+                    {
+                        // No installed version, need to install
+                        dependencyVersionsToInstall[conflict.DependencyId] = targetDepVersion;
+                        System.Diagnostics.Debug.WriteLine($"  Will install {conflict.DependencyName} version {targetDepVersion}");
+                    }
+                }
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"  Dependency versions to install: {dependencyVersionsToInstall.Count}");
+            System.Diagnostics.Debug.WriteLine($"  Condition check: compatibleSolutions.Any()={compatibleSolutions.Any()}, modsToUpdate.Any()={modsToUpdate.Any()}, dependencyVersionsToInstall.Any()={dependencyVersionsToInstall.Any()}");
+            
+            // If we only need to update dependencies (no mod versions to change), add a solution message
+            if (!compatibleSolutions.Any() && dependencyVersionsToInstall.Any())
+            {
+                foreach (var kvp in dependencyVersionsToInstall)
+                {
+                    var depMod = _availableMods?.FirstOrDefault(m => 
+                        string.Equals(m.Id, kvp.Key, StringComparison.OrdinalIgnoreCase));
+                    if (depMod != null)
+                    {
+                        compatibleSolutions.Add(
+                            $"Update {depMod.Name} to {kvp.Value} to resolve conflict");
+                    }
+                }
+            }
+            
+            // Check if we have any solutions (compatible mods found) and either mods to update or dependencies to install
+            if (compatibleSolutions.Any() && (modsToUpdate.Any() || dependencyVersionsToInstall.Any()))
+            {
+                System.Diagnostics.Debug.WriteLine($"  Found {modsToUpdate.Count} mod(s) to update and {dependencyVersionsToInstall.Count} dependency(ies) to install!");
+                
+                // Build solution message - only show mods that need to be updated
+                var compatibleList = compatibleSolutions.Where(s => s.Contains("is compatible") && !s.Contains("already installed")).ToList();
+                var alreadyInstalledList = compatibleSolutions.Where(s => s.Contains("already installed")).ToList();
+                var dependencyUpdateList = compatibleSolutions.Where(s => s.Contains("Update") && s.Contains("to resolve conflict")).ToList();
+                
+                var solutionText = "Version Conflict Resolved\n\n";
+                
+                if (compatibleList.Any())
+                {
+                    solutionText += "Will update:\n" + string.Join("\n", compatibleList);
+                }
+                
+                if (alreadyInstalledList.Any())
+                {
+                    if (compatibleList.Any())
+                        solutionText += "\n\n";
+                    solutionText += "Already compatible:\n" + string.Join("\n", alreadyInstalledList);
+                }
+                
+                if (dependencyVersionsToInstall.Any())
+                {
+                    var depList = dependencyVersionsToInstall.Select(kvp => 
+                    {
+                        var depMod = _availableMods?.FirstOrDefault(m => 
+                            string.Equals(m.Id, kvp.Key, StringComparison.OrdinalIgnoreCase));
+                        var currentVersion = depMod?.InstalledVersion != null
+                            ? (!string.IsNullOrEmpty(depMod.InstalledVersion.ReleaseTag)
+                                ? depMod.InstalledVersion.ReleaseTag
+                                : depMod.InstalledVersion.Version)
+                            : "not installed";
+                        return $"{depMod?.Name ?? kvp.Key} from {currentVersion} to {kvp.Value}";
+                    });
+                    
+                    if (compatibleList.Any() || alreadyInstalledList.Any())
+                        solutionText += "\n\n";
+                    solutionText += "Will update:\n" + string.Join("\n", depList);
+                }
+                else if (dependencyUpdateList.Any())
+                {
+                    // Only dependency updates needed
+                    solutionText += "Will update:\n" + string.Join("\n", dependencyUpdateList);
+                }
+                
+                if (!compatibleList.Any() && !dependencyVersionsToInstall.Any())
+                {
+                    // Nothing to update, just show what's already compatible
+                    solutionText = "Version Conflict Resolved\n\n" +
+                        "All mods are already at compatible versions:\n" +
+                        string.Join("\n", alreadyInstalledList);
+                    
+                    SafeInvoke(() => MessageBox.Show(
+                        solutionText,
+                        "Conflict Resolved",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information));
+                    return true;
+                }
+                
+                solutionText += "\n\nInstall these versions now?";
+
+                var result = SafeInvoke(() => MessageBox.Show(
+                    solutionText,
+                    "Compatible Versions Found",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question));
+
+                if (result == DialogResult.Yes)
+                {
+                    // First, install/update dependencies to target versions
+                    foreach (var kvp in dependencyVersionsToInstall)
+                    {
+                        var depMod = _availableMods?.FirstOrDefault(m => 
+                            string.Equals(m.Id, kvp.Key, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (depMod == null)
+                            continue;
+                        
+                        var targetVersion = kvp.Value;
+                        UpdateStatus($"Installing {depMod.Name} {targetVersion}...");
+                        
+                        var depVersion = GetPreferredInstallVersion(depMod, targetVersion);
+                        if (depVersion != null && !string.IsNullOrEmpty(depVersion.DownloadUrl))
+                        {
+                            // Uninstall current version if installed
+                            if (depMod.IsInstalled)
+                            {
+                                var depStoragePath = Path.Combine(GetModsFolder(), depMod.Id);
+                                if (Directory.Exists(depStoragePath))
+                                {
+                                    try
+                                    {
+                                        Directory.Delete(depStoragePath, true);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        System.Diagnostics.Debug.WriteLine($"Warning: Could not delete dependency folder {depStoragePath}: {ex.Message}");
+                                    }
+                                }
+                                depMod.IsInstalled = false;
+                                depMod.InstalledVersion = null;
+                            }
+                            
+                            // Install the target version
+                            try
+                            {
+                                var depStoragePath = Path.Combine(GetModsFolder(), depMod.Id);
+                                Directory.CreateDirectory(depStoragePath);
+                                
+                                var nestedDependencies = _modStore.GetDependencies(depMod.Id);
+                                if (nestedDependencies != null && nestedDependencies.Any(d => !string.IsNullOrEmpty(d.modId)))
+                                {
+                                    await InstallDependencyModsAsync(depMod, nestedDependencies).ConfigureAwait(false);
+                                }
+                                
+                                var depPackageType = _modStore.GetPackageType(depMod.Id);
+                                var downloaded = await _modDownloader.DownloadMod(depMod, depVersion, depStoragePath, nestedDependencies, depPackageType, null).ConfigureAwait(false);
+                                
+                                if (downloaded)
+                                {
+                                    depMod.IsInstalled = true;
+                                    depMod.InstalledVersion = depVersion;
+                                    
+                                    var versionToSave = !string.IsNullOrEmpty(depVersion.ReleaseTag) 
+                                        ? depVersion.ReleaseTag 
+                                        : depVersion.Version;
+                                    _config.AddInstalledMod(depMod.Id, versionToSave);
+                                    await _config.SaveAsync().ConfigureAwait(false);
+                                    
+                                    UpdateStatus($"{depMod.Name} {targetVersion} installed successfully!");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Error installing {depMod.Name}: {ex.Message}");
+                            }
+                        }
+                    }
+                    
+                    // Install compatible versions automatically
+                    UpdateStatus("Installing compatible mod versions...");
+                    
+                    foreach (var kvp in modsToUpdate)
+                    {
+                        var mod = _availableMods?.FirstOrDefault(m => 
+                            string.Equals(m.Id, kvp.Key, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (mod == null)
+                            continue;
+
+                        var versionToInstall = kvp.Value;
+                        var versionTag = !string.IsNullOrEmpty(versionToInstall.ReleaseTag) 
+                            ? versionToInstall.ReleaseTag 
+                            : versionToInstall.Version;
+
+                        UpdateStatus($"Installing {mod.Name} {versionTag}...");
+                        
+                        // Uninstall current version if installed
+                        if (mod.IsInstalled)
+                        {
+                            var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
+                            if (Directory.Exists(modStoragePath))
+                            {
+                                try
+                                {
+                                    Directory.Delete(modStoragePath, true);
+                                }
+                                catch (Exception ex)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Warning: Could not delete mod folder {modStoragePath}: {ex.Message}");
+                                }
+                            }
+                            mod.IsInstalled = false;
+                            mod.InstalledVersion = null;
+                        }
+
+                        // Install the compatible version
+                        try
+                        {
+                            var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
+                            Directory.CreateDirectory(modStoragePath);
+
+                            // Get dependencies for the specific version being installed
+                            var versionDeps = _modStore.GetVersionDependencies(mod.Id, versionTag);
+                            List<Dependency> dependencies = null;
+                            
+                            if (versionDeps != null && versionDeps.Any())
+                            {
+                                // Convert VersionDependency to Dependency for installation
+                                var defaultDeps = _modStore.GetDependencies(mod.Id);
+                                dependencies = versionDeps.Select(vd => 
+                                {
+                                    var defaultDep = defaultDeps?.FirstOrDefault(d => 
+                                        string.Equals(d.modId, vd.modId, StringComparison.OrdinalIgnoreCase));
+                                    
+                                    if (defaultDep != null)
+                                    {
+                                        // Create a new dependency with the version requirement
+                                        return new Dependency
+                                        {
+                                            modId = vd.modId,
+                                            name = defaultDep.name,
+                                            fileName = defaultDep.fileName,
+                                            githubOwner = defaultDep.githubOwner,
+                                            githubRepo = defaultDep.githubRepo,
+                                            requiredVersion = vd.requiredVersion,
+                                            optional = false
+                                        };
+                                    }
+                                    return null;
+                                }).Where(d => d != null).ToList();
+                            }
+                            
+                            // Fall back to default dependencies if no per-version deps
+                            if (dependencies == null || !dependencies.Any())
+                            {
+                                dependencies = _modStore.GetDependencies(mod.Id);
+                            }
+                            
+                            if (dependencies != null && dependencies.Any(d => !string.IsNullOrEmpty(d.modId)))
+                            {
+                                var dependencyInstalled = await InstallDependencyModsAsync(mod, dependencies).ConfigureAwait(false);
+                                if (!dependencyInstalled)
+                                {
+                                    UpdateStatus($"Failed to install dependencies for {mod.Name}");
+                                    continue;
+                                }
+                            }
+
+                            var packageType = _modStore.GetPackageType(mod.Id);
+                            var dontInclude = _modStore.GetDontInclude(mod.Id);
+                            var downloaded = await _modDownloader.DownloadMod(mod, versionToInstall, modStoragePath, dependencies, packageType, dontInclude).ConfigureAwait(false);
+                            
+                            if (downloaded)
+                            {
+                                mod.IsInstalled = true;
+                                mod.InstalledVersion = versionToInstall;
+                                
+                                var versionToSave = !string.IsNullOrEmpty(versionToInstall.ReleaseTag) 
+                                    ? versionToInstall.ReleaseTag 
+                                    : versionToInstall.Version;
+                                _config.AddInstalledMod(mod.Id, versionToSave);
+                                await _config.SaveAsync().ConfigureAwait(false);
+                                
+                                UpdateStatus($"{mod.Name} {versionTag} installed successfully!");
+                            }
+                            else
+                            {
+                                SafeInvoke(() => MessageBox.Show(
+                                    $"Failed to download {mod.Name} {versionTag}.",
+                                    "Installation Failed",
+                                    MessageBoxButtons.OK,
+                                    MessageBoxIcon.Error));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error installing {mod.Name}: {ex.Message}");
+                            SafeInvoke(() => MessageBox.Show(
+                                $"Error installing {mod.Name}: {ex.Message}",
+                                "Installation Error",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Error));
+                        }
+                    }
+                    
+                    UpdateStatus("Compatible versions installed. You can now launch the mods.");
+                    
+                    // Refresh the UI to show updated mod versions
+                    SafeInvoke(RefreshModCards);
+                    
+                    return true;
+                }
+                else
+                {
+                    return false; // User cancelled
+                }
+            }
+            else if (compatibleSolutions.Any())
+            {
+                // Some solutions found but none are installable
+                var message = "Could not find compatible versions automatically.\n\n" +
+                    "Please manually install compatible versions or resolve the conflict.";
+                
+                SafeInvoke(() => MessageBox.Show(
+                    message,
+                    "No Compatible Versions Found",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information));
+            }
+
+            return false;
+        }
+
         private async void LaunchGameWithMod(Mod mod)
         {
             if (mod == null)
@@ -1799,6 +3078,17 @@ namespace BeanModManager
                         .Where(m => !IsBetterCrewLink(m))
                         .ToList();
 
+                    // Pre-launch validation: Check for version conflicts (including depot mods)
+                    if (!ValidateDependencyVersionsBeforeLaunch(mods, out var depotConflicts))
+                    {
+                        var resolved = await ResolveVersionConflictsAsync(mods, depotConflicts);
+                        if (!resolved)
+                        {
+                            UpdateStatus("Launch cancelled due to version conflicts.");
+                            return;
+                        }
+                    }
+
                     LaunchModWithDepot(depotMods[0], supportingMods);
                     return;
                 }
@@ -1812,6 +3102,20 @@ namespace BeanModManager
                 }
 
                 UpdateStatus($"Preparing {mods.Count} mod(s)...");
+                
+                // Pre-launch validation: Check for version conflicts
+                // This validates all mods in the list, including dependencies and their dependencies,
+                // to ensure all dependency versions are compatible with each other
+                if (!ValidateDependencyVersionsBeforeLaunch(mods, out var conflicts))
+                {
+                    var resolved = await ResolveVersionConflictsAsync(mods, conflicts);
+                    if (!resolved)
+                    {
+                        UpdateStatus("Launch cancelled due to version conflicts.");
+                        return;
+                    }
+                }
+                
                 CleanPluginsFolder(pluginsPath);
 
                 foreach (var mod in mods)
@@ -1819,9 +3123,63 @@ namespace BeanModManager
                     if (string.Equals(mod?.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    // Skip dependency mods if their files already exist in another mod folder
+                    // Skip dependency mods if they're optional or if their files already exist in another mod folder
                     if (IsDependencyMod(mod))
                     {
+                        // Check if this dependency is marked as optional in any of the mods that depend on it
+                        bool isOptional = false;
+                        foreach (var otherMod in mods)
+                        {
+                            if (otherMod.Id == mod.Id || IsDependencyMod(otherMod))
+                                continue;
+                            
+                            var dependencies = _modStore.GetDependencies(otherMod.Id);
+                            if (dependencies != null)
+                            {
+                                var dep = dependencies.FirstOrDefault(d => 
+                                    string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                                if (dep != null && dep.optional)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - marked as optional dependency for {otherMod.Name}");
+                                    isOptional = true;
+                                    break;
+                                }
+                            }
+                            
+                            // Also check per-version dependencies
+                            if (otherMod.InstalledVersion != null)
+                            {
+                                var versionTag = !string.IsNullOrEmpty(otherMod.InstalledVersion.ReleaseTag)
+                                    ? otherMod.InstalledVersion.ReleaseTag
+                                    : otherMod.InstalledVersion.Version;
+                                var versionDeps = _modStore.GetVersionDependencies(otherMod.Id, versionTag);
+                                if (versionDeps != null)
+                                {
+                                    var vdep = versionDeps.FirstOrDefault(d => 
+                                        string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                                    if (vdep != null)
+                                    {
+                                        // Check if the default dependency is optional
+                                        var defaultDeps = _modStore.GetDependencies(otherMod.Id);
+                                        var defaultDep = defaultDeps?.FirstOrDefault(d => 
+                                            string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                                        if (defaultDep != null && defaultDep.optional)
+                                        {
+                                            System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - marked as optional dependency for {otherMod.Name}");
+                                            isOptional = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (isOptional)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - optional dependency, not copying");
+                            continue;
+                        }
+                        
                         var dependencyFiles = GetDependencyFiles(mod);
                         bool alreadyExists = false;
                         
@@ -2263,6 +3621,86 @@ namespace BeanModManager
                     return;
                 }
 
+                // Copy non-depot mods to BepInEx/plugins in the depot folder
+                var depotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
+                if (!Directory.Exists(depotPluginsPath))
+                {
+                    Directory.CreateDirectory(depotPluginsPath);
+                }
+                
+                // Clean the depot plugins folder before copying mods
+                // This ensures unselected mods are removed
+                CleanPluginsFolder(depotPluginsPath);
+                
+                // Copy the main depot mod's files AFTER cleaning
+                // This ensures it's included with the supporting mods
+                UpdateStatus($"Adding {mod.Name} to depot build...");
+                
+                // Check mod structure
+                var mainModDllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
+                var mainModHasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
+                var mainModHasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
+                
+                if (mainModDllFiles.Any() && !mainModHasBepInExStructure && !mainModHasSubdirectories)
+                {
+                    // DLL-only mod - copy DLLs directly to plugins
+                    foreach (var dllFile in mainModDllFiles)
+                    {
+                        var fileName = Path.GetFileName(dllFile);
+                        var destPath = Path.Combine(depotPluginsPath, fileName);
+                        try
+                        {
+                            if (File.Exists(destPath))
+                            {
+                                File.SetAttributes(destPath, FileAttributes.Normal);
+                                File.Delete(destPath);
+                            }
+                            File.Copy(dllFile, destPath, true);
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
+                        }
+                    }
+                }
+                else if (mainModHasBepInExStructure)
+                {
+                    // Mod has BepInEx structure - copy entire BepInEx structure
+                    var sourceBepInExPath = Path.Combine(modStoragePath, "BepInEx");
+                    var destBepInExPath = Path.Combine(depotPath, "BepInEx");
+                    _steamDepotService.CopyDirectoryContents(sourceBepInExPath, destBepInExPath, true);
+                }
+                else
+                {
+                    // Other structure - try to copy any DLLs or copy entire mod structure
+                    if (mainModDllFiles.Any())
+                    {
+                        foreach (var dllFile in mainModDllFiles)
+                        {
+                            var fileName = Path.GetFileName(dllFile);
+                            var destPath = Path.Combine(depotPluginsPath, fileName);
+                            try
+                            {
+                                if (File.Exists(destPath))
+                                {
+                                    File.SetAttributes(destPath, FileAttributes.Normal);
+                                    File.Delete(destPath);
+                                }
+                                File.Copy(dllFile, destPath, true);
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Fallback: copy entire mod structure
+                        _steamDepotService.CopyDirectoryContents(modStoragePath, depotPath, true);
+                    }
+                }
+
                 foreach (var supporting in supportingMods)
                 {
                     var supportingPath = Path.Combine(GetModsFolder(), supporting.Id);
@@ -2272,14 +3710,78 @@ namespace BeanModManager
                         continue;
                     }
 
-                    UpdateStatus($"Adding {supporting.Name} to depot build...");
-                    
-                    // Copy non-depot mods to BepInEx/plugins in the depot folder
-                    var depotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
-                    if (!Directory.Exists(depotPluginsPath))
+                    // Skip optional dependencies - they shouldn't be copied to overwrite mods' built-in versions
+                    if (IsDependencyMod(supporting))
                     {
-                        Directory.CreateDirectory(depotPluginsPath);
+                        bool isOptional = false;
+                        
+                        // Check if this dependency is optional for the main depot mod
+                        var mainModDeps = _modStore.GetDependencies(mod.Id);
+                        if (mainModDeps != null)
+                        {
+                            var dep = mainModDeps.FirstOrDefault(d => 
+                                string.Equals(d.modId, supporting.Id, StringComparison.OrdinalIgnoreCase));
+                            if (dep != null && dep.optional)
+                            {
+                                isOptional = true;
+                            }
+                        }
+                        
+                        // Also check per-version dependencies for main mod
+                        if (!isOptional && mod.InstalledVersion != null)
+                        {
+                            var versionTag = !string.IsNullOrEmpty(mod.InstalledVersion.ReleaseTag)
+                                ? mod.InstalledVersion.ReleaseTag
+                                : mod.InstalledVersion.Version;
+                            var versionDeps = _modStore.GetVersionDependencies(mod.Id, versionTag);
+                            if (versionDeps != null)
+                            {
+                                var vdep = versionDeps.FirstOrDefault(d => 
+                                    string.Equals(d.modId, supporting.Id, StringComparison.OrdinalIgnoreCase));
+                                if (vdep != null)
+                                {
+                                    // Check if the default dependency is optional
+                                    var defaultDeps = _modStore.GetDependencies(mod.Id);
+                                    var defaultDep = defaultDeps?.FirstOrDefault(d => 
+                                        string.Equals(d.modId, supporting.Id, StringComparison.OrdinalIgnoreCase));
+                                    if (defaultDep != null && defaultDep.optional)
+                                    {
+                                        isOptional = true;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Check if optional for any other supporting mods
+                        if (!isOptional)
+                        {
+                            foreach (var otherSupporting in supportingMods)
+                            {
+                                if (otherSupporting.Id == supporting.Id)
+                                    continue;
+                                
+                                var otherDeps = _modStore.GetDependencies(otherSupporting.Id);
+                                if (otherDeps != null)
+                                {
+                                    var dep = otherDeps.FirstOrDefault(d => 
+                                        string.Equals(d.modId, supporting.Id, StringComparison.OrdinalIgnoreCase));
+                                    if (dep != null && dep.optional)
+                                    {
+                                        isOptional = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (isOptional)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Skipping {supporting.Name} - marked as optional dependency");
+                            continue;
+                        }
                     }
+
+                    UpdateStatus($"Adding {supporting.Name} to depot build...");
                     
                     // Check mod structure
                     var dllFiles = Directory.GetFiles(supportingPath, "*.dll", SearchOption.TopDirectoryOnly);

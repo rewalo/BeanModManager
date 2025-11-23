@@ -321,6 +321,67 @@ namespace BeanModManager.Services
                     return false;
                 }
 
+                // Check if mod-specific depot already exists and is valid
+                if (!string.IsNullOrEmpty(depotPath) && Directory.Exists(depotPath))
+                {
+                    var exePath = Path.Combine(depotPath, "Among Us.exe");
+                    if (File.Exists(exePath))
+                    {
+                        // Mod-specific depot exists and is valid, use it directly
+                        OnProgressChanged("Installing mod files to depot...");
+                        
+                        // Check mod structure to determine where to copy files
+                        var dllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
+                        var hasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
+                        var hasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
+                        
+                        var depotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
+                        if (!Directory.Exists(depotPluginsPath))
+                        {
+                            Directory.CreateDirectory(depotPluginsPath);
+                        }
+                        
+                        if (dllFiles.Any() && !hasBepInExStructure && !hasSubdirectories)
+                        {
+                            // DLL-only mod - copy DLLs directly to plugins
+                            foreach (var dllFile in dllFiles)
+                            {
+                                var fileName = Path.GetFileName(dllFile);
+                                var destPath = Path.Combine(depotPluginsPath, fileName);
+                                try
+                                {
+                                    if (File.Exists(destPath))
+                                    {
+                                        File.SetAttributes(destPath, FileAttributes.Normal);
+                                        File.Delete(destPath);
+                                    }
+                                    File.Copy(dllFile, destPath, true);
+                                }
+                                catch (Exception ex)
+                                {
+                                    OnProgressChanged($"Error copying DLL {fileName}: {ex.Message}");
+                                }
+                            }
+                        }
+                        else if (hasBepInExStructure)
+                        {
+                            // Mod has BepInEx structure - copy entire BepInEx structure
+                            var sourceBepInExPath = Path.Combine(modStoragePath, "BepInEx");
+                            var destBepInExPath = Path.Combine(depotPath, "BepInEx");
+                            CopyDirectoryContents(sourceBepInExPath, destBepInExPath, true);
+                        }
+                        else
+                        {
+                            // Other structure - copy entire mod structure (fallback)
+                            CopyDirectoryContents(modStoragePath, depotPath, true);
+                        }
+                        
+                        OnProgressChanged("Mod installed to depot successfully!");
+                        return true;
+                    }
+                }
+
+                // Mod-specific depot doesn't exist or is invalid, need to copy from base depot
                 var baseDepotPath = GetBaseDepotPath();
                 if (string.IsNullOrEmpty(baseDepotPath) || !Directory.Exists(baseDepotPath))
                 {
@@ -328,8 +389,13 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                // Copy base depot to mod-specific folder if it doesn't exist
-                if (string.IsNullOrEmpty(depotPath) || !Directory.Exists(depotPath))
+                // Copy base depot to mod-specific folder
+                if (string.IsNullOrEmpty(depotPath))
+                {
+                    depotPath = GetDepotPath(modId);
+                }
+
+                if (!Directory.Exists(depotPath))
                 {
                     OnProgressChanged($"Copying depot to mod-specific folder for {modId}...");
                     CopyDirectoryContents(baseDepotPath, depotPath, false);
@@ -337,10 +403,57 @@ namespace BeanModManager.Services
 
                 OnProgressChanged("Installing mod files to depot...");
 
-                // Copy all mod files to depot
-                CopyDirectoryContents(modStoragePath, depotPath, true);
+                // Check mod structure to determine where to copy files
+                var modDllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
+                var modHasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
+                var modHasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
+                
+                var modDepotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
+                if (!Directory.Exists(modDepotPluginsPath))
+                {
+                    Directory.CreateDirectory(modDepotPluginsPath);
+                }
+                
+                if (modDllFiles.Any() && !modHasBepInExStructure && !modHasSubdirectories)
+                {
+                    // DLL-only mod - copy DLLs directly to plugins
+                    foreach (var dllFile in modDllFiles)
+                    {
+                        var fileName = Path.GetFileName(dllFile);
+                        var destPath = Path.Combine(modDepotPluginsPath, fileName);
+                        try
+                        {
+                            if (File.Exists(destPath))
+                            {
+                                File.SetAttributes(destPath, FileAttributes.Normal);
+                                File.Delete(destPath);
+                            }
+                            File.Copy(dllFile, destPath, true);
+                        }
+                        catch (Exception ex)
+                        {
+                            OnProgressChanged($"Error copying DLL {fileName}: {ex.Message}");
+                        }
+                    }
+                }
+                else if (modHasBepInExStructure)
+                {
+                    // Mod has BepInEx structure - copy entire BepInEx structure
+                    var sourceBepInExPath = Path.Combine(modStoragePath, "BepInEx");
+                    var destBepInExPath = Path.Combine(depotPath, "BepInEx");
+                    CopyDirectoryContents(sourceBepInExPath, destBepInExPath, true);
+                }
+                else
+                {
+                    // Other structure - copy entire mod structure (fallback)
+                    CopyDirectoryContents(modStoragePath, depotPath, true);
+                }
 
                 OnProgressChanged("Mod installed to depot successfully!");
+
+                // Only delete base depot if it exists and we successfully created the mod-specific one
+                // Don't delete it if other mods might need it
+                // Directory.Delete(baseDepotPath, true);
                 return true;
             }
             catch (Exception ex)
