@@ -49,16 +49,33 @@ namespace BeanModManager.Services
                 Directory.CreateDirectory(modStoragePath);
 
                 string modContentRoot = modPath;
-                var subdirs = Directory.GetDirectories(modPath);
                 
-                if (subdirs.Length == 1)
+                // Check if BepInEx exists directly
+                var directBepInEx = Path.Combine(modPath, "BepInEx");
+                if (!Directory.Exists(directBepInEx))
                 {
-                    var singleDir = subdirs[0];
-                    if (Directory.Exists(Path.Combine(singleDir, "BepInEx")) || 
-                        Directory.GetFiles(singleDir, "*", SearchOption.AllDirectories).Any())
+                    // Try to find BepInEx recursively (for nested folder structures)
+                    var foundBepInEx = FindBepInExFolder(modPath);
+                    if (foundBepInEx != null)
                     {
-                        modContentRoot = singleDir;
-                        OnProgressChanged($"Using content from: {Path.GetFileName(singleDir)}");
+                        // Get the parent directory that contains BepInEx
+                        modContentRoot = Directory.GetParent(foundBepInEx).FullName;
+                        OnProgressChanged($"Found nested structure, using content from: {Path.GetFileName(modContentRoot)}");
+                    }
+                    else
+                    {
+                        // Fallback: check if there's a single subdirectory that might contain the mod
+                        var subdirs = Directory.GetDirectories(modPath);
+                        if (subdirs.Length == 1)
+                        {
+                            var singleDir = subdirs[0];
+                            if (Directory.Exists(Path.Combine(singleDir, "BepInEx")) || 
+                                Directory.GetFiles(singleDir, "*", SearchOption.AllDirectories).Any())
+                            {
+                                modContentRoot = singleDir;
+                                OnProgressChanged($"Using content from: {Path.GetFileName(singleDir)}");
+                            }
+                        }
                     }
                 }
                 

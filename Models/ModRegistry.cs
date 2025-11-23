@@ -22,6 +22,7 @@ namespace BeanModManager.Models
         public DepotConfig depotConfig { get; set; }
         public List<Dependency> dependencies { get; set; }
         public List<string> incompatibilities { get; set; }
+        public string packageType { get; set; }
     }
 
     public class Dependency

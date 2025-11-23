@@ -66,6 +66,7 @@
     <Compile Include="Models\Config.cs" />
     <Compile Include="Models\ModRegistry.cs" />
     <Compile Include="Services\AmongUsDetector.cs" />
+    <Compile Include="Services\AutoUpdater.cs" />
     <Compile Include="Services\HttpDownloadHelper.cs" />
     <Compile Include="Services\ModDownloader.cs" />
     <Compile Include="Services\ModInstaller.cs" />

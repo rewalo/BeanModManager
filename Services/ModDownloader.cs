@@ -15,7 +15,7 @@ namespace BeanModManager.Services
     {
         public event EventHandler<string> ProgressChanged;
 
-        public async Task<bool> DownloadMod(Mod mod, ModVersion version, string extractToPath, List<Dependency> dependencies = null)
+        public async Task<bool> DownloadMod(Mod mod, ModVersion version, string extractToPath, List<Dependency> dependencies = null, string packageType = "flat")
         {
             try
             {
@@ -130,7 +130,7 @@ namespace BeanModManager.Services
 
                     try
                     {
-                        ExtractMod(tempZipPath, extractToPath);
+                        ExtractMod(tempZipPath, extractToPath, packageType);
                     }
                     catch (Exception ex)
                     {
@@ -300,7 +300,7 @@ namespace BeanModManager.Services
             }
         }
 
-        private void ExtractMod(string zipPath, string extractPath)
+        private void ExtractMod(string zipPath, string extractPath, string packageType = "flat")
         {
             if (!File.Exists(zipPath))
             {
@@ -341,21 +341,36 @@ namespace BeanModManager.Services
                 }
                 else
                 {
-                    var rootFolders = archive.Entries
-                        .Where(e => !string.IsNullOrEmpty(e.FullName))
-                        .Select(e => e.FullName.Split('/')[0].Split('\\')[0])
-                        .Distinct()
-                        .Where(f => !string.IsNullOrEmpty(f) && !f.Contains("."))
-                        .ToList();
-
                     string rootPrefix = "";
-                    if (rootFolders.Count == 1)
+                    
+                    // For nested packages, find the BepInEx folder recursively
+                    if (packageType == "nested")
                     {
-                        var firstEntry = archive.Entries.FirstOrDefault(e => !string.IsNullOrEmpty(e.FullName));
-                        if (firstEntry != null && firstEntry.FullName.StartsWith(rootFolders[0] + "/"))
+                        rootPrefix = FindNestedBepInExPrefix(archive.Entries);
+                        if (!string.IsNullOrEmpty(rootPrefix))
                         {
-                            rootPrefix = rootFolders[0] + "/";
-                            System.Diagnostics.Debug.WriteLine($"Detected root folder in ZIP: {rootFolders[0]}");
+                            System.Diagnostics.Debug.WriteLine($"Detected nested BepInEx structure, using prefix: {rootPrefix}");
+                        }
+                    }
+                    
+                    // If no nested prefix found, try to detect single root folder (existing logic)
+                    if (string.IsNullOrEmpty(rootPrefix))
+                    {
+                        var rootFolders = archive.Entries
+                            .Where(e => !string.IsNullOrEmpty(e.FullName))
+                            .Select(e => e.FullName.Split('/')[0].Split('\\')[0])
+                            .Distinct()
+                            .Where(f => !string.IsNullOrEmpty(f) && !f.Contains("."))
+                            .ToList();
+
+                        if (rootFolders.Count == 1)
+                        {
+                            var firstEntry = archive.Entries.FirstOrDefault(e => !string.IsNullOrEmpty(e.FullName));
+                            if (firstEntry != null && firstEntry.FullName.StartsWith(rootFolders[0] + "/"))
+                            {
+                                rootPrefix = rootFolders[0] + "/";
+                                System.Diagnostics.Debug.WriteLine($"Detected root folder in ZIP: {rootFolders[0]}");
+                            }
                         }
                     }
 
@@ -401,6 +416,43 @@ namespace BeanModManager.Services
             {
                 archive?.Dispose();
             }
+        }
+
+        private string FindNestedBepInExPrefix(IEnumerable<ZipArchiveEntry> entries)
+        {
+            // Find entries that contain BepInEx in their path
+            var bepInExEntries = entries
+                .Where(e => !string.IsNullOrEmpty(e.FullName) && 
+                           e.FullName.IndexOf("BepInEx", StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+
+            if (!bepInExEntries.Any())
+                return null;
+
+            // Find the common prefix that leads to BepInEx
+            // Example: "TownOfUs-1.0.0/TownOfUs-1.0.0/BepInEx/plugins/..." 
+            // Should return "TownOfUs-1.0.0/TownOfUs-1.0.0/"
+            
+            var firstBepInExEntry = bepInExEntries.First();
+            var fullPath = firstBepInExEntry.FullName;
+            var bepInExIndex = fullPath.IndexOf("BepInEx", StringComparison.OrdinalIgnoreCase);
+            
+            if (bepInExIndex <= 0)
+                return null;
+
+            // Get the path up to (but not including) BepInEx
+            var prefix = fullPath.Substring(0, bepInExIndex);
+            
+            // Verify that all BepInEx entries share this prefix
+            bool allSharePrefix = bepInExEntries.All(e => 
+                e.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+            
+            if (allSharePrefix)
+            {
+                return prefix;
+            }
+
+            return null;
         }
 
         private bool ValidateZipFile(string zipPath)

@@ -22,6 +22,7 @@ namespace BeanModManager
         private ModInstaller _modInstaller;
         private BepInExInstaller _bepInExInstaller;
         private SteamDepotService _steamDepotService;
+        private AutoUpdater _autoUpdater;
         private List<Mod> _availableMods;
         private Dictionary<string, ModCard> _modCards;
         private bool _isInstalling = false;
@@ -49,6 +50,7 @@ namespace BeanModManager
             _modDownloader = new ModDownloader();
             _modInstaller = new ModInstaller();
             _bepInExInstaller = new BepInExInstaller();
+            _autoUpdater = new AutoUpdater();
             _modCards = new Dictionary<string, ModCard>();
 
             LoadSavedSelection();
@@ -58,6 +60,8 @@ namespace BeanModManager
             _bepInExInstaller.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _steamDepotService = new SteamDepotService();
             _steamDepotService.ProgressChanged += (s, msg) => UpdateStatus(msg);
+            _autoUpdater.ProgressChanged += (s, msg) => UpdateStatus(msg);
+            _autoUpdater.UpdateAvailable += AutoUpdater_UpdateAvailable;
 
             LoadSettings();
             LoadMods();
@@ -103,6 +107,8 @@ namespace BeanModManager
             }
 
             UpdateBepInExButtonState();
+
+            _ = CheckForAppUpdatesAsync();
         }
 
         private async void LoadMods()
@@ -1004,7 +1010,8 @@ namespace BeanModManager
 
                     Directory.CreateDirectory(depStoragePath);
 
-                    var downloadSuccess = await _modDownloader.DownloadMod(depMod, depVersion, depStoragePath, nestedDependencies).ConfigureAwait(false);
+                    var depPackageType = _modStore.GetPackageType(depMod.Id);
+                    var downloadSuccess = await _modDownloader.DownloadMod(depMod, depVersion, depStoragePath, nestedDependencies, depPackageType).ConfigureAwait(false);
                     if (!downloadSuccess)
                     {
                         SafeInvoke(() => MessageBox.Show(
@@ -1183,7 +1190,8 @@ namespace BeanModManager
                         }
                     }
 
-                    var downloaded = await _modDownloader.DownloadMod(mod, version, modStoragePath, dependencies).ConfigureAwait(false);
+                    var packageType = _modStore.GetPackageType(mod.Id);
+                    var downloaded = await _modDownloader.DownloadMod(mod, version, modStoragePath, dependencies, packageType).ConfigureAwait(false);
                     if (!downloaded)
                     {
                         SafeInvoke(() => MessageBox.Show($"Failed to download {mod.Name}. Please check the download URL.",
@@ -2372,28 +2380,33 @@ namespace BeanModManager
                     {
                         var selectedMods = _availableMods?
                             .Where(m => _selectedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
-                            .Select(m => m.Name)
-                            .ToList() ?? new List<string>();
+                            .OrderBy(m => GetCategorySortOrder(m.Category))
+                            .ThenBy(m => m.Name)
+                            .ToList() ?? new List<Mod>();
 
-                        if (selectedMods.Count == 0)
+                        var selectedModNames = selectedMods
+                            .Select(m => m.Name)
+                            .ToList();
+
+                        if (selectedModNames.Count == 0)
                         {
                             // Fallback to mod IDs if names aren't available
-                            selectedMods = _selectedModIds.ToList();
+                            selectedModNames = _selectedModIds.ToList();
                         }
 
                         string buttonText;
-                        if (selectedMods.Count == 1)
+                        if (selectedModNames.Count == 1)
                         {
-                            buttonText = $"Launch Selected Mods ({selectedMods[0]})";
+                            buttonText = $"Launch Selected Mods ({selectedModNames[0]})";
                         }
-                        else if (selectedMods.Count <= 3)
+                        else if (selectedModNames.Count <= 3)
                         {
-                            buttonText = $"Launch Selected Mods ({string.Join(", ", selectedMods)})";
+                            buttonText = $"Launch Selected Mods ({string.Join(", ", selectedModNames)})";
                         }
                         else
                         {
-                            var firstThree = selectedMods.Take(3);
-                            var remaining = selectedMods.Count - 3;
+                            var firstThree = selectedModNames.Take(3);
+                            var remaining = selectedModNames.Count - 3;
                             buttonText = $"Launch Selected Mods ({string.Join(", ", firstThree)}, +{remaining} more)";
                         }
 
@@ -2598,6 +2611,74 @@ namespace BeanModManager
 
             // Refresh mod cards to show/hide beta versions
             SafeInvoke(RefreshModCards);
+        }
+
+        private async Task CheckForAppUpdatesAsync()
+        {
+            try
+            {
+                var hasUpdate = await _autoUpdater.CheckForUpdatesAsync().ConfigureAwait(false);
+                // UpdateAvailable event will be fired if update is found
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error checking for updates: {ex.Message}");
+            }
+        }
+
+        private async void AutoUpdater_UpdateAvailable(object sender, AutoUpdater.UpdateAvailableEventArgs e)
+        {
+            var result = SafeInvoke(() => MessageBox.Show(
+                $"A new version of Bean Mod Manager is available!\n\n" +
+                $"Current version: {e.CurrentVersion}\n" +
+                $"Latest version: {e.LatestVersion}\n\n" +
+                $"Would you like to download and install it now?\n\n" +
+                $"{(!string.IsNullOrEmpty(e.ReleaseNotes) ? $"Release notes:\n{e.ReleaseNotes.Substring(0, Math.Min(200, e.ReleaseNotes.Length))}..." : "")}",
+                "Update Available",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information));
+
+            if (result == DialogResult.Yes)
+            {
+                SafeInvoke(() =>
+                {
+                    progressBar.Visible = true;
+                    progressBar.Style = ProgressBarStyle.Marquee;
+                });
+
+                var success = await _autoUpdater.DownloadAndInstallUpdateAsync(e.DownloadUrl, e.LatestVersion).ConfigureAwait(false);
+
+                if (success)
+                {
+                    SafeInvoke(() =>
+                    {
+                        var closeResult = MessageBox.Show(
+                            "Update downloaded successfully!\n\n" +
+                            "The application will close and restart with the new version.\n\n" +
+                            "Click OK to close now, or Cancel to install later.",
+                            "Update Ready",
+                            MessageBoxButtons.OKCancel,
+                            MessageBoxIcon.Information);
+
+                        if (closeResult == DialogResult.OK)
+                        {
+                            Application.Exit();
+                        }
+                    });
+                }
+                else
+                {
+                    SafeInvoke(() =>
+                    {
+                        progressBar.Visible = false;
+                        MessageBox.Show(
+                            "Failed to download the update. Please try again later or download manually from GitHub.",
+                            "Update Failed",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                    });
+                }
+            }
         }
 
         private void btnBackupAmongUsData_Click(object sender, EventArgs e)

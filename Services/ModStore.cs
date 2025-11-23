@@ -219,6 +219,14 @@ namespace BeanModManager.Services
             return new List<Dependency>();
         }
 
+        public string GetPackageType(string modId)
+        {
+            if (_registryEntries.ContainsKey(modId) && !string.IsNullOrEmpty(_registryEntries[modId].packageType))
+                return _registryEntries[modId].packageType;
+
+            return "flat"; // Default to flat extraction
+        }
+
         public List<string> GetDependents(string dependencyId)
         {
             if (string.IsNullOrEmpty(dependencyId))
