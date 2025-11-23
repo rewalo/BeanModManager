@@ -1,3 +1,8 @@
+<p align="center">
+	<a href="https://github.com/rewalo/BeanModManager/releases"><img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/rewalo/BeanModManager/total?label=Github%20downloads"></a>
+	<a href="https://www.curseforge.com/among-us/all-mods/bean-mod-manager"><img alt="Curseforge Downloads" src="https://cf.way2muchnoise.eu/full_494578_downloads.svg"></a>
+</p>
+
 # Bean Mod Manager
 
 A simple mod manager for Among Us. Install and manage mods like TOHE, Town of Us Mira, Better CrewLink, and The Other Roles without the hassle.
