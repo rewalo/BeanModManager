@@ -50,6 +50,15 @@
         }
       },
       "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "MiraAPI",
+          "name": "MiraAPI",
+          "fileName": "MiraAPI.dll",
+          "githubOwner": "All-Of-Us-Mods",
+          "githubRepo": "MiraAPI"
+        }
+      ],
       "incompatibilities": ["TOHE", "TheOtherRoles", "AllTheRoles", "LaunchpadReloaded"]
     },
     {
