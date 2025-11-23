@@ -1793,17 +1793,11 @@ namespace BeanModManager
                         return;
                     }
 
-                    if (playableMods.Count > depotMods.Count)
-                    {
-                        MessageBox.Show($"{depotMods[0].Name} uses a dedicated depot build and can't launch alongside non-depot mods.",
-                            "Depot Limitation", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        return;
-                    }
-
-                var supportingMods = mods
-                    .Where(m => !string.Equals(m.Id, depotMods[0].Id, StringComparison.OrdinalIgnoreCase))
-                    .Where(m => !IsBetterCrewLink(m))
-                    .ToList();
+                    // Allow non-depot mods to launch with depot mods (they'll be copied into the depot folder)
+                    var supportingMods = mods
+                        .Where(m => !string.Equals(m.Id, depotMods[0].Id, StringComparison.OrdinalIgnoreCase))
+                        .Where(m => !IsBetterCrewLink(m))
+                        .ToList();
 
                     LaunchModWithDepot(depotMods[0], supportingMods);
                     return;
@@ -2121,6 +2115,7 @@ namespace BeanModManager
                 
                 var depotPath = _steamDepotService.GetDepotPath(mod.Id);
                 bool depotExists = _steamDepotService.IsDepotDownloaded(mod.Id);
+                bool wasDepotJustDownloaded = false; // Track if this is first launch after steam command
                 string depotCommand = $"download_depot 945360 {depotId} {depotManifest}";
 
                 if (!depotExists)
@@ -2147,6 +2142,12 @@ namespace BeanModManager
                     // Use async download method that waits automatically
                     UpdateStatus($"Starting depot download for {mod.Name}...");
                     bool downloadSuccess = await _steamDepotService.DownloadDepotAsync(depotCommand).ConfigureAwait(false);
+                    
+                    // Mark that we just downloaded via steam command (first launch scenario)
+                    if (downloadSuccess)
+                    {
+                        wasDepotJustDownloaded = true;
+                    }
 
                     if (!downloadSuccess)
                     {
@@ -2264,7 +2265,7 @@ namespace BeanModManager
 
                 foreach (var supporting in supportingMods)
                 {
-                    var supportingPath = Path.Combine(_config.AmongUsPath, "Mods", supporting.Id);
+                    var supportingPath = Path.Combine(GetModsFolder(), supporting.Id);
                     if (!Directory.Exists(supportingPath))
                     {
                         UpdateStatus($"Skipping {supporting.Name}: mod folder not found.");
@@ -2272,25 +2273,113 @@ namespace BeanModManager
                     }
 
                     UpdateStatus($"Adding {supporting.Name} to depot build...");
-                    _steamDepotService.InstallModToDepot(supportingPath, depotPath, supporting.Id);
+                    
+                    // Copy non-depot mods to BepInEx/plugins in the depot folder
+                    var depotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
+                    if (!Directory.Exists(depotPluginsPath))
+                    {
+                        Directory.CreateDirectory(depotPluginsPath);
+                    }
+                    
+                    // Check mod structure
+                    var dllFiles = Directory.GetFiles(supportingPath, "*.dll", SearchOption.TopDirectoryOnly);
+                    var hasBepInExStructure = Directory.Exists(Path.Combine(supportingPath, "BepInEx"));
+                    var hasSubdirectories = Directory.GetDirectories(supportingPath).Any();
+                    
+                    if (dllFiles.Any() && !hasBepInExStructure && !hasSubdirectories)
+                    {
+                        // DLL-only mod - copy DLLs directly to plugins
+                        foreach (var dllFile in dllFiles)
+                        {
+                            var fileName = Path.GetFileName(dllFile);
+                            var destPath = Path.Combine(depotPluginsPath, fileName);
+                            try
+                            {
+                                if (File.Exists(destPath))
+                                {
+                                    File.SetAttributes(destPath, FileAttributes.Normal);
+                                    File.Delete(destPath);
+                                }
+                                File.Copy(dllFile, destPath, true);
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
+                            }
+                        }
+                    }
+                    else if (hasBepInExStructure)
+                    {
+                        // Mod has BepInEx structure - copy BepInEx/plugins contents
+                        var sourcePluginsPath = Path.Combine(supportingPath, "BepInEx", "plugins");
+                        if (Directory.Exists(sourcePluginsPath))
+                        {
+                            _steamDepotService.CopyDirectoryContents(sourcePluginsPath, depotPluginsPath, true);
+                        }
+                        else
+                        {
+                            // If no plugins folder, copy entire BepInEx structure
+                            var sourceBepInExPath = Path.Combine(supportingPath, "BepInEx");
+                            var destBepInExPath = Path.Combine(depotPath, "BepInEx");
+                            _steamDepotService.CopyDirectoryContents(sourceBepInExPath, destBepInExPath, true);
+                        }
+                    }
+                    else
+                    {
+                        // Other structure - try to copy any DLLs or copy entire mod structure
+                        if (dllFiles.Any())
+                        {
+                            foreach (var dllFile in dllFiles)
+                            {
+                                var fileName = Path.GetFileName(dllFile);
+                                var destPath = Path.Combine(depotPluginsPath, fileName);
+                                try
+                                {
+                                    if (File.Exists(destPath))
+                                    {
+                                        File.SetAttributes(destPath, FileAttributes.Normal);
+                                        File.Delete(destPath);
+                                    }
+                                    File.Copy(dllFile, destPath, true);
+                                }
+                                catch (Exception ex)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Fallback: copy entire mod structure
+                            _steamDepotService.CopyDirectoryContents(supportingPath, depotPath, true);
+                        }
+                    }
                 }
 
-                // Backup Innersloth folder before deleting (if backup doesn't exist)
-                var localLowPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "..", "LocalLow");
-                var backupPath = Path.Combine(localLowPath, "Innersloth_bak");
-                
-                if (!Directory.Exists(backupPath))
+                // Only delete Innersloth folder on first launch after steam command (when depot was just downloaded)
+                if (wasDepotJustDownloaded)
                 {
-                    UpdateStatus("Backing up Innersloth folder before launching depot mod...");
-                    _steamDepotService.BackupInnerslothFolder(backupPath);
+                    // Backup Innersloth folder before deleting (if backup doesn't exist)
+                    var localLowPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "..", "LocalLow");
+                    var backupPath = Path.Combine(localLowPath, "Innersloth_bak");
+                    
+                    if (!Directory.Exists(backupPath))
+                    {
+                        UpdateStatus("Backing up Innersloth folder before launching depot mod...");
+                        _steamDepotService.BackupInnerslothFolder(backupPath);
+                    }
+                    else
+                    {
+                        UpdateStatus("Backup already exists, skipping backup.");
+                    }
+                    
+                    // Delete entire Innersloth folder to prevent blackscreen (only on first launch)
+                    _steamDepotService.DeleteInnerslothFolder();
                 }
                 else
                 {
-                    UpdateStatus("Backup already exists, skipping backup.");
+                    UpdateStatus("Skipping Innersloth folder deletion (not first launch after depot download).");
                 }
-                
-                // Delete entire Innersloth folder to prevent blackscreen
-                _steamDepotService.DeleteInnerslothFolder();
 
                 var depotExePath = Path.Combine(depotPath, "Among Us.exe");
                 if (!File.Exists(depotExePath))

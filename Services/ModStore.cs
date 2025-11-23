@@ -21,7 +21,7 @@ namespace BeanModManager.Services
 
         public ModStore(string registryUrl = null)
         {
-            _registryUrl = registryUrl ?? "https://raw.githubusercontent.com/rewalo/BeanModManager/master/mod-registry.json";
+            _registryUrl = registryUrl ?? "https://raw.githubusercontent.com/rewalo/BeanModMaanager/master/mod-registry.json";
 
             _availableMods = new List<Mod>();
             _registryEntries = new Dictionary<string, ModRegistryEntry>();
@@ -65,9 +65,9 @@ namespace BeanModManager.Services
             {
                 System.Diagnostics.Debug.WriteLine($"Failed to load mod registry from {_registryUrl}: {ex.Message}");
             }
-            MessageBox.Show("Failed to load mod registry from the internet.\n\n" + "Please check your internet connection and try again.", "Mod Registry Load Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            Process.GetCurrentProcess().Kill();
-            //LoadHardcodedMods();
+            //MessageBox.Show("Failed to load mod registry from the internet.\n\n" + "Please check your internet connection and try again.", "Mod Registry Load Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            //Process.GetCurrentProcess().Kill();
+            LoadHardcodedMods();
         }
 
         private void LoadHardcodedMods()

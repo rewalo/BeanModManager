@@ -229,7 +229,8 @@
           "name": "Reactor",
           "fileName": "Reactor.dll",
           "githubOwner": "NuclearPowered",
-          "githubRepo": "Reactor"
+          "githubRepo": "Reactor",
+		  "version": "2.5.0"
         }
       ],
       "incompatibilities": []
