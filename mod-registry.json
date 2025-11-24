@@ -330,6 +330,17 @@
         "manifestId": "8040785713895232554",
         "gameVersion": "v16.0.2"
       },
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": "2.4.0",
+          "optional": false
+        }
+      ],
       "incompatibilities": ["TheOtherRoles", "LasMonjas", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU", "LaunchpadReloaded"]
     },
     {
