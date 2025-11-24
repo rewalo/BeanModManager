@@ -24,7 +24,7 @@
         }
       },
       "requiresDepot": false,
-      "incompatibilities": ["TownOfUs", "TheOtherRoles", "AllTheRoles", "LaunchpadReloaded"]
+      "incompatibilities": ["TownOfUs", "TheOtherRoles", "LasMonjas", "AllTheRoles", "LaunchpadReloaded"]
     },
     {
       "id": "TownOfUs",
@@ -62,7 +62,7 @@
         }
       ],
       "packageType": "nested",
-      "incompatibilities": ["TOHE", "TheOtherRoles", "AllTheRoles", "LaunchpadReloaded"]
+      "incompatibilities": ["TOHE", "TheOtherRoles", "LasMonjas", "AllTheRoles", "LaunchpadReloaded"]
     },
     {
       "id": "BetterCrewLink",
@@ -123,7 +123,7 @@
           "optional": false
         }
       ],
-      "incompatibilities": ["AllTheRoles", "TownOfUs", "TOHE", "LaunchpadReloaded", "StellarRolesAU"]
+      "incompatibilities": ["AllTheRoles", "TownOfUs", "LasMonjas", "TOHE", "LaunchpadReloaded", "StellarRolesAU"]
     },
     {
       "id": "AllTheRoles",
@@ -149,7 +149,7 @@
         "manifestId": "1110308242604365209",
         "gameVersion": "v16.0.5"
       },
-      "incompatibilities": ["TheOtherRoles", "TownOfUs", "TOHE", "LaunchpadReloaded", "StellarRolesAU"]
+      "incompatibilities": ["TheOtherRoles", "TownOfUs", "LasMonjas", "TOHE", "LaunchpadReloaded", "StellarRolesAU"]
     },
     {
       "id": "LaunchpadReloaded",
@@ -186,7 +186,7 @@
           "optional": false
         }
       ],
-      "incompatibilities": ["TOHE", "TownOfUs", "TheOtherRoles", "AllTheRoles", "StellarRolesAU"]
+      "incompatibilities": ["TOHE", "TownOfUs", "LasMonjas", "TheOtherRoles", "AllTheRoles", "StellarRolesAU"]
     },
     {
       "id": "Reactor",
@@ -304,7 +304,7 @@
           "optional": false
         }
       ],
-      "incompatibilities": ["TOHE", "TownOfUs", "TheOtherRoles", "AllTheRoles", "LaunchpadReloaded"]
+      "incompatibilities": ["TOHE", "TownOfUs", "LasMonjas", "TheOtherRoles", "AllTheRoles", "LaunchpadReloaded"]
     },
     {
       "id": "TheOtherRolesGMIA",
@@ -325,7 +325,7 @@
         }
       },
       "requiresDepot": false,
-      "incompatibilities": ["TheOtherRoles", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU"]
+      "incompatibilities": ["TheOtherRoles", "LasMonjas", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU", "LaunchpadReloaded"]
     },
     {
       "id": "LasMonjas",
@@ -351,7 +351,7 @@
       },
       "requiresDepot": false,
       "packageType": "nested",
-      "incompatibilities": ["TheOtherRoles", "TheOtherRolesGMIA", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU"]
+      "incompatibilities": ["TheOtherRoles", "TheOtherRolesGMIA", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU", "LaunchpadReloaded"]
     }
   ]
 }
