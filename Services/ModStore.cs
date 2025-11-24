@@ -702,8 +702,8 @@ namespace BeanModManager.Services
                     }
                 }
 
-                // Add default version if no specific filters matched for THIS release
-                if (mod.Versions.Count == versionsBefore && registryEntry.assetFilters.@default != null)
+                // Add default version (process alongside other filters, not just as fallback)
+                if (registryEntry.assetFilters.@default != null)
                 {
                     var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.@default);
                     if (asset != null)
