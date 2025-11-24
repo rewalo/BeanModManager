@@ -141,7 +141,8 @@ namespace BeanModManager.Services
             var results = new List<Mod>(_availableMods);
             var processedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // First, fetch versions for installed mods
+            // First, fetch only latest version for installed mods (for update checking)
+            // We don't need all versions for installed mods - just the latest to check for updates
             var installedMods = _availableMods.Where(m => installedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase)).ToList();
             foreach (var mod in installedMods)
             {
@@ -154,7 +155,8 @@ namespace BeanModManager.Services
 
                 try
                 {
-                    await FetchAllModVersions(mod);
+                    // Only fetch latest version for installed mods (cheaper API call)
+                    await FetchModVersions(mod);
                     processedModIds.Add(mod.Id);
                 }
                 catch
@@ -782,31 +784,8 @@ namespace BeanModManager.Services
         {
             try
             {
-                string latestReleaseTag = null;
-                try
-                {
-                    var latestApiUrl = $"https://api.github.com/repos/{mod.GitHubOwner}/{mod.GitHubRepo}/releases/latest";
-                    string latestJson;
-                    try
-                    {
-                        latestJson = await HttpDownloadHelper.DownloadStringAsync(latestApiUrl).ConfigureAwait(false);
-                    }
-                    catch (HttpRequestException ex) when (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
-                    {
-                        _rateLimited = true;
-                        throw;
-                    }
-                    var latestRelease = JsonHelper.Deserialize<GitHubRelease>(latestJson);
-                    if (latestRelease != null && !string.IsNullOrEmpty(latestRelease.tag_name))
-                    {
-                        latestReleaseTag = latestRelease.tag_name;
-                    }
-                }
-                catch
-                {
-                    // Ignore errors for latest release fetch
-                }
-
+                // Only fetch all releases - no need for separate /latest call
+                // The /releases endpoint returns releases sorted by date (newest first)
                 var apiUrl = $"https://api.github.com/repos/{mod.GitHubOwner}/{mod.GitHubRepo}/releases";
                 
                 string json;
@@ -826,13 +805,20 @@ namespace BeanModManager.Services
                 {
                     mod.Versions.Clear();
 
+                    // Find the latest non-prerelease, or if none exist, the latest release overall
                     DateTime? latestReleaseDate = null;
-                    if (!string.IsNullOrEmpty(latestReleaseTag))
+                    var latestStableRelease = releases.FirstOrDefault(r => !r.prerelease && !string.IsNullOrEmpty(r.tag_name));
+                    if (latestStableRelease != null)
                     {
-                        var latestRelease = releases.FirstOrDefault(r => r.tag_name == latestReleaseTag);
-                        if (latestRelease != null)
+                        latestReleaseDate = DateTime.Parse(latestStableRelease.published_at);
+                    }
+                    else if (releases.Any())
+                    {
+                        // If no stable release, use the first (newest) release
+                        var firstRelease = releases.FirstOrDefault(r => !string.IsNullOrEmpty(r.tag_name));
+                        if (firstRelease != null)
                         {
-                            latestReleaseDate = DateTime.Parse(latestRelease.published_at);
+                            latestReleaseDate = DateTime.Parse(firstRelease.published_at);
                         }
                     }
 

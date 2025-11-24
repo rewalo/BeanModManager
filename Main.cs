@@ -3730,10 +3730,9 @@ namespace BeanModManager
                 }
                 else if (mainModHasBepInExStructure)
                 {
-                    // Mod has BepInEx structure - copy entire BepInEx structure
-                    var sourceBepInExPath = Path.Combine(modStoragePath, "BepInEx");
-                    var destBepInExPath = Path.Combine(depotPath, "BepInEx");
-                    _steamDepotService.CopyDirectoryContents(sourceBepInExPath, destBepInExPath, true);
+                    // Mod has BepInEx structure - copy entire mod folder (not just BepInEx)
+                    // This ensures any additional files/folders outside BepInEx are also copied
+                    _steamDepotService.CopyDirectoryContents(modStoragePath, depotPath, true);
                 }
                 else
                 {
@@ -3877,19 +3876,10 @@ namespace BeanModManager
                     }
                     else if (hasBepInExStructure)
                     {
-                        // Mod has BepInEx structure - copy BepInEx/plugins contents
-                        var sourcePluginsPath = Path.Combine(supportingPath, "BepInEx", "plugins");
-                        if (Directory.Exists(sourcePluginsPath))
-                        {
-                            _steamDepotService.CopyDirectoryContents(sourcePluginsPath, depotPluginsPath, true);
-                        }
-                        else
-                        {
-                            // If no plugins folder, copy entire BepInEx structure
-                            var sourceBepInExPath = Path.Combine(supportingPath, "BepInEx");
-                            var destBepInExPath = Path.Combine(depotPath, "BepInEx");
-                            _steamDepotService.CopyDirectoryContents(sourceBepInExPath, destBepInExPath, true);
-                        }
+                        // Mod has BepInEx structure - copy entire mod folder (not just BepInEx)
+                        // This ensures any additional files/folders outside BepInEx are also copied
+                        // The BepInEx structure will be merged properly with the depot's BepInEx
+                        _steamDepotService.CopyDirectoryContents(supportingPath, depotPath, true);
                     }
                     else
                     {

@@ -389,10 +389,9 @@ namespace BeanModManager.Services
                         }
                         else if (hasBepInExStructure)
                         {
-                            // Mod has BepInEx structure - copy entire BepInEx structure
-                            var sourceBepInExPath = Path.Combine(modStoragePath, "BepInEx");
-                            var destBepInExPath = Path.Combine(depotPath, "BepInEx");
-                            CopyDirectoryContents(sourceBepInExPath, destBepInExPath, true);
+                            // Mod has BepInEx structure - copy entire mod folder (not just BepInEx)
+                            // This ensures any additional files/folders outside BepInEx are also copied
+                            CopyDirectoryContents(modStoragePath, depotPath, true);
                         }
                         else
                         {
@@ -462,10 +461,9 @@ namespace BeanModManager.Services
                 }
                 else if (modHasBepInExStructure)
                 {
-                    // Mod has BepInEx structure - copy entire BepInEx structure
-                    var sourceBepInExPath = Path.Combine(modStoragePath, "BepInEx");
-                    var destBepInExPath = Path.Combine(depotPath, "BepInEx");
-                    CopyDirectoryContents(sourceBepInExPath, destBepInExPath, true);
+                    // Mod has BepInEx structure - copy entire mod folder (not just BepInEx)
+                    // This ensures any additional files/folders outside BepInEx are also copied
+                    CopyDirectoryContents(modStoragePath, depotPath, true);
                 }
                 else
                 {

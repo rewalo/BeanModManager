@@ -34,7 +34,7 @@ namespace Setup
             );
 
             project.GUID = new Guid("5939155f-c7e1-43ee-aad9-9bc67a35d9c5");
-            project.Version = new Version("1.4.5");
+            project.Version = new Version("1.4.6");
             
             // Set Control Panel icon
             project.ControlPanelInfo.ProductIcon = @"..\mod.ico";
