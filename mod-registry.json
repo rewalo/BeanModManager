@@ -315,9 +315,9 @@
       "githubRepo": "TheOtherRolesGMIA",
       "category": "Mod",
       "assetFilters": {
-        "default": {
+        "steam": {
           "patterns": [".zip"],
-          "exclude": ["source"]
+          "exclude": ["source", "epic"]
         },
         "dll": {
           "patterns": [".dll"],
@@ -340,9 +340,9 @@
           "patterns": ["epic", "epic-msstore"],
           "exclude": []
         },
-        "default": {
+        "steam": {
           "patterns": [".zip"],
-          "exclude": ["source"]
+          "exclude": ["source", "epic"]
         },
         "dll": {
           "patterns": [".dll"],
