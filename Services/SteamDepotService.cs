@@ -175,6 +175,30 @@ namespace BeanModManager.Services
             }
         }
 
+        public bool DeleteBaseDepot()
+        {
+            try
+            {
+                var baseDepotPath = GetBaseDepotPath();
+                if (string.IsNullOrEmpty(baseDepotPath) || !Directory.Exists(baseDepotPath))
+                {
+                    // Base depot doesn't exist, nothing to delete
+                    return true;
+                }
+
+                OnProgressChanged("Deleting base depot folder...");
+                Directory.Delete(baseDepotPath, true);
+                OnProgressChanged("Base depot folder deleted successfully.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                OnProgressChanged($"Error deleting base depot folder: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error deleting base depot folder: {ex.Message}");
+                return false;
+            }
+        }
+
         public bool IsBaseDepotDownloaded()
         {
             var baseDepotPath = GetBaseDepotPath();
@@ -451,9 +475,22 @@ namespace BeanModManager.Services
 
                 OnProgressChanged("Mod installed to depot successfully!");
 
-                // Only delete base depot if it exists and we successfully created the mod-specific one
-                // Don't delete it if other mods might need it
-                // Directory.Delete(baseDepotPath, true);
+                // Delete base depot after successful installation - mod-specific depot is now ready
+                if (!string.IsNullOrEmpty(baseDepotPath) && Directory.Exists(baseDepotPath))
+                {
+                    try
+                    {
+                        OnProgressChanged("Cleaning up base depot folder...");
+                        Directory.Delete(baseDepotPath, true);
+                        OnProgressChanged("Base depot folder deleted. Using mod-specific depot from now on.");
+                    }
+                    catch (Exception ex)
+                    {
+                        OnProgressChanged($"Warning: Could not delete base depot: {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {ex.Message}");
+                    }
+                }
+                
                 return true;
             }
             catch (Exception ex)

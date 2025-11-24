@@ -3565,6 +3565,18 @@ namespace BeanModManager
                             if (depotExists)
                             {
                                 UpdateStatus("Depot copied successfully!");
+                                
+                                // Delete base depot after successful copy - mod-specific depot is now ready
+                                try
+                                {
+                                    UpdateStatus("Cleaning up base depot folder...");
+                                    _steamDepotService.DeleteBaseDepot();
+                                }
+                                catch (Exception deleteEx)
+                                {
+                                    UpdateStatus($"Warning: Could not delete base depot: {deleteEx.Message}");
+                                    System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {deleteEx.Message}");
+                                }
                             }
                             else
                             {
@@ -3606,6 +3618,18 @@ namespace BeanModManager
                             if (depotExists)
                             {
                                 UpdateStatus("Depot copied successfully!");
+                                
+                                // Delete base depot after successful copy - mod-specific depot is now ready
+                                try
+                                {
+                                    UpdateStatus("Cleaning up base depot folder...");
+                                    _steamDepotService.DeleteBaseDepot();
+                                }
+                                catch (Exception deleteEx)
+                                {
+                                    UpdateStatus($"Warning: Could not delete base depot: {deleteEx.Message}");
+                                    System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {deleteEx.Message}");
+                                }
                             }
                             else
                             {
@@ -3643,6 +3667,23 @@ namespace BeanModManager
                     MessageBox.Show("Failed to install mod files to depot.", "Installation Failed",
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
+                }
+
+                // Ensure base depot is deleted after successful installation
+                // (InstallModToDepot should have already deleted it, but this is a safety check)
+                try
+                {
+                    var baseDepotPath = _steamDepotService.GetBaseDepotPath();
+                    if (!string.IsNullOrEmpty(baseDepotPath) && Directory.Exists(baseDepotPath))
+                    {
+                        UpdateStatus("Cleaning up base depot folder...");
+                        _steamDepotService.DeleteBaseDepot();
+                    }
+                }
+                catch (Exception deleteEx)
+                {
+                    UpdateStatus($"Warning: Could not delete base depot: {deleteEx.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {deleteEx.Message}");
                 }
 
                 // Copy non-depot mods to BepInEx/plugins in the depot folder
