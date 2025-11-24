@@ -350,6 +350,7 @@
         }
       },
       "requiresDepot": false,
+	  "packageType": "nested",
       "incompatibilities": ["Submerged", "TheOtherRoles", "TheOtherRolesGMIA", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU"]
     }
   ]
