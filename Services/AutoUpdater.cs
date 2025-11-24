@@ -102,22 +102,48 @@ namespace BeanModManager.Services
 
                 await HttpDownloadHelper.DownloadFileAsync(downloadUrl, tempUpdatePath, progress).ConfigureAwait(false);
 
+                // Verify downloaded file exists
+                if (!File.Exists(tempUpdatePath))
+                {
+                    OnProgressChanged("Error: Downloaded update file not found.");
+                    return false;
+                }
+
                 OnProgressChanged("Preparing to install update...");
 
-                // Create a batch script to replace the exe and restart
+                // Simple, reliable batch script - rename old file, copy new, then delete old
+                var oldFileBackup = appPath + ".old";
                 var scriptContent = $@"@echo off
+REM Wait for application to close
+:WAIT
+tasklist /FI ""IMAGENAME eq {appName}"" 2>nul | find /I ""{appName}"" >nul
+if %ERRORLEVEL% EQU 0 (
+    timeout /t 1 /nobreak >nul
+    goto WAIT
+)
+
 timeout /t 2 /nobreak >nul
 taskkill /F /IM ""{appName}"" >nul 2>&1
 timeout /t 1 /nobreak >nul
-copy /Y ""{tempUpdatePath}"" ""{appPath}"" >nul
+
+REM Rename old file, copy new file
+if exist ""{appPath}"" ren ""{appPath}"" ""{Path.GetFileName(appPath)}.old""
+timeout /t 1 /nobreak >nul
+copy /Y ""{tempUpdatePath}"" ""{appPath}""
+
+REM If copy succeeded, delete old file and start app
 if exist ""{appPath}"" (
+    if exist ""{oldFileBackup}"" del /F /Q ""{oldFileBackup}"" >nul 2>&1
     start """" ""{appPath}""
-    del ""{updateScriptPath}""
-    del ""{tempUpdatePath}""
+    timeout /t 1 /nobreak >nul
+    del /F /Q ""{updateScriptPath}"" >nul 2>&1
+    del /F /Q ""{tempUpdatePath}"" >nul 2>&1
 ) else (
-    echo Update failed!
+    echo Update failed
+    if exist ""{oldFileBackup}"" ren ""{oldFileBackup}"" ""{Path.GetFileName(appPath)}""
     pause
-)";
+)
+";
 
                 File.WriteAllText(updateScriptPath, scriptContent);
 
