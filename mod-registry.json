@@ -368,6 +368,195 @@
       "requiresDepot": false,
       "packageType": "nested",
       "incompatibilities": ["TheOtherRoles", "TheOtherRolesGMIA", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU", "LaunchpadReloaded"]
+    },
+    {
+      "id": "SmolMod",
+      "name": "SmolMod",
+      "author": "XtraCube",
+      "description": "An Among Us Mod that makes players the size of pets!",
+      "githubOwner": "XtraCube",
+      "githubRepo": "SmolMod",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "MoveMod",
+      "name": "MoveMod",
+      "author": "OvernightAU",
+      "description": "A lightweight, client-side mod that lets you pick up and move characters around the map.",
+      "githubOwner": "OvernightAU",
+      "githubRepo": "MoveMod",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "LotusContinued",
+      "name": "Project Lotus: Continued",
+      "author": "Lotus-AU",
+      "description": "Unique, beautiful, and customizable host mod. Adds cosmetics, commands and hotkeys, and various options.",
+      "githubOwner": "Lotus-AU",
+      "githubRepo": "LotusContinued",
+      "category": "Host Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": [".zip"],
+          "exclude": ["epic", "msstore", "microsoft", "Epic", "MS"]
+        },
+        "epic": {
+          "patterns": ["epic", "epic-msstore", "epicmsstore", "Epic", "MS"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "PropHunt",
+      "name": "PropHunt",
+      "author": "ugackMiner53",
+      "description": "A mod for Among Us which extends Hide and Seek into a new mode, Prop Hunt!",
+      "githubOwner": "ugackMiner53",
+      "githubRepo": "PropHunt",
+      "category": "Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": [".zip"],
+          "exclude": ["source", "epic"]
+        },
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "LevelImposter",
+      "name": "Level Imposter",
+      "author": "DigiWorm0",
+      "description": "Custom Among Us Mapping Studio",
+      "githubOwner": "DigiWorm0",
+      "githubRepo": "LevelImposter",
+      "category": "Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": [".zip"],
+          "exclude": ["source", "epic"]
+        },
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "yanplaRoles",
+      "name": "yanplaRoles",
+      "author": "yanpla",
+      "description": "A mod that introduces new roles and modifiers.",
+      "githubOwner": "yanpla",
+      "githubRepo": "yanplaRoles",
+      "category": "Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": [".zip"],
+          "exclude": ["source", "epic"]
+        },
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "NewMod",
+      "name": "NewMod",
+      "author": "CallOfCreator",
+      "description": "A  mod for Among Us that introduces a variety of new roles, unique abilities, and custom game modes, offering players exciting new ways to enjoy the game.",
+      "githubOwner": "CallOfCreator",
+      "githubRepo": "NewMod",
+      "category": "Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": [".zip"],
+          "exclude": ["source", "epic", "ms", "microsoft", "NewMod-MS", "MS"]
+        },
+        "epic": {
+          "patterns": ["NewMod-MS", "epic", "epic-msstore", "MS"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "AUnlocker",
+      "name": "AUnlocker",
+      "author": "astra1dev",
+      "description": "A mod that unlocks additional content and features in Among Us.",
+      "githubOwner": "astra1dev",
+      "githubRepo": "AUnlocker",
+      "category": "Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": ["Steam_Itch"],
+          "exclude": ["Epic", "Microsoft", "Xbox", "EpicGames"]
+        },
+        "epic": {
+          "patterns": ["EpicGames_MicrosoftStore_XboxApp", "epic", "epic-msstore"],
+          "exclude": []
+        },
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "EndlessHostRoles",
+      "name": "Endless Host Roles",
+      "author": "Gurge44",
+      "description": "The largest Among Us mod.",
+      "githubOwner": "Gurge44",
+      "githubRepo": "EndlessHostRoles",
+      "category": "Host Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": ["_Steam"],
+          "exclude": ["Epic", "Microsoft", "Epic-Games"]
+        },
+        "epic": {
+          "patterns": ["Epic-Games_Microsoft-Store", "epic", "epic-msstore"],
+          "exclude": []
+        },
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
     }
   ]
 }

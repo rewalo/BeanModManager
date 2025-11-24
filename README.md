@@ -27,7 +27,7 @@ A simple mod manager for Among Us. Install and manage mods like TOHE, Town of Us
 
 Mods are stored separately in `Among Us/Mods/{ModId}/`. When you click Play, it copies the selected mod's files into `BepInEx/plugins/` and launches the game. This way you can have multiple mods installed but only one active at a time.
 
-## Supported Mods
+## Included Mods
 
 - **Launchpad Reloaded** - A vanilla-oriented Among Us mod with unique features, enhancing the gameplay experience without overcomplicating it.
 - **All The Roles** - A mod for Among Us which adds many new roles, modifiers, game modes, map settings, hats and more
@@ -39,6 +39,15 @@ Mods are stored separately in `Among Us/Mods/{ModId}/`. When you click Play, it 
 - **Las Monjas** - A mod for Among Us which adds new roles and features to the game
 - **Submerged** - A mod for Among Us which adds a new map into the game
 - **StellarRoles** - A mod for Among Us which adds new Roles & Modifiers, new Settings and new Custom Cosmetics to the game
+- **SmolMod** - An Among Us Mod that makes players the size of pets!
+- **MoveMod** - A lightweight, client-side mod that lets you pick up and move characters around the map.
+- **Project Lotus: Continued** - Unique, beautiful, and customizable host mod. Adds cosmetics, commands and hotkeys, and various options.
+- **PropHunt** - A mod for Among Us which extends Hide and Seek into a new mode, Prop Hunt!
+- **Level Imposter** - Custom Among Us Mapping Studio
+- **yanplaRoles** - A mod that introduces new roles and modifiers.
+- **NewMod** - A mod for Among Us that introduces a variety of new roles, unique abilities, and custom game modes, offering players exciting new ways to enjoy the game.
+- **AUnlocker** - A mod that unlocks additional content and features in Among Us.
+- **Endless Host Roles** - The largest Among Us mod.
 
 Epic/MS Store versions are automatically detected - mod dropdowns will prefer the right version for your game.
 
