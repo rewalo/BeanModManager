@@ -324,7 +324,12 @@
           "exclude": []
         }
       },
-      "requiresDepot": false,
+      "requiresDepot": true,
+      "depotConfig": {
+        "depotId": 945361,
+        "manifestId": "8040785713895232554",
+        "gameVersion": "v16.0.2"
+      },
       "incompatibilities": ["TheOtherRoles", "LasMonjas", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU", "LaunchpadReloaded"]
     },
     {
