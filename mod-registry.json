@@ -305,6 +305,52 @@
         }
       ],
       "incompatibilities": ["TOHE", "TownOfUs", "TheOtherRoles", "AllTheRoles", "LaunchpadReloaded"]
+    },
+    {
+      "id": "TheOtherRolesGMIA",
+      "name": "The Other Roles GM IA",
+      "author": "dabao40",
+      "description": "A mod for Among Us which adds many new roles, new Settings and new Custom Hats to the game (GM IA version)",
+      "githubOwner": "dabao40",
+      "githubRepo": "TheOtherRolesGMIA",
+      "category": "Mod",
+      "assetFilters": {
+        "default": {
+          "patterns": [".zip"],
+          "exclude": ["source"]
+        },
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": ["TheOtherRoles", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU"]
+    },
+    {
+      "id": "LasMonjas",
+      "name": "Las Monjas",
+      "author": "KiraYamato94",
+      "description": "A mod for Among Us which adds new roles and features to the game",
+      "githubOwner": "KiraYamato94",
+      "githubRepo": "LasMonjas",
+      "category": "Mod",
+      "assetFilters": {
+        "epic": {
+          "patterns": ["epic", "epic-msstore"],
+          "exclude": []
+        },
+        "default": {
+          "patterns": [".zip"],
+          "exclude": ["source"]
+        },
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": ["Submerged", "TheOtherRoles", "TheOtherRolesGMIA", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU"]
     }
   ]
 }

@@ -5,7 +5,7 @@
 
 # Bean Mod Manager
 
-A simple mod manager for Among Us. Install and manage mods like TOHE, Town of Us Mira, Better CrewLink, and The Other Roles without the hassle.
+A simple mod manager for Among Us. Install and manage mods like TOHE, Town of Us Mira, Better CrewLink, The Other Roles, and more without the hassle.
 
 ![Bean Mod Manager](https://raw.githubusercontent.com/rewalo/BeanModManager/refs/heads/master/Images/Screenshot.png)
 
@@ -35,10 +35,19 @@ Mods are stored separately in `Among Us/Mods/{ModId}/`. When you click Play, it 
 - **Town of Us Mira** - Town of Us Reactivated with MiraAPI
 - **Better CrewLink** - Voice proximity chat for Among Us
 - **The Other Roles (TOR)** - A mod for Among Us which adds many new roles, new Settings and new Custom Hats to the game
+- **The Other Roles GM IA** - A mod for Among Us which adds many new roles, new Settings and new Custom Hats to the game (GM IA version)
+- **Las Monjas** - A mod for Among Us which adds new roles and features to the game
 - **Submerged** - A mod for Among Us which adds a new map into the game
 - **StellarRoles** - A mod for Among Us which adds new Roles & Modifiers, new Settings and new Custom Cosmetics to the game
 
 Epic/MS Store versions are automatically detected - mod dropdowns will prefer the right version for your game.
+
+## Core Frameworks & Dependencies
+
+Bean Mod Manager also manages essential modding frameworks that power many of the mods above. These are automatically installed when needed:
+
+- **Reactor** - A shared modding framework that powers most Among Us mods
+- **Mira API** - A modern modding API that powers newer mods with enhanced features and better performance
 
 ## Requirements
 
