@@ -56,6 +56,7 @@
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helpers\GitHubCacheHelper.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -64,6 +65,7 @@
     </Compile>
     <Compile Include="Models\Mod.cs" />
     <Compile Include="Models\Config.cs" />
+    <Compile Include="Models\ModCache.cs" />
     <Compile Include="Models\ModRegistry.cs" />
     <Compile Include="Services\AmongUsDetector.cs" />
     <Compile Include="Services\AutoUpdater.cs" />
@@ -77,6 +79,7 @@
     <Compile Include="Controls\ModCard.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="PopulateRegistryCache.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\SteamDepotService.cs" />

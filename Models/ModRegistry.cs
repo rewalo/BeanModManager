@@ -42,18 +42,11 @@ namespace BeanModManager.Models
         public string githubOwner { get; set; }
         public string githubRepo { get; set; }
         public bool optional { get; set; }
-        
-        // Legacy field - use RequiredVersion instead
-        [System.Obsolete("Use RequiredVersion instead")]
-        public string version { get; set; }
-        
-        // Preferred field name for clarity
         public string requiredVersion { get; set; }
         
-        // Helper property to get version from either field (backward compatible)
         public string GetRequiredVersion()
         {
-            return !string.IsNullOrEmpty(requiredVersion) ? requiredVersion : version;
+            return !string.IsNullOrEmpty(requiredVersion) ? requiredVersion : "Unknown";
         }
     }
 
