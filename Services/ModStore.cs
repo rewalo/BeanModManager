@@ -452,15 +452,72 @@ namespace BeanModManager.Services
                 // Get registry entry once at the start (used throughout the method)
                 _registryEntries.TryGetValue(mod.Id, out var registryEntry);
 
+                // Declare etag variable at the start (used throughout the method)
+                string etag = null;
+
                 // Priority 1: Check separate cache file (if available and recent)
+                // Even if cache is recent, we still do a lightweight ETag check to detect updates
                 if (_cacheEntries.TryGetValue(mod.Id, out var cacheEntry) &&
                     !string.IsNullOrEmpty(cacheEntry.cachedReleaseData) &&
-                    !string.IsNullOrEmpty(cacheEntry.lastChecked))
+                    !string.IsNullOrEmpty(cacheEntry.cachedETag))
                 {
-                    if (DateTime.TryParse(cacheEntry.lastChecked, out var lastChecked) &&
-                        DateTime.UtcNow - lastChecked < TimeSpan.FromHours(6))
+                    // Always check API with ETag to see if mod was updated (even if cache is recent)
+                    // This ensures we detect updates even if cache file is a few hours old
+                    etag = cacheEntry.cachedETag;
+                    try
                     {
-                        // Cache file entry is valid (within 6 hours) - use it directly
+                        var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
+                        
+                        if (result.NotModified)
+                        {
+                            // 304 Not Modified - mod hasn't changed, use cache file data
+                            var release = JsonHelper.Deserialize<GitHubRelease>(cacheEntry.cachedReleaseData);
+                            if (release != null && !string.IsNullOrEmpty(release.tag_name))
+                            {
+                                mod.Versions.Clear();
+                                if (registryEntry != null)
+                                {
+                                    AddVersionsFromRegistry(mod, release, registryEntry, release.prerelease);
+                                }
+                                
+                                // Also save to local cache for faster future access
+                                GitHubCacheHelper.SaveCache(cacheKey, cacheEntry.cachedETag, cacheEntry.cachedReleaseData, release.tag_name);
+                                return; // Successfully used cache file (verified with ETag)
+                            }
+                        }
+                        else if (!string.IsNullOrEmpty(result.Content))
+                        {
+                            // 200 OK - mod was updated! Use new data
+                            var release = JsonHelper.Deserialize<GitHubRelease>(result.Content);
+                            if (release != null && !string.IsNullOrEmpty(release.tag_name))
+                            {
+                                // Save new data to local cache
+                                GitHubCacheHelper.SaveCache(cacheKey, result.ETag, result.Content, release.tag_name);
+                                
+                                mod.Versions.Clear();
+                                if (registryEntry != null)
+                                {
+                                    AddVersionsFromRegistry(mod, release, registryEntry, release.prerelease);
+                                }
+                                return; // Successfully fetched updated data
+                            }
+                        }
+                    }
+                    catch (HttpRequestException ex) when (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
+                    {
+                        _rateLimited = true;
+                        // Fall through to use cache file data as fallback
+                    }
+                    catch
+                    {
+                        // Fall through to use cache file data as fallback
+                    }
+                    
+                    // If ETag check failed or returned no data, use cache file as fallback
+                    if (DateTime.TryParse(cacheEntry.lastChecked, out var lastChecked) &&
+                        DateTime.UtcNow - lastChecked < TimeSpan.FromHours(24))
+                    {
+                        // Cache file is still reasonably fresh (within 24 hours) - use it as fallback
                         var release = JsonHelper.Deserialize<GitHubRelease>(cacheEntry.cachedReleaseData);
                         if (release != null && !string.IsNullOrEmpty(release.tag_name))
                         {
@@ -470,9 +527,8 @@ namespace BeanModManager.Services
                                 AddVersionsFromRegistry(mod, release, registryEntry, release.prerelease);
                             }
                             
-                            // Also save to local cache for faster future access
                             GitHubCacheHelper.SaveCache(cacheKey, cacheEntry.cachedETag, cacheEntry.cachedReleaseData, release.tag_name);
-                            return; // Successfully used cache file
+                            return; // Used cache file as fallback
                         }
                     }
                 }
@@ -501,7 +557,11 @@ namespace BeanModManager.Services
 
                 // Priority 3: Fetch from API with ETag (prefer cache file ETag, then local cache ETag)
                 string json = null;
-                string etag = (_cacheEntries.TryGetValue(mod.Id, out var cacheFileEntry) ? cacheFileEntry.cachedETag : null) ?? cache?.ETag;
+                // Use existing etag if set from Priority 1, otherwise get from cache file or local cache
+                if (string.IsNullOrEmpty(etag))
+                {
+                    etag = (_cacheEntries.TryGetValue(mod.Id, out var cacheFileEntry) ? cacheFileEntry.cachedETag : null) ?? cache?.ETag;
+                }
                 try
                 {
                     var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
