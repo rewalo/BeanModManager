@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
 using BeanModManager.Models;
+using BeanModManager.Services;
 
 namespace BeanModManager
 {
@@ -416,7 +417,6 @@ namespace BeanModManager
             if (_cmbVersion.SelectedItem != null)
             {
                 _version = (ModVersion)_cmbVersion.SelectedItem;
-                System.Diagnostics.Debug.WriteLine($"Version changed to: {_version.GameVersion} - {_version.DownloadUrl}");
             }
         }
 
@@ -476,10 +476,57 @@ namespace BeanModManager
              var availableVersions = _mod.Versions?.AsEnumerable() ?? Enumerable.Empty<ModVersion>();
              if (!_config.ShowBetaVersions)
              {
-                 availableVersions = availableVersions.Where(v => !v.IsPreRelease);
+                 // Filter out pre-releases, but be smart about it
+                 availableVersions = availableVersions.Where(v => 
+                 {
+                     // If not marked as prerelease, definitely show it
+                     if (!v.IsPreRelease)
+                         return true;
+                     
+                     // If marked as prerelease, check version tag for beta indicators
+                     var versionTag = (v.ReleaseTag ?? v.Version ?? "").ToLower();
+                     // If it contains beta indicators, hide it (true beta)
+                     if (versionTag.Contains("b") || 
+                         versionTag.Contains("beta") || 
+                         versionTag.Contains("alpha") || 
+                         versionTag.Contains("rc") ||
+                         versionTag.Contains("pre"))
+                     {
+                         return false;
+                     }
+                     
+                     // If marked as prerelease but no beta indicators, show it anyway
+                     // (might be a false positive from GitHub)
+                     return true;
+                 });
              }
              
-             var versionsList = availableVersions.ToList();
+             // Determine game type for ordering and selection
+             bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) && 
+                                   AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+             
+             // Order by game type preference, then by release date (newest first), then prioritize non-DLL versions
+             var versionsList = availableVersions
+                 .OrderByDescending(v => 
+                 {
+                     // Prioritize based on game type
+                     if (isEpicOrMsStore)
+                     {
+                         if (v.GameVersion == "Epic/MS Store") return 3;
+                         if (v.GameVersion == "Steam/Itch.io") return 2;
+                         if (v.GameVersion != "DLL Only") return 1;
+                         return 0; // DLL Only
+                     }
+                     else
+                     {
+                         if (v.GameVersion == "Steam/Itch.io") return 3;
+                         if (v.GameVersion == "Epic/MS Store") return 2;
+                         if (v.GameVersion != "DLL Only") return 1;
+                         return 0; // DLL Only
+                     }
+                 })
+                 .ThenByDescending(v => v.ReleaseDate)
+                 .ToList();
              var filteredCount = versionsList.Count;
              
              bool showVersionSelector = !isInstalled && !_isInstalledView && 
@@ -529,14 +576,47 @@ namespace BeanModManager
                 }
                 else
                 {
-                    var latestStable = versionsList.FirstOrDefault(v => !v.IsPreRelease);
-                    if (latestStable != null)
+                    // Select based on game type preference, matching the preferred version passed to ModCard
+                    ModVersion selectedVersion = null;
+                    
+                    // First, try to match the preferred version that was passed to ModCard
+                    if (_version != null && !string.IsNullOrEmpty(_version.GameVersion))
                     {
-                        var stableIndex = _cmbVersion.Items.IndexOf(latestStable);
-                        if (stableIndex >= 0)
+                        var matchingVersion = versionsList.FirstOrDefault(v => 
+                            v.Version == _version.Version && 
+                            v.GameVersion == _version.GameVersion);
+                        if (matchingVersion != null)
                         {
-                            _cmbVersion.SelectedIndex = stableIndex;
-                            _version = latestStable;
+                            selectedVersion = matchingVersion;
+                        }
+                    }
+                    
+                    // If no match, select based on game type
+                    if (selectedVersion == null)
+                    {
+                        if (isEpicOrMsStore)
+                        {
+                            selectedVersion = versionsList.FirstOrDefault(v => v.GameVersion == "Epic/MS Store")
+                                ?? versionsList.FirstOrDefault(v => v.GameVersion == "Steam/Itch.io")
+                                ?? versionsList.FirstOrDefault(v => v.GameVersion != "DLL Only")
+                                ?? versionsList.FirstOrDefault();
+                        }
+                        else
+                        {
+                            selectedVersion = versionsList.FirstOrDefault(v => v.GameVersion == "Steam/Itch.io")
+                                ?? versionsList.FirstOrDefault(v => v.GameVersion == "Epic/MS Store")
+                                ?? versionsList.FirstOrDefault(v => v.GameVersion != "DLL Only")
+                                ?? versionsList.FirstOrDefault();
+                        }
+                    }
+                    
+                    if (selectedVersion != null)
+                    {
+                        var selectedIndex = _cmbVersion.Items.IndexOf(selectedVersion);
+                        if (selectedIndex >= 0)
+                        {
+                            _cmbVersion.SelectedIndex = selectedIndex;
+                            _version = selectedVersion;
                         }
                         else if (_cmbVersion.Items.Count > 0)
                         {

@@ -421,13 +421,41 @@ namespace BeanModManager
                         
                         if (isEpicOrMsStore)
                         {
-                            preferredVersion = mod.Versions.FirstOrDefault(v => v.GameVersion == "Epic/MS Store")
-                                ?? mod.Versions.FirstOrDefault();
+                            preferredVersion = mod.Versions
+                                .Where(v => v.GameVersion == "Epic/MS Store")
+                                .OrderByDescending(v => v.ReleaseDate)
+                                .FirstOrDefault()
+                                ?? mod.Versions
+                                    .Where(v => v.GameVersion == "Steam/Itch.io")
+                                    .OrderByDescending(v => v.ReleaseDate)
+                                    .FirstOrDefault()
+                                ?? mod.Versions
+                                    .Where(v => v.GameVersion != "DLL Only")
+                                    .OrderByDescending(v => v.ReleaseDate)
+                                    .FirstOrDefault();
                         }
                         else
                         {
-                            preferredVersion = mod.Versions.FirstOrDefault(v => v.GameVersion == "Steam/Itch.io")
-                                ?? mod.Versions.FirstOrDefault();
+                            preferredVersion = mod.Versions
+                                .Where(v => v.GameVersion == "Steam/Itch.io")
+                                .OrderByDescending(v => v.ReleaseDate)
+                                .FirstOrDefault()
+                                ?? mod.Versions
+                                    .Where(v => v.GameVersion == "Epic/MS Store")
+                                    .OrderByDescending(v => v.ReleaseDate)
+                                    .FirstOrDefault()
+                                ?? mod.Versions
+                                    .Where(v => v.GameVersion != "DLL Only")
+                                    .OrderByDescending(v => v.ReleaseDate)
+                                    .FirstOrDefault();
+                        }
+                        
+                        // Final fallback - only use DLL if nothing else is available
+                        if (preferredVersion == null)
+                        {
+                            preferredVersion = mod.Versions
+                                .OrderByDescending(v => v.ReleaseDate)
+                                .FirstOrDefault();
                         }
                     }
                     
