@@ -388,23 +388,6 @@
       "incompatibilities": []
     },
     {
-      "id": "MoveMod",
-      "name": "MoveMod",
-      "author": "OvernightAU",
-      "description": "A lightweight, client-side mod that lets you pick up and move characters around the map.",
-      "githubOwner": "OvernightAU",
-      "githubRepo": "MoveMod",
-      "category": "Mod",
-      "assetFilters": {
-        "dll": {
-          "patterns": [".dll"],
-          "exclude": []
-        }
-      },
-      "requiresDepot": false,
-      "incompatibilities": []
-    },
-    {
       "id": "LotusContinued",
       "name": "Project Lotus: Continued",
       "author": "Lotus-AU",
