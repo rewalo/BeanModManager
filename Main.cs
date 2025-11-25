@@ -5011,9 +5011,18 @@ return; // User cancelled
 
                     // Find the latest version for the same game version, or just the latest
                     var currentGameVersion = mod.InstalledVersion.GameVersion;
-                    var latestVersion = mod.Versions
+                    
+                    // Filter versions based on beta setting
+                    var availableVersions = mod.Versions
                         .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && 
-                                   (string.IsNullOrEmpty(currentGameVersion) || v.GameVersion == currentGameVersion))
+                                   (string.IsNullOrEmpty(currentGameVersion) || v.GameVersion == currentGameVersion));
+                    
+                    if (!_config.ShowBetaVersions)
+                    {
+                        availableVersions = availableVersions.Where(v => !v.IsPreRelease);
+                    }
+                    
+                    var latestVersion = availableVersions
                         .OrderByDescending(v => v.ReleaseDate)
                         .FirstOrDefault();
 
