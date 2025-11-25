@@ -212,13 +212,6 @@ namespace BeanModManager
                 return;
             }
 
-            // Only check BepInEx installation if Among Us path is set
-            if (!string.IsNullOrEmpty(_config.AmongUsPath) && !ModDetector.IsBepInExInstalled(_config.AmongUsPath))
-            {
-                _config.InstalledMods.Clear();
-                _ = _config.SaveAsync();
-            }
-
             var modsFolder = GetModsFolder();
             var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, modsFolder);
             
@@ -1678,28 +1671,7 @@ namespace BeanModManager
 
                 if (!isVanilla && mod.Id == "BetterCrewLink")
                 {
-                    if (!LaunchBetterCrewLinkExecutable(mod))
-                        return;
-
-                    Mod selectedModForBcl = ShowBetterCrewLinkModSelection();
-                    if (selectedModForBcl == null || selectedModForBcl.Id == "__CANCELLED__")
-                    {
-                        if (selectedModForBcl != null && selectedModForBcl.Id == "__CANCELLED__")
-                        {
-                            return;
-                        }
-                    }
-
-                    if (selectedModForBcl != null)
-                    {
-                        LaunchGameWithMod(selectedModForBcl);
-                    }
-                    else
-                    {
-                        LaunchVanillaAmongUs();
-                    }
-                    
-                    UpdateStatus($"Launched {mod.Name} and Among Us");
+                    LaunchBetterCrewLinkExecutable(mod);
                     return;
                 }
 
@@ -3929,9 +3901,12 @@ namespace BeanModManager
                     {
                         UpdateStatus("Backup already exists, skipping backup.");
                     }
-                    
-                    // Delete entire Innersloth folder to prevent blackscreen (only on first launch)
-                    _steamDepotService.DeleteInnerslothFolder();
+
+                    // Delete entire Innersloth folder IF required (only old depots)
+                    if (depotManifest == "5207443046106116882")
+                    {
+                        _steamDepotService.DeleteInnerslothFolder();
+                    }
                 }
                 else
                 {
@@ -3975,113 +3950,6 @@ namespace BeanModManager
             }
         }
 
-        private Mod ShowBetterCrewLinkModSelection()
-        {
-            var form = new Form
-            {
-                Text = "Select Mod for Better CrewLink",
-                Size = new Size(400, 300),
-                StartPosition = FormStartPosition.CenterParent,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                MaximizeBox = false,
-                MinimizeBox = false,
-                BackColor = Color.FromArgb(250, 250, 252)
-            };
-
-            var lblPrompt = new Label
-            {
-                Text = "Which mod would you like to launch with Better CrewLink?",
-                Location = new Point(20, 20),
-                Size = new Size(340, 30),
-                Font = new Font("Segoe UI", 9F)
-            };
-
-            var listBox = new ListBox
-            {
-                Location = new Point(20, 60),
-                Size = new Size(340, 150),
-                Font = new Font("Segoe UI", 9F),
-                BorderStyle = BorderStyle.FixedSingle,
-                DisplayMember = "Name"
-            };
-
-            var vanillaOption = new { Name = "Vanilla Among Us", Mod = (Mod)null };
-            listBox.Items.Add(vanillaOption);
-
-            var modsFolder = GetModsFolder();
-            var installedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, modsFolder);
-            foreach (var installedMod in installedMods)
-            {
-                if (installedMod.ModId != "BetterCrewLink")
-                {
-                    var mod = _availableMods.FirstOrDefault(m => m.Id == installedMod.ModId);
-                    if (mod != null)
-                    {
-                        listBox.Items.Add(new { Name = mod.Name, Mod = mod });
-                    }
-                }
-            }
-
-            if (Directory.Exists(modsFolder))
-            {
-                foreach (var modDir in Directory.GetDirectories(modsFolder))
-                {
-                    var modId = Path.GetFileName(modDir);
-                    if (modId != "BetterCrewLink" && !listBox.Items.Cast<dynamic>().Any(item => 
-                        item.Mod != null && item.Mod.Id == modId))
-                    {
-                        var mod = _availableMods.FirstOrDefault(m => m.Id == modId);
-                        if (mod != null)
-                        {
-                            listBox.Items.Add(new { Name = mod.Name, Mod = mod });
-                        }
-                    }
-                }
-            }
-
-            listBox.SelectedIndex = 0;
-
-            var btnOK = new Button
-            {
-                Text = "OK",
-                Location = new Point(200, 220),
-                Size = new Size(75, 30),
-                DialogResult = DialogResult.OK,
-                BackColor = Color.FromArgb(0, 122, 204),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
-            };
-            btnOK.FlatAppearance.BorderSize = 0;
-
-            var btnCancel = new Button
-            {
-                Text = "Cancel",
-                Location = new Point(285, 220),
-                Size = new Size(75, 30),
-                DialogResult = DialogResult.Cancel
-            };
-
-            form.Controls.Add(lblPrompt);
-            form.Controls.Add(listBox);
-            form.Controls.Add(btnOK);
-            form.Controls.Add(btnCancel);
-            form.AcceptButton = btnOK;
-            form.CancelButton = btnCancel;
-
-            var result = form.ShowDialog();
-            if (result == DialogResult.OK && listBox.SelectedItem != null)
-            {
-                dynamic selectedItem = listBox.SelectedItem;
-                if (selectedItem.Mod != null)
-                {
-                    return selectedItem.Mod;
-                }
-                return null;
-            }
-
-            return new Mod { Id = "__CANCELLED__" };
-        }
 
         private string GetModsFolder()
         {
@@ -4248,7 +4116,7 @@ namespace BeanModManager
                         Directory.Delete(bepInExPath, true);
                         
                         UpdateStatus("BepInEx uninstalled successfully");
-                        MessageBox.Show("BepInEx and all mods have been uninstalled.", "Success",
+                        MessageBox.Show("Bepinex and all plugin files deleted", "Success",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
                         UpdateBepInExButtonState();
                         
@@ -4918,26 +4786,64 @@ return; // User cancelled
                     if (mod.InstalledVersion == null)
                         continue;
 
-                    // Find the latest version (non-pre-release preferred, but include pre-releases)
-                    var latestVersion = mod.Versions
-                        .Where(v => !string.IsNullOrEmpty(v.DownloadUrl))
-                        .OrderByDescending(v => v.ReleaseDate)
-                        .FirstOrDefault();
-
-                    if (latestVersion != null)
+                    // Filter versions based on beta setting
+                    var availableVersions = mod.Versions
+                        .Where(v => !string.IsNullOrEmpty(v.DownloadUrl));
+                    
+                    if (!_config.ShowBetaVersions)
                     {
-                        // Compare using ReleaseTag if available, otherwise use Version
-                        // This handles cases where installed version might be from config (ReleaseTag) 
-                        // and latest version might have different Version string but same ReleaseTag
-                        var installedTag = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version;
-                        var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
+                        // If beta is disabled, only check stable versions
+                        availableVersions = availableVersions.Where(v => !v.IsPreRelease);
+                    }
+                    
+                    var versionsList = availableVersions.OrderByDescending(v => v.ReleaseDate).ToList();
+                    
+                    if (!versionsList.Any())
+                        continue;
+
+                    var latestVersion = versionsList.FirstOrDefault();
+                    var installedTag = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version;
+                    var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
+                    
+                    // If installed version is the latest version (same tag), no update available
+                    if (string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    
+                    // Special case: If installed version is a beta and it's the latest beta (regardless of setting),
+                    // check if there's a newer stable version. If not, no update.
+                    if (mod.InstalledVersion.IsPreRelease)
+                    {
+                        // Check if installed beta is the latest beta version
+                        var latestBeta = mod.Versions
+                            .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && v.IsPreRelease)
+                            .OrderByDescending(v => v.ReleaseDate)
+                            .FirstOrDefault();
                         
-                        // Only show update if the tags are different (not just the Version strings)
-                        if (!string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase))
+                        if (latestBeta != null)
                         {
-                            updatesAvailable.Add(mod);
+                            var installedBetaTag = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version;
+                            var latestBetaTag = latestBeta.ReleaseTag ?? latestBeta.Version;
+                            
+                            // If installed is the latest beta, only show update if there's a newer stable
+                            if (string.Equals(installedBetaTag, latestBetaTag, StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Check if there's a newer stable version
+                                var latestStable = mod.Versions
+                                    .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && !v.IsPreRelease)
+                                    .OrderByDescending(v => v.ReleaseDate)
+                                    .FirstOrDefault();
+                                
+                                if (latestStable == null || latestStable.ReleaseDate <= mod.InstalledVersion.ReleaseDate)
+                                {
+                                    // No newer stable version, so no update
+                                    continue;
+                                }
+                            }
                         }
                     }
+                    
+                    // Show update if tags are different
+                    updatesAvailable.Add(mod);
                 }
 
                 if (updatesAvailable.Any() && InvokeRequired)
@@ -5011,14 +4917,24 @@ return; // User cancelled
 
                     // Find the latest version for the same game version, or just the latest
                     var currentGameVersion = mod.InstalledVersion.GameVersion;
-                    var latestVersion = mod.Versions
+                    
+                    // Filter versions based on beta setting
+                    var availableVersions = mod.Versions
                         .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && 
-                                   (string.IsNullOrEmpty(currentGameVersion) || v.GameVersion == currentGameVersion))
-                        .OrderByDescending(v => v.ReleaseDate)
-                        .FirstOrDefault();
-
-                    if (latestVersion == null)
+                                   (string.IsNullOrEmpty(currentGameVersion) || v.GameVersion == currentGameVersion));
+                    
+                    if (!_config.ShowBetaVersions)
+                    {
+                        // If beta is disabled, only check stable versions
+                        availableVersions = availableVersions.Where(v => !v.IsPreRelease);
+                    }
+                    
+                    var versionsList = availableVersions.OrderByDescending(v => v.ReleaseDate).ToList();
+                    
+                    if (!versionsList.Any())
                         continue;
+
+                    var latestVersion = versionsList.FirstOrDefault();
                     
                     // Compare using ReleaseTag if available, otherwise use Version
                     // This handles cases where installed version might be from config (ReleaseTag) 

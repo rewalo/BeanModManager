@@ -168,9 +168,9 @@ namespace BeanModManager.Services
             var results = new List<Mod>(_availableMods);
             var processedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // First, fetch only latest version for installed mods (for update checking)
-            // We don't need all versions for installed mods - just the latest to check for updates
+            // First, fetch all versions for installed mods (needed for dropdowns and update checking)
             var installedMods = _availableMods.Where(m => installedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase)).ToList();
+            
             foreach (var mod in installedMods)
             {
                 if (_rateLimited)
@@ -182,8 +182,8 @@ namespace BeanModManager.Services
 
                 try
                 {
-                    // Only fetch latest version for installed mods (cheaper API call)
-                    await FetchModVersions(mod);
+                    // Fetch all versions for installed mods (needed for dropdowns)
+                    await FetchAllModVersions(mod);
                     processedModIds.Add(mod.Id);
                 }
                 catch
@@ -916,13 +916,11 @@ namespace BeanModManager.Services
 
                 var releaseDate = DateTime.Parse(release.published_at);
                 
+                // Trust GitHub's prerelease flag - don't override it based on dates
                 var isPreRelease = release.prerelease;
                 
-                if (!isPreRelease && latestReleaseDate.HasValue && releaseDate > latestReleaseDate.Value)
-                {
-                    isPreRelease = true;
-                }
-                
+                // Special handling for TOHE: versions with 'b' followed by a digit are betas
+                // But only if GitHub doesn't already mark them as prerelease
                 if (mod.Id == "TOHE" && !isPreRelease)
                 {
                     var versionLower = release.tag_name.ToLower();

@@ -128,25 +128,71 @@ namespace BeanModManager
                 return;
             }
 
-            var latestVersion = _mod.Versions
-                .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && !v.IsPreRelease)
-                .OrderByDescending(v => v.ReleaseDate)
-                .FirstOrDefault();
+            // Filter versions based on beta setting
+            var availableVersions = _mod.Versions
+                .Where(v => !string.IsNullOrEmpty(v.DownloadUrl));
+            
+            if (!_config.ShowBetaVersions)
+            {
+                // If beta is disabled, only check stable versions
+                availableVersions = availableVersions.Where(v => !v.IsPreRelease);
+            }
+            
+            var versionsList = availableVersions.OrderByDescending(v => v.ReleaseDate).ToList();
 
-            if (latestVersion == null)
+            if (!versionsList.Any())
             {
                 HasUpdateAvailable = false;
                 return;
             }
 
-            // Compare using ReleaseTag if available, otherwise use Version
-            // This handles cases where installed version might be from config (ReleaseTag) 
-            // and latest version might have different Version string but same ReleaseTag
+            var latestVersion = versionsList.FirstOrDefault();
             var installedTag = _mod.InstalledVersion.ReleaseTag ?? _mod.InstalledVersion.Version;
             var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
             
-            // Only show update if the tags are different (not just the Version strings)
-            HasUpdateAvailable = !string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase);
+            // If installed version is the latest version (same tag), no update available
+            if (string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase))
+            {
+                HasUpdateAvailable = false;
+                return;
+            }
+            
+            // Special case: If installed version is a beta and it's the latest beta (regardless of setting),
+            // check if there's a newer stable version. If not, no update.
+            if (_mod.InstalledVersion.IsPreRelease)
+            {
+                // Check if installed beta is the latest beta version
+                var latestBeta = _mod.Versions
+                    .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && v.IsPreRelease)
+                    .OrderByDescending(v => v.ReleaseDate)
+                    .FirstOrDefault();
+                
+                if (latestBeta != null)
+                {
+                    var installedBetaTag = _mod.InstalledVersion.ReleaseTag ?? _mod.InstalledVersion.Version;
+                    var latestBetaTag = latestBeta.ReleaseTag ?? latestBeta.Version;
+                    
+                    // If installed is the latest beta, only show update if there's a newer stable
+                    if (string.Equals(installedBetaTag, latestBetaTag, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Check if there's a newer stable version
+                        var latestStable = _mod.Versions
+                            .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && !v.IsPreRelease)
+                            .OrderByDescending(v => v.ReleaseDate)
+                            .FirstOrDefault();
+                        
+                        if (latestStable == null || latestStable.ReleaseDate <= _mod.InstalledVersion.ReleaseDate)
+                        {
+                            // No newer stable version, so no update
+                            HasUpdateAvailable = false;
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            // Show update if tags are different
+            HasUpdateAvailable = true;
         }
 
         public ModCard(Mod mod, ModVersion version, Config config, bool isInstalledView = false)
@@ -298,6 +344,12 @@ namespace BeanModManager
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold)
             };
+            
+            // Set button text based on mod category
+            if (string.Equals(_mod.Category, "Utility", StringComparison.OrdinalIgnoreCase))
+            {
+                _btnPlay.Text = "Launch";
+            }
             _btnPlay.FlatAppearance.BorderSize = 0;
             _btnPlay.Click += (s, e) => PlayClicked?.Invoke(this, EventArgs.Empty);
 
@@ -429,6 +481,16 @@ namespace BeanModManager
                 _btnOpenFolder.Visible = isInstalled || _isInstalledView;
                 _btnUpdate.Visible = (isInstalled || _isInstalledView) && HasUpdateAvailable;
                 _linkGitHub.Visible = !string.IsNullOrEmpty(_mod.GitHubRepo);
+                
+                // Update button text based on mod category
+                if (string.Equals(_mod.Category, "Utility", StringComparison.OrdinalIgnoreCase))
+                {
+                    _btnPlay.Text = "Launch";
+                }
+                else
+                {
+                    _btnPlay.Text = "Play";
+                }
 
                 if (isInstalled || _isInstalledView)
                 {
@@ -456,7 +518,10 @@ namespace BeanModManager
                  availableVersions = availableVersions.Where(v => !v.IsPreRelease);
              }
              
-             var versionsList = availableVersions.ToList();
+             // Order by ReleaseDate descending (newest first) before creating list
+             var versionsList = availableVersions
+                 .OrderByDescending(v => v.ReleaseDate)
+                 .ToList();
              var filteredCount = versionsList.Count;
              
              bool showVersionSelector = !isInstalled && !_isInstalledView && 
@@ -506,14 +571,36 @@ namespace BeanModManager
                 }
                 else
                 {
-                    var latestStable = versionsList.FirstOrDefault(v => !v.IsPreRelease);
-                    if (latestStable != null)
+                    // Auto-detect game type and select appropriate version
+                    bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) && 
+                                          BeanModManager.Services.AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                    
+                    ModVersion preferredVersion = null;
+                    
+                    // Get latest version matching game type, respecting beta setting
+                    // versionsList is already filtered by beta setting and ordered by ReleaseDate descending
+                    if (isEpicOrMsStore)
                     {
-                        var stableIndex = _cmbVersion.Items.IndexOf(latestStable);
-                        if (stableIndex >= 0)
+                        preferredVersion = versionsList
+                            .FirstOrDefault(v => v.GameVersion == "Epic/MS Store" && !string.IsNullOrEmpty(v.DownloadUrl))
+                            ?? versionsList
+                                .FirstOrDefault(v => !string.IsNullOrEmpty(v.DownloadUrl));
+                    }
+                    else
+                    {
+                        preferredVersion = versionsList
+                            .FirstOrDefault(v => v.GameVersion == "Steam/Itch.io" && !string.IsNullOrEmpty(v.DownloadUrl))
+                            ?? versionsList
+                                .FirstOrDefault(v => !string.IsNullOrEmpty(v.DownloadUrl));
+                    }
+                    
+                    if (preferredVersion != null)
+                    {
+                        var preferredIndex = _cmbVersion.Items.IndexOf(preferredVersion);
+                        if (preferredIndex >= 0)
                         {
-                            _cmbVersion.SelectedIndex = stableIndex;
-                            _version = latestStable;
+                            _cmbVersion.SelectedIndex = preferredIndex;
+                            _version = preferredVersion;
                         }
                         else if (_cmbVersion.Items.Count > 0)
                         {
