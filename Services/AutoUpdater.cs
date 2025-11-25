@@ -111,38 +111,82 @@ namespace BeanModManager.Services
 
                 OnProgressChanged("Preparing to install update...");
 
-                // Simple, reliable batch script - rename old file, copy new, then delete old
                 var oldFileBackup = appPath + ".old";
+                appDir = Path.GetDirectoryName(appPath);
+                var appFileName = Path.GetFileName(appPath);
                 var scriptContent = $@"@echo off
+setlocal enabledelayedexpansion
+set MAX_RETRIES=15
+set RETRY_COUNT=0
+
 REM Wait for application to close
-:WAIT
+:WAIT_PROCESS
 tasklist /FI ""IMAGENAME eq {appName}"" 2>nul | find /I ""{appName}"" >nul
 if %ERRORLEVEL% EQU 0 (
     timeout /t 1 /nobreak >nul
-    goto WAIT
+    goto WAIT_PROCESS
 )
 
-timeout /t 2 /nobreak >nul
+REM Force kill any remaining processes
 taskkill /F /IM ""{appName}"" >nul 2>&1
-timeout /t 1 /nobreak >nul
+timeout /t 3 /nobreak >nul
 
-REM Rename old file, copy new file
-if exist ""{appPath}"" ren ""{appPath}"" ""{Path.GetFileName(appPath)}.old""
-timeout /t 1 /nobreak >nul
-copy /Y ""{tempUpdatePath}"" ""{appPath}""
-
-REM If copy succeeded, delete old file and start app
-if exist ""{appPath}"" (
-    if exist ""{oldFileBackup}"" del /F /Q ""{oldFileBackup}"" >nul 2>&1
-    start """" ""{appPath}""
-    timeout /t 1 /nobreak >nul
-    del /F /Q ""{updateScriptPath}"" >nul 2>&1
-    del /F /Q ""{tempUpdatePath}"" >nul 2>&1
-) else (
-    echo Update failed
-    if exist ""{oldFileBackup}"" ren ""{oldFileBackup}"" ""{Path.GetFileName(appPath)}""
+REM Wait for file handles to be released (Windows 10 needs more time)
+:WAIT_FILE
+set /a RETRY_COUNT+=1
+if !RETRY_COUNT! GTR %MAX_RETRIES% (
+    echo Error: Could not release file handles after %MAX_RETRIES% attempts
     pause
+    exit /b 1
 )
+
+REM Try to rename the old file (this will fail if file is still locked)
+if exist ""{appPath}"" (
+    ren ""{appPath}"" ""{appFileName}.old"" 2>nul
+    if errorlevel 1 (
+        timeout /t 2 /nobreak >nul
+        goto WAIT_FILE
+    )
+)
+
+REM Verify old file was renamed successfully
+if exist ""{appPath}"" (
+    timeout /t 2 /nobreak >nul
+    goto WAIT_FILE
+)
+
+REM Copy new file with retry
+set COPY_RETRY=0
+:COPY_FILE
+copy /Y ""{tempUpdatePath}"" ""{appPath}"" >nul 2>&1
+if errorlevel 1 (
+    set /a COPY_RETRY+=1
+    if !COPY_RETRY! GTR 5 (
+        echo Error: Failed to copy new file after 5 attempts
+        if exist ""{oldFileBackup}"" ren ""{oldFileBackup}"" ""{appFileName}""
+        pause
+        exit /b 1
+    )
+    timeout /t 1 /nobreak >nul
+    goto COPY_FILE
+)
+
+REM Verify new file exists
+if not exist ""{appPath}"" (
+    echo Error: New file was not copied successfully
+    if exist ""{oldFileBackup}"" ren ""{oldFileBackup}"" ""{appFileName}""
+    pause
+    exit /b 1
+)
+
+REM Success! Clean up and start new version
+if exist ""{oldFileBackup}"" del /F /Q ""{oldFileBackup}"" >nul 2>&1
+timeout /t 1 /nobreak >nul
+start """" ""{appPath}""
+timeout /t 2 /nobreak >nul
+del /F /Q ""{updateScriptPath}"" >nul 2>&1
+del /F /Q ""{tempUpdatePath}"" >nul 2>&1
+endlocal
 ";
 
                 File.WriteAllText(updateScriptPath, scriptContent);

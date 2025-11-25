@@ -64,6 +64,8 @@ namespace BeanModManager
             _autoUpdater.UpdateAvailable += AutoUpdater_UpdateAvailable;
 
             LoadSettings();
+            
+            // Load mods (which will check for updates first before loading mods)
             LoadMods();
             
             // Initialize search debounce timers
@@ -108,16 +110,31 @@ namespace BeanModManager
 
             UpdateBepInExButtonState();
 
-            _ = CheckForAppUpdatesAsync();
+            // Update check is now done in constructor before LoadMods()
         }
 
         private async void LoadMods()
         {
-            UpdateStatus("Loading mods...");
+            UpdateStatus("Checking for updates...");
             SafeInvoke(() => progressBar.Visible = true);
 
             try
             {
+                // Check for app updates FIRST, before loading mods
+                // This runs regardless of rate limits (uses cache/ETag) and AutoUpdateMods setting
+                try
+                {
+                    await CheckForAppUpdatesAsync().ConfigureAwait(false);
+                    // If update found, AutoUpdater_UpdateAvailable will handle download immediately
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error checking for app updates: {ex.Message}");
+                    // Continue loading mods even if update check fails
+                }
+                
+                UpdateStatus("Loading mods...");
+                
                 // Check if Among Us path is set, if not show warning but don't open browse dialog
                 if (string.IsNullOrEmpty(_config.AmongUsPath))
                 {
@@ -165,6 +182,8 @@ namespace BeanModManager
                 
                 SafeInvoke(RefreshModCards);
 
+                // Check for mod updates if auto-update is enabled
+                // Note: App update check already ran at the start of LoadMods(), regardless of this setting
                 if (_config.AutoUpdateMods && !_modStore.IsRateLimited())
                 {
                     _ = Task.Run(async () => await CheckForUpdatesAsync().ConfigureAwait(false));
@@ -4498,18 +4517,22 @@ namespace BeanModManager
         {
             try
             {
+                // Always check for updates, regardless of rate limits
+                // AutoUpdater uses cache and ETag, so it won't hit rate limits
                 var hasUpdate = await _autoUpdater.CheckForUpdatesAsync().ConfigureAwait(false);
-                // UpdateAvailable event will be fired if update is found
+                // UpdateAvailable event will be fired if update is found, which will auto-download
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error checking for updates: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error checking for app updates: {ex.Message}");
+                // Don't show error to user - update check failure shouldn't block app usage
             }
         }
 
         private async void AutoUpdater_UpdateAvailable(object sender, AutoUpdater.UpdateAvailableEventArgs e)
         {
-            var result = SafeInvoke(() => MessageBox.Show(
+            // Ask user FIRST before downloading
+            var downloadResult = SafeInvoke(() => MessageBox.Show(
                 $"A new version of Bean Mod Manager is available!\n\n" +
                 $"Current version: {e.CurrentVersion}\n" +
                 $"Latest version: {e.LatestVersion}\n\n" +
@@ -4519,46 +4542,59 @@ namespace BeanModManager
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Information));
 
-            if (result == DialogResult.Yes)
+            // Only download if user clicked Yes
+            if (downloadResult != DialogResult.Yes)
+            {
+                return;
+            }
+
+            // User confirmed, start downloading
+            SafeInvoke(() =>
+            {
+                progressBar.Visible = true;
+                progressBar.Style = ProgressBarStyle.Marquee;
+                UpdateStatus("Downloading update...");
+            });
+
+            var success = await _autoUpdater.DownloadAndInstallUpdateAsync(e.DownloadUrl, e.LatestVersion).ConfigureAwait(false);
+            
+            if (success)
             {
                 SafeInvoke(() =>
                 {
-                    progressBar.Visible = true;
-                    progressBar.Style = ProgressBarStyle.Marquee;
+                    progressBar.Visible = false;
+                    var result = MessageBox.Show(
+                        $"Update downloaded successfully!\n\n" +
+                        $"Current version: {e.CurrentVersion}\n" +
+                        $"Latest version: {e.LatestVersion}\n\n" +
+                        $"The application will close and restart with the new version.\n\n" +
+                        $"Click OK to close now, or Cancel to continue with current version.",
+                        "Update Ready",
+                        MessageBoxButtons.OKCancel,
+                        MessageBoxIcon.Information);
+
+                    if (result == DialogResult.OK)
+                    {
+                        Application.Exit();
+                    }
+                    else
+                    {
+                        UpdateStatus("Ready");
+                    }
                 });
-
-                var success = await _autoUpdater.DownloadAndInstallUpdateAsync(e.DownloadUrl, e.LatestVersion).ConfigureAwait(false);
-
-                if (success)
+            }
+            else
+            {
+                SafeInvoke(() =>
                 {
-                    SafeInvoke(() =>
-                    {
-                        var closeResult = MessageBox.Show(
-                            "Update downloaded successfully!\n\n" +
-                            "The application will close and restart with the new version.\n\n" +
-                            "Click OK to close now, or Cancel to install later.",
-                            "Update Ready",
-                            MessageBoxButtons.OKCancel,
-                            MessageBoxIcon.Information);
-
-                        if (closeResult == DialogResult.OK)
-                        {
-                            Application.Exit();
-                        }
-                    });
-                }
-                else
-                {
-                    SafeInvoke(() =>
-                    {
-                        progressBar.Visible = false;
-                        MessageBox.Show(
-                            "Failed to download the update. Please try again later or download manually from GitHub.",
-                            "Update Failed",
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Warning);
-                    });
-                }
+                    progressBar.Visible = false;
+                    MessageBox.Show(
+                        "Failed to download the update. Please try again later or download manually from GitHub.",
+                        "Update Failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    UpdateStatus("Ready");
+                });
             }
         }
 
