@@ -473,7 +473,8 @@ namespace BeanModManager
 
             var filteredStore = storeCards
                 .Where(card => MatchesFilters(card.BoundMod, false))
-                .OrderBy(card => GetCategorySortOrder(card.BoundMod?.Category))
+                .OrderByDescending(card => card.BoundMod?.IsFeatured ?? false)
+                .ThenBy(card => GetCategorySortOrder(card.BoundMod?.Category))
                 .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 

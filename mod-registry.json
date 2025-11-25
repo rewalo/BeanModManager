@@ -25,7 +25,8 @@
         }
       },
       "requiresDepot": false,
-      "incompatibilities": ["TownOfUs", "TheOtherRoles", "LasMonjas", "AllTheRoles", "LaunchpadReloaded"]
+      "incompatibilities": ["TownOfUs", "TheOtherRoles", "LasMonjas", "AllTheRoles", "LaunchpadReloaded"],
+      "featured": true
     },
     {
       "id": "TownOfUs",
@@ -63,7 +64,8 @@
         }
       ],
       "packageType": "nested",
-      "incompatibilities": ["TOHE", "TheOtherRoles", "LasMonjas", "AllTheRoles", "LaunchpadReloaded"]
+      "incompatibilities": ["TOHE", "TheOtherRoles", "LasMonjas", "AllTheRoles", "LaunchpadReloaded"],
+      "featured": true
     },
     {
       "id": "BetterCrewLink",
@@ -80,7 +82,8 @@
         }
       },
       "requiresDepot": false,
-      "incompatibilities": []
+      "incompatibilities": [],
+      "featured": true
     },
     {
       "id": "TheOtherRoles",
@@ -272,7 +275,8 @@
           }
         ]
       },
-      "incompatibilities": []
+      "incompatibilities": [],
+      "featured": true
     },
     {
       "id": "StellarRolesAU",
@@ -342,7 +346,8 @@
           "optional": false
         }
       ],
-      "incompatibilities": ["TheOtherRoles", "LasMonjas", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU", "LaunchpadReloaded"]
+      "incompatibilities": ["TheOtherRoles", "LasMonjas", "TownOfUs", "TOHE", "AllTheRoles", "StellarRolesAU", "LaunchpadReloaded"],
+      "featured": true
     },
     {
       "id": "LasMonjas",
@@ -406,7 +411,8 @@
         }
       },
       "requiresDepot": false,
-      "incompatibilities": []
+      "incompatibilities": [],
+      "featured": true
     },
     {
       "id": "PropHunt",
@@ -540,7 +546,8 @@
         }
       },
       "requiresDepot": false,
-      "incompatibilities": []
+      "incompatibilities": [],
+      "featured": true
     },
     {
       "id": "CursedAmongUs",

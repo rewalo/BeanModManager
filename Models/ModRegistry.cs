@@ -25,6 +25,7 @@ namespace BeanModManager.Models
         public List<string> incompatibilities { get; set; }
         public string packageType { get; set; }
         public List<string> dontInclude { get; set; }
+        public bool featured { get; set; }
     }
 
     public class VersionDependency

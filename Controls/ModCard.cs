@@ -30,6 +30,7 @@ namespace BeanModManager
         private bool _suppressSelectionEvent;
         private Panel _footerPanel;
         private Label _lblCategory;
+        private Label _lblFeatured;
 
         public event EventHandler InstallClicked;
         public event EventHandler UninstallClicked;
@@ -227,6 +228,16 @@ namespace BeanModManager
                 ForeColor = Color.FromArgb(135, 145, 170),
                 AutoSize = true,
                 Location = new Point(10, 4)
+            };
+
+            _lblFeatured = new Label
+            {
+                Text = "⭐ FEATURED",
+                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(255, 193, 7),
+                AutoSize = true,
+                Location = new Point(10, 4),
+                Visible = _mod.IsFeatured
             };
 
             _lblName = new Label
@@ -432,6 +443,7 @@ namespace BeanModManager
             }
 
             this.Controls.Add(_lblCategory);
+            this.Controls.Add(_lblFeatured);
             this.Controls.Add(_lblName);
             this.Controls.Add(_lblAuthor);
             this.Controls.Add(_lblDescription);
@@ -481,6 +493,27 @@ namespace BeanModManager
                 _btnOpenFolder.Visible = isInstalled || _isInstalledView;
                 _btnUpdate.Visible = (isInstalled || _isInstalledView) && HasUpdateAvailable;
                 _linkGitHub.Visible = !string.IsNullOrEmpty(_mod.GitHubRepo);
+                _lblFeatured.Visible = _mod.IsFeatured;
+                
+                // Adjust layout for featured mods
+                if (_mod.IsFeatured)
+                {
+                    _lblCategory.Location = new Point(10, 20);
+                    _lblName.Location = new Point(10, 40);
+                    _lblAuthor.Location = new Point(10, 64);
+                    _lblDescription.Location = new Point(10, 86);
+                    _lblVersion.Location = new Point(10, 134);
+                    _cmbVersion.Location = new Point(10, 132);
+                }
+                else
+                {
+                    _lblCategory.Location = new Point(10, 4);
+                    _lblName.Location = new Point(10, 24);
+                    _lblAuthor.Location = new Point(10, 48);
+                    _lblDescription.Location = new Point(10, 70);
+                    _lblVersion.Location = new Point(10, 118);
+                    _cmbVersion.Location = new Point(10, 116);
+                }
                 
                 // Update button text based on mod category
                 if (string.Equals(_mod.Category, "Utility", StringComparison.OrdinalIgnoreCase))

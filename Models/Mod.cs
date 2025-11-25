@@ -17,6 +17,7 @@ namespace BeanModManager.Models
         public bool IsInstalled { get; set; }
         public ModVersion InstalledVersion { get; set; }
         public List<string> Incompatibilities { get; set; }
+        public bool IsFeatured { get; set; }
 
         public Mod()
         {
