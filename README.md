@@ -40,7 +40,6 @@ Mods are stored separately in `Among Us/Mods/{ModId}/`. When you click Play, it 
 - **Submerged** - A mod for Among Us which adds a new map into the game
 - **StellarRoles** - A mod for Among Us which adds new Roles & Modifiers, new Settings and new Custom Cosmetics to the game
 - **SmolMod** - An Among Us Mod that makes players the size of pets!
-- **MoveMod** - A lightweight, client-side mod that lets you pick up and move characters around the map.
 - **Project Lotus: Continued** - Unique, beautiful, and customizable host mod. Adds cosmetics, commands and hotkeys, and various options.
 - **PropHunt** - A mod for Among Us which extends Hide and Seek into a new mode, Prop Hunt!
 - **Level Imposter** - Custom Among Us Mapping Studio
