@@ -102,6 +102,10 @@ namespace BeanModManager
         {
             base.OnResize(eventargs);
             LayoutFooterPanel();
+            if (_lblFeatured != null && _lblFeatured.Visible)
+            {
+                _lblFeatured.Location = new Point(this.Width - _lblFeatured.Width - 10, 4);
+            }
             Invalidate();
         }
 
@@ -232,12 +236,44 @@ namespace BeanModManager
 
             _lblFeatured = new Label
             {
-                Text = "⭐ FEATURED",
+                Text = "⭐ Featured",
                 Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(255, 193, 7),
+                ForeColor = Color.FromArgb(184, 134, 11),
+                BackColor = Color.Transparent,
                 AutoSize = true,
-                Location = new Point(10, 4),
-                Visible = _mod.IsFeatured
+                Padding = new Padding(6, 2, 6, 2),
+                Location = new Point(280, 4),
+                Visible = _mod.IsFeatured && !_isInstalledView,
+                TextAlign = ContentAlignment.MiddleCenter,
+                BorderStyle = BorderStyle.None
+            };
+            _lblFeatured.Paint += (s, e) =>
+            {
+                var label = s as Label;
+                if (label == null) return;
+                
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                var parentBackColor = label.Parent?.BackColor ?? Color.FromArgb(252, 253, 255);
+                e.Graphics.Clear(parentBackColor);
+                
+                using (var brush = new SolidBrush(Color.FromArgb(255, 248, 220)))
+                using (var pen = new Pen(Color.FromArgb(255, 193, 7), 1))
+                {
+                    var rect = new Rectangle(0, 0, label.Width - 1, label.Height - 1);
+                    var path = new GraphicsPath();
+                    int radius = 4;
+                    path.AddArc(rect.X, rect.Y, radius * 2, radius * 2, 180, 90);
+                    path.AddArc(rect.X + rect.Width - radius * 2, rect.Y, radius * 2, radius * 2, 270, 90);
+                    path.AddArc(rect.X + rect.Width - radius * 2, rect.Y + rect.Height - radius * 2, radius * 2, radius * 2, 0, 90);
+                    path.AddArc(rect.X, rect.Y + rect.Height - radius * 2, radius * 2, radius * 2, 90, 90);
+                    path.CloseFigure();
+                    
+                    e.Graphics.FillPath(brush, path);
+                    e.Graphics.DrawPath(pen, path);
+                }
+                
+                TextRenderer.DrawText(e.Graphics, label.Text, label.Font, label.ClientRectangle, label.ForeColor, 
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             };
 
             _lblName = new Label
@@ -493,26 +529,12 @@ namespace BeanModManager
                 _btnOpenFolder.Visible = isInstalled || _isInstalledView;
                 _btnUpdate.Visible = (isInstalled || _isInstalledView) && HasUpdateAvailable;
                 _linkGitHub.Visible = !string.IsNullOrEmpty(_mod.GitHubRepo);
-                _lblFeatured.Visible = _mod.IsFeatured;
+                _lblFeatured.Visible = _mod.IsFeatured && !_isInstalledView;
                 
-                // Adjust layout for featured mods
-                if (_mod.IsFeatured)
+                // Position featured badge in top-right corner
+                if (_lblFeatured.Visible)
                 {
-                    _lblCategory.Location = new Point(10, 20);
-                    _lblName.Location = new Point(10, 40);
-                    _lblAuthor.Location = new Point(10, 64);
-                    _lblDescription.Location = new Point(10, 86);
-                    _lblVersion.Location = new Point(10, 134);
-                    _cmbVersion.Location = new Point(10, 132);
-                }
-                else
-                {
-                    _lblCategory.Location = new Point(10, 4);
-                    _lblName.Location = new Point(10, 24);
-                    _lblAuthor.Location = new Point(10, 48);
-                    _lblDescription.Location = new Point(10, 70);
-                    _lblVersion.Location = new Point(10, 118);
-                    _cmbVersion.Location = new Point(10, 116);
+                    _lblFeatured.Location = new Point(this.Width - _lblFeatured.Width - 10, 4);
                 }
                 
                 // Update button text based on mod category

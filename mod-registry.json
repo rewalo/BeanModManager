@@ -411,8 +411,7 @@
         }
       },
       "requiresDepot": false,
-      "incompatibilities": [],
-      "featured": true
+      "incompatibilities": []
     },
     {
       "id": "PropHunt",
