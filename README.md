@@ -48,6 +48,7 @@ Mods are stored separately in `Among Us/Mods/{ModId}/`. When you click Play, it 
 - **NewMod** - A mod for Among Us that introduces a variety of new roles, unique abilities, and custom game modes, offering players exciting new ways to enjoy the game.
 - **AUnlocker** - A mod that unlocks additional content and features in Among Us.
 - **Endless Host Roles** - The largest Among Us mod.
+- **Cursed Among Us** - A mod for Among Us that introduces challenging modifications to gameplay.
 
 Epic/MS Store versions are automatically detected - mod dropdowns will prefer the right version for your game.
 
