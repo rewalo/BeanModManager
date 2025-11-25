@@ -177,8 +177,56 @@ if exist ""{appPath}"" (
         {
             try
             {
-                var json = await HttpDownloadHelper.DownloadStringAsync(GITHUB_API_URL).ConfigureAwait(false);
-                return JsonHelper.Deserialize<GitHubRelease>(json);
+                var cacheKey = "app_update_latest";
+
+                // Check cache first (1 hour cache)
+                var cache = GitHubCacheHelper.GetCache(cacheKey);
+                if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
+                {
+                    // Use cached data
+                    if (!string.IsNullOrEmpty(cache.CachedData))
+                    {
+                        return JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                    }
+                }
+
+                // Fetch from API with ETag
+                string json = null;
+                string etag = cache?.ETag;
+                var result = await HttpDownloadHelper.DownloadStringWithETagAsync(GITHUB_API_URL, etag).ConfigureAwait(false);
+                
+                if (result.NotModified)
+                {
+                    // 304 Not Modified - use cached data
+                    if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
+                    {
+                        return JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                    }
+                    return null; // 304 but no cached data
+                }
+
+                json = result.Content;
+                etag = result.ETag;
+
+                if (string.IsNullOrEmpty(json))
+                {
+                    // Fallback to cached data if available
+                    if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
+                    {
+                        return JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                    }
+                    return null;
+                }
+
+                var release = JsonHelper.Deserialize<GitHubRelease>(json);
+
+                if (release != null)
+                {
+                    // Save to cache
+                    GitHubCacheHelper.SaveCache(cacheKey, etag, json, release.tag_name);
+                }
+
+                return release;
             }
             catch (Exception ex)
             {

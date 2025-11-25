@@ -313,23 +313,98 @@ namespace BeanModManager.Services
             try
             {
                 var apiUrl = $"https://api.github.com/repos/{githubOwner}/{githubRepo}/releases/latest";
-                var json = await HttpDownloadHelper.DownloadStringAsync(apiUrl).ConfigureAwait(false);
-                var release = JsonHelper.Deserialize<GitHubRelease>(json);
+                var cacheKey = $"dep_{githubOwner}_{githubRepo}_latest";
 
-                if (release != null && release.assets != null)
+                // Check cache first (1 hour cache)
+                var cache = GitHubCacheHelper.GetCache(cacheKey);
+                if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
                 {
-                    var dllAsset = release.assets.FirstOrDefault(a =>
-                        a.name != null &&
-                        a.name.Equals(fileName, StringComparison.OrdinalIgnoreCase));
+                    // Use cached data
+                    if (!string.IsNullOrEmpty(cache.CachedData))
+                    {
+                        var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                        if (release != null && release.assets != null)
+                        {
+                            var dllAsset = release.assets.FirstOrDefault(a =>
+                                a.name != null &&
+                                a.name.Equals(fileName, StringComparison.OrdinalIgnoreCase));
 
-                    if (dllAsset != null)
-                        return dllAsset.browser_download_url;
+                            if (dllAsset != null)
+                                return dllAsset.browser_download_url;
 
-                    var anyDll = release.assets.FirstOrDefault(a =>
-                        a.name != null && a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+                            var anyDll = release.assets.FirstOrDefault(a =>
+                                a.name != null && a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
 
-                    if (anyDll != null)
-                        return anyDll.browser_download_url;
+                            if (anyDll != null)
+                                return anyDll.browser_download_url;
+                        }
+                        return null; // Cached but no matching asset
+                    }
+                }
+
+                // Fetch from API with ETag
+                string json = null;
+                string etag = cache?.ETag;
+                var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
+                
+                if (result.NotModified)
+                {
+                    // 304 Not Modified - use cached data and update timestamp to extend cache validity
+                    if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
+                    {
+                        // Update cache timestamp since we successfully checked (even though nothing changed)
+                        GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
+                        
+                        var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                        if (release != null && release.assets != null)
+                        {
+                            var dllAsset = release.assets.FirstOrDefault(a =>
+                                a.name != null &&
+                                a.name.Equals(fileName, StringComparison.OrdinalIgnoreCase));
+
+                            if (dllAsset != null)
+                                return dllAsset.browser_download_url;
+
+                            var anyDll = release.assets.FirstOrDefault(a =>
+                                a.name != null && a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+
+                            if (anyDll != null)
+                                return anyDll.browser_download_url;
+                        }
+                    }
+                    return null; // 304 but no cached data or no matching asset
+                }
+
+                json = result.Content;
+                etag = result.ETag;
+
+                if (string.IsNullOrEmpty(json))
+                {
+                    return null;
+                }
+
+                var releaseObj = JsonHelper.Deserialize<GitHubRelease>(json);
+
+                if (releaseObj != null)
+                {
+                    // Save to cache
+                    GitHubCacheHelper.SaveCache(cacheKey, etag, json, releaseObj.tag_name);
+
+                    if (releaseObj.assets != null)
+                    {
+                        var dllAsset = releaseObj.assets.FirstOrDefault(a =>
+                            a.name != null &&
+                            a.name.Equals(fileName, StringComparison.OrdinalIgnoreCase));
+
+                        if (dllAsset != null)
+                            return dllAsset.browser_download_url;
+
+                        var anyDll = releaseObj.assets.FirstOrDefault(a =>
+                            a.name != null && a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+
+                        if (anyDll != null)
+                            return anyDll.browser_download_url;
+                    }
                 }
             }
             catch (Exception ex)
@@ -345,11 +420,60 @@ namespace BeanModManager.Services
             try
             {
                 var apiUrl = $"https://api.github.com/repos/{mod.GitHubOwner}/{mod.GitHubRepo}/releases/latest";
+                var cacheKey = $"mod_{mod.Id}_latest";
 
-                string json;
+                // Check cache first (1 hour cache)
+                var cache = GitHubCacheHelper.GetCache(cacheKey);
+                if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
+                {
+                    // Use cached data
+                    if (!string.IsNullOrEmpty(cache.CachedData))
+                    {
+                        var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                        if (release != null && !string.IsNullOrEmpty(release.tag_name))
+                        {
+                            mod.Versions.Clear();
+
+                            if (_registryEntries.TryGetValue(mod.Id, out var registryEntry))
+                            {
+                                AddVersionsFromRegistry(mod, release, registryEntry, release.prerelease);
+                            }
+                        }
+                        return; // Successfully used cache
+                    }
+                }
+
+                // Fetch from API with ETag
+                string json = null;
+                string etag = cache?.ETag;
                 try
                 {
-                    json = await HttpDownloadHelper.DownloadStringAsync(apiUrl).ConfigureAwait(false);
+                    var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
+                    
+                    if (result.NotModified)
+                    {
+                        // 304 Not Modified - use cached data and update timestamp to extend cache validity
+                        if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
+                        {
+                            // Update cache timestamp since we successfully checked (even though nothing changed)
+                            GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
+                            
+                            var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                            if (release != null && !string.IsNullOrEmpty(release.tag_name))
+                            {
+                                mod.Versions.Clear();
+
+                                if (_registryEntries.TryGetValue(mod.Id, out var registryEntry))
+                                {
+                                    AddVersionsFromRegistry(mod, release, registryEntry, release.prerelease);
+                                }
+                            }
+                        }
+                        return; // Successfully used cache (304 response)
+                    }
+
+                    json = result.Content;
+                    etag = result.ETag;
                 }
                 catch (HttpRequestException ex) when (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
                 {
@@ -357,22 +481,31 @@ namespace BeanModManager.Services
                     throw;
                 }
 
-                var release = JsonHelper.Deserialize<GitHubRelease>(json);
-
-                if (release != null && !string.IsNullOrEmpty(release.tag_name))
+                if (string.IsNullOrEmpty(json))
                 {
+                    // Fallback to cached data if available
+                    if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
+                    {
+                        json = cache.CachedData;
+                    }
+                    else
+                    {
+                        throw new Exception("No data available");
+                    }
+                }
+
+                var releaseObj = JsonHelper.Deserialize<GitHubRelease>(json);
+
+                if (releaseObj != null && !string.IsNullOrEmpty(releaseObj.tag_name))
+                {
+                    // Save to cache
+                    GitHubCacheHelper.SaveCache(cacheKey, etag, json, releaseObj.tag_name);
+
                     mod.Versions.Clear();
 
-                    var usedRegistry = false;
                     if (_registryEntries.TryGetValue(mod.Id, out var registryEntry))
                     {
-                        AddVersionsFromRegistry(mod, release, registryEntry, release.prerelease);
-                        usedRegistry = mod.Versions.Any();
-                    }
-
-                    if (!usedRegistry)
-                    {
-                        AddHardcodedModVersions(mod, release, release.prerelease);
+                        AddVersionsFromRegistry(mod, releaseObj, registryEntry, releaseObj.prerelease);
                     }
                 }
             }
@@ -396,250 +529,6 @@ namespace BeanModManager.Services
             }
         }
 
-        private void AddHardcodedModVersions(Mod mod, GitHubRelease release, bool isPreRelease)
-        {
-            if (mod.Id == "TOHE")
-            {
-                var steamVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a =>
-                        !string.IsNullOrEmpty(a.name) &&
-                        a.name.ToLower().Contains("steamitchio") &&
-                        !a.name.ToLower().Contains("epic"))?.browser_download_url,
-                    GameVersion = "Steam/Itch.io",
-                    IsPreRelease = isPreRelease
-                };
-                if (steamVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(steamVersion);
-                }
-
-                var epicVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a =>
-                        !string.IsNullOrEmpty(a.name) &&
-                        (a.name.ToLower().Contains("epicmsstore") ||
-                         a.name.ToLower().Contains("epicms")))?.browser_download_url,
-                    GameVersion = "Epic/MS Store",
-                    IsPreRelease = isPreRelease
-                };
-                if (epicVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(epicVersion);
-                }
-
-                var dllVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a =>
-                        !string.IsNullOrEmpty(a.name) &&
-                        a.name.EndsWith(".dll") &&
-                        !a.name.ToLower().Contains("steam") &&
-                        !a.name.ToLower().Contains("epic"))?.browser_download_url,
-                    GameVersion = "DLL Only",
-                    IsPreRelease = isPreRelease
-                };
-                if (dllVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(dllVersion);
-                }
-            }
-            else if (mod.Id == "TownOfUs")
-            {
-                var steamVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a => !string.IsNullOrEmpty(a.name) && a.name.ToLower().Contains("steam-itch"))?.browser_download_url,
-                    GameVersion = "Steam/Itch.io",
-                    IsPreRelease = isPreRelease
-                };
-                if (steamVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(steamVersion);
-                }
-
-                var epicVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a => !string.IsNullOrEmpty(a.name) && a.name.ToLower().Contains("epic-msstore"))?.browser_download_url,
-                    GameVersion = "Epic/MS Store",
-                    IsPreRelease = isPreRelease
-                };
-                if (epicVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(epicVersion);
-                }
-
-                var dllVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a => !string.IsNullOrEmpty(a.name) && a.name.Equals("MiraAPI.dll", StringComparison.OrdinalIgnoreCase))?.browser_download_url,
-                    GameVersion = "DLL Only",
-                    IsPreRelease = isPreRelease
-                };
-                if (dllVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(dllVersion);
-                }
-            }
-            else if (mod.Id == "TheOtherRoles")
-            {
-                var steamVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a =>
-                        !string.IsNullOrEmpty(a.name) &&
-                        a.name.ToLower().Equals("theotherroles.zip", StringComparison.OrdinalIgnoreCase))?.browser_download_url,
-                    GameVersion = "Steam/Itch.io",
-                    IsPreRelease = isPreRelease
-                };
-                if (steamVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(steamVersion);
-                }
-
-                var msStoreVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a =>
-                        !string.IsNullOrEmpty(a.name) &&
-                        a.name.ToLower().Equals("theotherroles_msstore.zip", StringComparison.OrdinalIgnoreCase))?.browser_download_url,
-                    GameVersion = "Epic/MS Store",
-                    IsPreRelease = isPreRelease
-                };
-                if (msStoreVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(msStoreVersion);
-                }
-
-                var dllVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a =>
-                        !string.IsNullOrEmpty(a.name) &&
-                        a.name.ToLower().Equals("theotherroles.dll", StringComparison.OrdinalIgnoreCase))?.browser_download_url,
-                    GameVersion = "DLL Only",
-                    IsPreRelease = isPreRelease
-                };
-                if (dllVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(dllVersion);
-                }
-            }
-            else if (mod.Id == "AllTheRoles")
-            {
-                var steamVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a =>
-                        !string.IsNullOrEmpty(a.name) &&
-                        (a.name.ToLower().Contains("x86-steam-itch") ||
-                         a.name.ToLower().Contains("steam-itch")))?.browser_download_url,
-                    GameVersion = "Steam/Itch.io",
-                    IsPreRelease = isPreRelease
-                };
-                if (steamVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(steamVersion);
-                }
-
-                var epicVersion = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = release.assets?.FirstOrDefault(a =>
-                        !string.IsNullOrEmpty(a.name) &&
-                        (a.name.ToLower().Contains("x64-epic-msstore") ||
-                         a.name.ToLower().Contains("epic-msstore")))?.browser_download_url,
-                    GameVersion = "Epic/MS Store",
-                    IsPreRelease = isPreRelease
-                };
-                if (epicVersion.DownloadUrl != null)
-                {
-                    mod.Versions.Add(epicVersion);
-                }
-            }
-            else if (mod.Id == "BetterCrewLink")
-            {
-                var zipAsset = release.assets?.FirstOrDefault(a =>
-                    !string.IsNullOrEmpty(a.name) &&
-                    a.name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
-                    !a.name.ToLower().Contains("source"));
-                if (zipAsset != null)
-                {
-                    var version = new ModVersion
-                    {
-                        Version = release.tag_name,
-                        ReleaseTag = release.tag_name,
-                        ReleaseDate = DateTime.Parse(release.published_at),
-                        DownloadUrl = zipAsset.browser_download_url,
-                        IsPreRelease = isPreRelease
-                    };
-                    mod.Versions.Add(version);
-                }
-                else
-                {
-                    var fallbackAsset = release.assets?.FirstOrDefault(a =>
-                        !string.IsNullOrEmpty(a.name) &&
-                        (a.name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
-                         a.name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) &&
-                        !a.name.ToLower().Contains("source"));
-                    if (fallbackAsset != null)
-                    {
-                        var version = new ModVersion
-                        {
-                            Version = release.tag_name,
-                            ReleaseTag = release.tag_name,
-                            ReleaseDate = DateTime.Parse(release.published_at),
-                            DownloadUrl = fallbackAsset.browser_download_url,
-                            IsPreRelease = isPreRelease
-                        };
-                        mod.Versions.Add(version);
-                    }
-                }
-            }
-            else
-            {
-                var zipAsset = release.assets?.FirstOrDefault(a => a.name.EndsWith(".zip"));
-                var dllAsset = release.assets?.FirstOrDefault(a => a.name.EndsWith(".dll"));
-                var asset = zipAsset ?? dllAsset;
-                if (asset != null)
-                {
-                    var version = new ModVersion
-                    {
-                        Version = release.tag_name,
-                        ReleaseTag = release.tag_name,
-                        ReleaseDate = DateTime.Parse(release.published_at),
-                        DownloadUrl = asset.browser_download_url,
-                        IsPreRelease = isPreRelease
-                    };
-                    mod.Versions.Add(version);
-                }
-            }
-        }
 
         private void AddVersionsFromRegistry(Mod mod, GitHubRelease release, ModRegistryEntry registryEntry, bool isPreRelease)
         {
@@ -722,24 +611,6 @@ namespace BeanModManager.Services
                 }
             }
 
-            // If still no versions added for THIS release, try generic fallback
-            if (mod.Versions.Count == versionsBefore)
-            {
-                var zipAsset = release.assets?.FirstOrDefault(a => a.name?.EndsWith(".zip") == true);
-                var dllAsset = release.assets?.FirstOrDefault(a => a.name?.EndsWith(".dll") == true);
-                var asset = zipAsset ?? dllAsset;
-                if (asset != null)
-                {
-                    mod.Versions.Add(new ModVersion
-                    {
-                        Version = release.tag_name,
-                        ReleaseTag = release.tag_name,
-                        ReleaseDate = releaseDate,
-                        DownloadUrl = asset.browser_download_url,
-                        IsPreRelease = isPreRelease
-                    });
-                }
-            }
         }
 
         private GitHubAsset FindAssetByFilter(List<GitHubAsset> assets, AssetFilter filter)
@@ -787,11 +658,50 @@ namespace BeanModManager.Services
                 // Only fetch all releases - no need for separate /latest call
                 // The /releases endpoint returns releases sorted by date (newest first)
                 var apiUrl = $"https://api.github.com/repos/{mod.GitHubOwner}/{mod.GitHubRepo}/releases";
+                var cacheKey = $"mod_{mod.Id}_all";
                 
-                string json;
+                // Check cache first (1 hour cache)
+                var cache = GitHubCacheHelper.GetCache(cacheKey);
+                if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
+                {
+                    // Use cached data
+                    if (!string.IsNullOrEmpty(cache.CachedData))
+                    {
+                        var releases = JsonHelper.Deserialize<List<GitHubRelease>>(cache.CachedData);
+                        if (releases != null && releases.Any())
+                        {
+                            ProcessAllReleases(mod, releases);
+                        }
+                        return; // Successfully used cache
+                    }
+                }
+
+                // Fetch from API with ETag
+                string json = null;
+                string etag = cache?.ETag;
                 try
                 {
-                    json = await HttpDownloadHelper.DownloadStringAsync(apiUrl).ConfigureAwait(false);
+                    var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
+                    
+                    if (result.NotModified)
+                    {
+                        // 304 Not Modified - use cached data and update timestamp to extend cache validity
+                        if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
+                        {
+                            // Update cache timestamp since we successfully checked (even though nothing changed)
+                            GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
+                            
+                            var releases = JsonHelper.Deserialize<List<GitHubRelease>>(cache.CachedData);
+                            if (releases != null && releases.Any())
+                            {
+                                ProcessAllReleases(mod, releases);
+                            }
+                        }
+                        return; // Successfully used cache (304 response)
+                    }
+
+                    json = result.Content;
+                    etag = result.ETag;
                 }
                 catch (HttpRequestException ex) when (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
                 {
@@ -799,91 +709,31 @@ namespace BeanModManager.Services
                     throw;
                 }
 
+                if (string.IsNullOrEmpty(json))
+                {
+                    // Fallback to cached data if available
+                    if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
+                    {
+                        json = cache.CachedData;
+                    }
+                    else
+                    {
+                        throw new Exception("No data available");
+                    }
+                }
+
                 var releases = JsonHelper.Deserialize<List<GitHubRelease>>(json);
 
                 if (releases != null && releases.Any())
                 {
-                    mod.Versions.Clear();
+                    // Save to cache
+                    var latestTag = releases.FirstOrDefault(r => !string.IsNullOrEmpty(r.tag_name))?.tag_name;
+                    GitHubCacheHelper.SaveCache(cacheKey, etag, json, latestTag);
+                }
 
-                    // Find the latest non-prerelease, or if none exist, the latest release overall
-                    DateTime? latestReleaseDate = null;
-                    var latestStableRelease = releases.FirstOrDefault(r => !r.prerelease && !string.IsNullOrEmpty(r.tag_name));
-                    if (latestStableRelease != null)
-                    {
-                        latestReleaseDate = DateTime.Parse(latestStableRelease.published_at);
-                    }
-                    else if (releases.Any())
-                    {
-                        // If no stable release, use the first (newest) release
-                        var firstRelease = releases.FirstOrDefault(r => !string.IsNullOrEmpty(r.tag_name));
-                        if (firstRelease != null)
-                        {
-                            latestReleaseDate = DateTime.Parse(firstRelease.published_at);
-                        }
-                    }
-
-                    foreach (var release in releases)
-                    {
-                        if (release == null || string.IsNullOrEmpty(release.tag_name))
-                            continue;
-
-                        var releaseDate = DateTime.Parse(release.published_at);
-                        
-                        var isPreRelease = release.prerelease;
-                        
-                        if (!isPreRelease && latestReleaseDate.HasValue && releaseDate > latestReleaseDate.Value)
-                        {
-                            isPreRelease = true;
-                        }
-                        
-                        if (mod.Id == "TOHE" && !isPreRelease)
-                        {
-                            var versionLower = release.tag_name.ToLower();
-                            var betaIndex = versionLower.IndexOf('b');
-                            if (betaIndex > 0 && betaIndex < versionLower.Length - 1)
-                            {
-                                var afterB = versionLower.Substring(betaIndex + 1);
-                                if (afterB.Length > 0 && char.IsDigit(afterB[0]))
-                                {
-                                    isPreRelease = true;
-                                }
-                            }
-                        }
-
-                        var versionsBeforeRelease = mod.Versions.Count;
-                        if (_registryEntries.TryGetValue(mod.Id, out var registryEntry))
-                        {
-                            AddVersionsFromRegistry(mod, release, registryEntry, isPreRelease);
-                        }
-
-                        if (mod.Versions.Count == versionsBeforeRelease)
-                        {
-                            if (mod.Id == "TOHE")
-                            {
-                                AddTOHEVersions(mod, release, isPreRelease);
-                            }
-                            else if (mod.Id == "TownOfUs")
-                            {
-                                AddTownOfUsVersions(mod, release, isPreRelease);
-                            }
-                            else if (mod.Id == "TheOtherRoles")
-                            {
-                                AddTheOtherRolesVersions(mod, release, isPreRelease);
-                            }
-                            else if (mod.Id == "AllTheRoles")
-                            {
-                                AddAllTheRolesVersions(mod, release, isPreRelease);
-                            }
-                            else if (mod.Id == "BetterCrewLink")
-                            {
-                                AddBetterCrewLinkVersions(mod, release, isPreRelease);
-                            }
-                            else
-                            {
-                                AddGenericVersions(mod, release, isPreRelease);
-                            }
-                        }
-                    }
+                if (releases != null && releases.Any())
+                {
+                    ProcessAllReleases(mod, releases);
                 }
                 else
                 {
@@ -911,255 +761,63 @@ namespace BeanModManager.Services
             }
         }
 
-        private void AddTOHEVersions(Mod mod, GitHubRelease release, bool isPreRelease)
+
+        private void ProcessAllReleases(Mod mod, List<GitHubRelease> releases)
         {
-            var steamVersion = new ModVersion
-            {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => 
-                    !string.IsNullOrEmpty(a.name) && 
-                    a.name.ToLower().Contains("steamitchio") &&
-                    !a.name.ToLower().Contains("epic"))?.browser_download_url,
-                GameVersion = "Steam/Itch.io",
-                IsPreRelease = isPreRelease
-            };
-            if (steamVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(steamVersion);
-            }
+            mod.Versions.Clear();
 
-            var epicVersion = new ModVersion
+            // Find the latest non-prerelease, or if none exist, the latest release overall
+            DateTime? latestReleaseDate = null;
+            var latestStableRelease = releases.FirstOrDefault(r => !r.prerelease && !string.IsNullOrEmpty(r.tag_name));
+            if (latestStableRelease != null)
             {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => 
-                    !string.IsNullOrEmpty(a.name) && 
-                    (a.name.ToLower().Contains("epicmsstore") || 
-                     a.name.ToLower().Contains("epicms")))?.browser_download_url,
-                GameVersion = "Epic/MS Store",
-                IsPreRelease = isPreRelease
-            };
-            if (epicVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(epicVersion);
+                latestReleaseDate = DateTime.Parse(latestStableRelease.published_at);
             }
-
-            var dllVersion = new ModVersion
+            else if (releases.Any())
             {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => 
-                    !string.IsNullOrEmpty(a.name) && 
-                    a.name.EndsWith(".dll") &&
-                    !a.name.ToLower().Contains("steam") &&
-                    !a.name.ToLower().Contains("epic"))?.browser_download_url,
-                GameVersion = "DLL Only",
-                IsPreRelease = isPreRelease
-            };
-            if (dllVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(dllVersion);
-            }
-        }
-
-        private void AddTownOfUsVersions(Mod mod, GitHubRelease release, bool isPreRelease)
-        {
-            var steamVersion = new ModVersion
-            {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => !string.IsNullOrEmpty(a.name) && a.name.ToLower().Contains("steam-itch"))?.browser_download_url,
-                GameVersion = "Steam/Itch.io",
-                IsPreRelease = isPreRelease
-            };
-            if (steamVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(steamVersion);
-            }
-
-            var epicVersion = new ModVersion
-            {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => !string.IsNullOrEmpty(a.name) && a.name.ToLower().Contains("epic-msstore"))?.browser_download_url,
-                GameVersion = "Epic/MS Store",
-                IsPreRelease = isPreRelease
-            };
-            if (epicVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(epicVersion);
-            }
-
-            var dllVersion = new ModVersion
-            {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => !string.IsNullOrEmpty(a.name) && a.name.Equals("MiraAPI.dll", StringComparison.OrdinalIgnoreCase))?.browser_download_url,
-                GameVersion = "DLL Only",
-                IsPreRelease = isPreRelease
-            };
-            if (dllVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(dllVersion);
-            }
-        }
-
-        private void AddTheOtherRolesVersions(Mod mod, GitHubRelease release, bool isPreRelease)
-        {
-            var steamVersion = new ModVersion
-            {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => 
-                    !string.IsNullOrEmpty(a.name) && 
-                    a.name.ToLower().Equals("theotherroles.zip", StringComparison.OrdinalIgnoreCase))?.browser_download_url,
-                GameVersion = "Steam/Itch.io",
-                IsPreRelease = isPreRelease
-            };
-            if (steamVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(steamVersion);
-            }
-
-            var msStoreVersion = new ModVersion
-            {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => 
-                    !string.IsNullOrEmpty(a.name) && 
-                    a.name.ToLower().Equals("theotherroles_msstore.zip", StringComparison.OrdinalIgnoreCase))?.browser_download_url,
-                GameVersion = "Epic/MS Store",
-                IsPreRelease = isPreRelease
-            };
-            if (msStoreVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(msStoreVersion);
-            }
-
-            var dllVersion = new ModVersion
-            {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => 
-                    !string.IsNullOrEmpty(a.name) && 
-                    a.name.ToLower().Equals("theotherroles.dll", StringComparison.OrdinalIgnoreCase))?.browser_download_url,
-                GameVersion = "DLL Only",
-                IsPreRelease = isPreRelease
-            };
-            if (dllVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(dllVersion);
-            }
-        }
-
-        private void AddAllTheRolesVersions(Mod mod, GitHubRelease release, bool isPreRelease)
-        {
-            var steamVersion = new ModVersion
-            {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => 
-                    !string.IsNullOrEmpty(a.name) && 
-                    (a.name.ToLower().Contains("x86-steam-itch") ||
-                     a.name.ToLower().Contains("steam-itch")))?.browser_download_url,
-                GameVersion = "Steam/Itch.io",
-                IsPreRelease = isPreRelease
-            };
-            if (steamVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(steamVersion);
-            }
-
-            var epicVersion = new ModVersion
-            {
-                Version = release.tag_name,
-                ReleaseTag = release.tag_name,
-                ReleaseDate = DateTime.Parse(release.published_at),
-                DownloadUrl = release.assets?.FirstOrDefault(a => 
-                    !string.IsNullOrEmpty(a.name) && 
-                    (a.name.ToLower().Contains("x64-epic-msstore") ||
-                     a.name.ToLower().Contains("epic-msstore")))?.browser_download_url,
-                GameVersion = "Epic/MS Store",
-                IsPreRelease = isPreRelease
-            };
-            if (epicVersion.DownloadUrl != null)
-            {
-                mod.Versions.Add(epicVersion);
-            }
-        }
-
-        private void AddBetterCrewLinkVersions(Mod mod, GitHubRelease release, bool isPreRelease)
-        {
-            var zipAsset = release.assets?.FirstOrDefault(a => 
-                !string.IsNullOrEmpty(a.name) && 
-                a.name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
-                !a.name.ToLower().Contains("source"));
-            
-            if (zipAsset != null)
-            {
-                var version = new ModVersion
+                // If no stable release, use the first (newest) release
+                var firstRelease = releases.FirstOrDefault(r => !string.IsNullOrEmpty(r.tag_name));
+                if (firstRelease != null)
                 {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = zipAsset.browser_download_url,
-                    IsPreRelease = isPreRelease
-                };
-                mod.Versions.Add(version);
+                    latestReleaseDate = DateTime.Parse(firstRelease.published_at);
+                }
             }
-            else
+
+            foreach (var release in releases)
             {
-                var fallbackAsset = release.assets?.FirstOrDefault(a => 
-                    !string.IsNullOrEmpty(a.name) && 
-                    (a.name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
-                     a.name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) &&
-                    !a.name.ToLower().Contains("source"));
+                if (release == null || string.IsNullOrEmpty(release.tag_name))
+                    continue;
+
+                var releaseDate = DateTime.Parse(release.published_at);
                 
-                if (fallbackAsset != null)
+                var isPreRelease = release.prerelease;
+                
+                if (!isPreRelease && latestReleaseDate.HasValue && releaseDate > latestReleaseDate.Value)
                 {
-                    var version = new ModVersion
+                    isPreRelease = true;
+                }
+                
+                if (mod.Id == "TOHE" && !isPreRelease)
+                {
+                    var versionLower = release.tag_name.ToLower();
+                    var betaIndex = versionLower.IndexOf('b');
+                    if (betaIndex > 0 && betaIndex < versionLower.Length - 1)
                     {
-                        Version = release.tag_name,
-                        ReleaseTag = release.tag_name,
-                        ReleaseDate = DateTime.Parse(release.published_at),
-                        DownloadUrl = fallbackAsset.browser_download_url,
-                        IsPreRelease = isPreRelease
-                    };
-                    mod.Versions.Add(version);
+                        var afterB = versionLower.Substring(betaIndex + 1);
+                        if (afterB.Length > 0 && char.IsDigit(afterB[0]))
+                        {
+                            isPreRelease = true;
+                        }
+                    }
+                }
+
+                if (_registryEntries.TryGetValue(mod.Id, out var registryEntry))
+                {
+                    AddVersionsFromRegistry(mod, release, registryEntry, isPreRelease);
                 }
             }
         }
 
-        private void AddGenericVersions(Mod mod, GitHubRelease release, bool isPreRelease)
-        {
-            var zipAsset = release.assets?.FirstOrDefault(a => a.name.EndsWith(".zip"));
-            var dllAsset = release.assets?.FirstOrDefault(a => a.name.EndsWith(".dll"));
-            
-            var asset = zipAsset ?? dllAsset;
-            if (asset != null)
-            {
-                var version = new ModVersion
-                {
-                    Version = release.tag_name,
-                    ReleaseTag = release.tag_name,
-                    ReleaseDate = DateTime.Parse(release.published_at),
-                    DownloadUrl = asset.browser_download_url,
-                    IsPreRelease = isPreRelease
-                };
-                mod.Versions.Add(version);
-            }
-        }
 
         private class GitHubRelease
         {

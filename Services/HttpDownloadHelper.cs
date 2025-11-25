@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net;
+using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -49,15 +50,74 @@ namespace BeanModManager.Services
 
         public static async Task<string> DownloadStringAsync(string url, CancellationToken cancellationToken = default)
         {
-            using (var response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false))
+            var result = await DownloadStringWithETagAsync(url, null, cancellationToken).ConfigureAwait(false);
+            return result?.Content;
+        }
+
+        public static async Task<string> DownloadStringAsync(string url, string etag, CancellationToken cancellationToken = default)
+        {
+            var result = await DownloadStringWithETagAsync(url, etag, cancellationToken).ConfigureAwait(false);
+            return result?.Content;
+        }
+
+        public class DownloadResult
+        {
+            public string Content { get; set; }
+            public string ETag { get; set; }
+            public bool NotModified { get; set; }
+        }
+
+        public static async Task<DownloadResult> DownloadStringWithETagAsync(string url, string etag, CancellationToken cancellationToken = default)
+        {
+            using (var request = new HttpRequestMessage(HttpMethod.Get, url))
             {
-                if (response.StatusCode == HttpStatusCode.Forbidden)
+                // Add If-None-Match header if ETag is provided
+                if (!string.IsNullOrEmpty(etag))
                 {
-                    throw new HttpRequestException("403 Forbidden - Rate limit exceeded");
+                    request.Headers.TryAddWithoutValidation("If-None-Match", etag);
                 }
-                response.EnsureSuccessStatusCode();
-                return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                using (var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false))
+                {
+                    // Handle 304 Not Modified - return null to indicate no change
+                    if (response.StatusCode == HttpStatusCode.NotModified)
+                    {
+                        return new DownloadResult { NotModified = true };
+                    }
+
+                    if (response.StatusCode == HttpStatusCode.Forbidden)
+                    {
+                        throw new HttpRequestException("403 Forbidden - Rate limit exceeded");
+                    }
+
+                    response.EnsureSuccessStatusCode();
+
+                    var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var responseETag = GetETagFromResponse(response);
+
+                    return new DownloadResult
+                    {
+                        Content = content,
+                        ETag = responseETag,
+                        NotModified = false
+                    };
+                }
             }
+        }
+
+        private static string GetETagFromResponse(HttpResponseMessage response)
+        {
+            if (response?.Headers?.ETag != null)
+            {
+                // ETag header value includes quotes, we need to remove them
+                var etagValue = response.Headers.ETag.ToString();
+                if (etagValue.StartsWith("\"") && etagValue.EndsWith("\""))
+                {
+                    return etagValue.Substring(1, etagValue.Length - 2);
+                }
+                return etagValue;
+            }
+            return null;
         }
         
         // Synchronous version for constructor use (blocks thread)

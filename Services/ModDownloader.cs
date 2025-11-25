@@ -210,22 +210,70 @@ namespace BeanModManager.Services
                                 try
                                 {
                                     string apiUrl;
+                                    string cacheKey;
                                     // If version is specified, fetch that specific version, otherwise use latest
                                     var requiredVersion = dependency.GetRequiredVersion();
                                     if (!string.IsNullOrEmpty(requiredVersion))
                                     {
                                         // Try to find release by tag name (version)
                                         apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/tags/{requiredVersion}";
+                                        cacheKey = $"dep_{dependency.githubOwner}_{dependency.githubRepo}_tag_{requiredVersion}";
                                         System.Diagnostics.Debug.WriteLine($"Fetching specific version {requiredVersion} for {dependency.name}");
                                     }
                                     else
                                     {
                                         apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/latest";
+                                        cacheKey = $"dep_{dependency.githubOwner}_{dependency.githubRepo}_latest";
                                         System.Diagnostics.Debug.WriteLine($"Fetching latest release for {dependency.name}");
                                     }
                                     
-                                    var json = await HttpDownloadHelper.DownloadStringAsync(apiUrl).ConfigureAwait(false);
-                                    var release = JsonHelper.Deserialize<GitHubRelease>(json);
+                                    // Check cache first (1 hour cache)
+                                    var cache = GitHubCacheHelper.GetCache(cacheKey);
+                                    GitHubRelease release = null;
+                                    
+                                    if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
+                                    {
+                                        // Use cached data
+                                        if (!string.IsNullOrEmpty(cache.CachedData))
+                                        {
+                                            release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                                        }
+                                    }
+                                    
+                                    if (release == null)
+                                    {
+                                        // Fetch from API with ETag
+                                        string etag = cache?.ETag;
+                                        var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
+                                        
+                                        if (result.NotModified)
+                                        {
+                                            // 304 Not Modified - use cached data and update timestamp to extend cache validity
+                                            if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
+                                            {
+                                                // Update cache timestamp since we successfully checked (even though nothing changed)
+                                                GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
+                                                
+                                                release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                                            }
+                                        }
+                                        else if (!string.IsNullOrEmpty(result.Content))
+                                        {
+                                            release = JsonHelper.Deserialize<GitHubRelease>(result.Content);
+                                            
+                                            // Save to cache
+                                            if (release != null)
+                                            {
+                                                GitHubCacheHelper.SaveCache(cacheKey, result.ETag, result.Content, release.tag_name);
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (release == null)
+                                    {
+                                        System.Diagnostics.Debug.WriteLine($"No release data available for {dependency.name}");
+                                        continue;
+                                    }
 
                                     if (release != null && release.assets != null)
                                     {
