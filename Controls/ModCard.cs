@@ -288,9 +288,19 @@ namespace BeanModManager
             _btnUninstall.FlatAppearance.BorderSize = 0;
             _btnUninstall.Click += (s, e) => UninstallClicked?.Invoke(this, EventArgs.Empty);
 
+            // Determine button text based on mod category
+            string playButtonText = "Play";
+            if (!string.IsNullOrEmpty(_mod.Category))
+            {
+                if (string.Equals(_mod.Category, "Utility", StringComparison.OrdinalIgnoreCase))
+                {
+                    playButtonText = "Launch";
+                }
+            }
+            
             _btnPlay = new Button
             {
-                Text = "Play",
+                Text = playButtonText,
                 Size = new Size(90, 30),
                 Location = new Point(10, 146),
                 BackColor = Color.FromArgb(40, 167, 69),
@@ -429,6 +439,19 @@ namespace BeanModManager
                 _btnOpenFolder.Visible = isInstalled || _isInstalledView;
                 _btnUpdate.Visible = (isInstalled || _isInstalledView) && HasUpdateAvailable;
                 _linkGitHub.Visible = !string.IsNullOrEmpty(_mod.GitHubRepo);
+                
+                // Update button text based on category
+                if (_btnPlay.Visible && !string.IsNullOrEmpty(_mod.Category))
+                {
+                    if (string.Equals(_mod.Category, "Utility", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _btnPlay.Text = "Launch";
+                    }
+                    else
+                    {
+                        _btnPlay.Text = "Play";
+                    }
+                }
 
                 if (isInstalled || _isInstalledView)
                 {

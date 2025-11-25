@@ -668,6 +668,7 @@ namespace BeanModManager.Services
                     var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.steam);
                     if (asset != null)
                     {
+                        System.Diagnostics.Debug.WriteLine($"  Found Steam asset for {mod.Name}: {asset.name}");
                         mod.Versions.Add(new ModVersion
                         {
                             Version = release.tag_name,
@@ -678,6 +679,10 @@ namespace BeanModManager.Services
                             IsPreRelease = isPreRelease
                         });
                     }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  No Steam asset found for {mod.Name} (release {release.tag_name})");
+                    }
                 }
 
                 // Add Epic/MS Store version
@@ -686,6 +691,7 @@ namespace BeanModManager.Services
                     var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.epic);
                     if (asset != null)
                     {
+                        System.Diagnostics.Debug.WriteLine($"  Found Epic asset for {mod.Name}: {asset.name}");
                         mod.Versions.Add(new ModVersion
                         {
                             Version = release.tag_name,
@@ -696,6 +702,10 @@ namespace BeanModManager.Services
                             IsPreRelease = isPreRelease
                         });
                     }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  No Epic asset found for {mod.Name} (release {release.tag_name})");
+                    }
                 }
 
                 // Add DLL version
@@ -704,6 +714,7 @@ namespace BeanModManager.Services
                     var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.dll);
                     if (asset != null)
                     {
+                        System.Diagnostics.Debug.WriteLine($"  Found DLL asset for {mod.Name}: {asset.name}");
                         mod.Versions.Add(new ModVersion
                         {
                             Version = release.tag_name,
@@ -713,6 +724,10 @@ namespace BeanModManager.Services
                             GameVersion = "DLL Only",
                             IsPreRelease = isPreRelease
                         });
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  No DLL asset found for {mod.Name} (release {release.tag_name})");
                     }
                 }
 
@@ -763,12 +778,20 @@ namespace BeanModManager.Services
                 // Check exclude patterns
                 if (matches && filter.exclude != null && filter.exclude.Any())
                 {
-                    matches = !filter.exclude.Any(exclude => 
+                    var excluded = filter.exclude.Any(exclude => 
                         assetNameLower.Contains(exclude.ToLower()));
+                    if (excluded)
+                    {
+                        matches = false;
+                        System.Diagnostics.Debug.WriteLine($"    Asset {asset.name} excluded by pattern");
+                    }
                 }
 
                 if (matches)
+                {
+                    System.Diagnostics.Debug.WriteLine($"    Asset {asset.name} matched filter");
                     return asset;
+                }
             }
 
             return null;

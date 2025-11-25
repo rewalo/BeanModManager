@@ -1680,26 +1680,8 @@ namespace BeanModManager
                 {
                     if (!LaunchBetterCrewLinkExecutable(mod))
                         return;
-
-                    Mod selectedModForBcl = ShowBetterCrewLinkModSelection();
-                    if (selectedModForBcl == null || selectedModForBcl.Id == "__CANCELLED__")
-                    {
-                        if (selectedModForBcl != null && selectedModForBcl.Id == "__CANCELLED__")
-                        {
-                            return;
-                        }
-                    }
-
-                    if (selectedModForBcl != null)
-                    {
-                        LaunchGameWithMod(selectedModForBcl);
-                    }
-                    else
-                    {
-                        LaunchVanillaAmongUs();
-                    }
                     
-                    UpdateStatus($"Launched {mod.Name} and Among Us");
+                    UpdateStatus($"Launched {mod.Name}");
                     return;
                 }
 
@@ -2620,6 +2602,8 @@ namespace BeanModManager
                     // Single requirement - use it as the target
                     targetDepVersion = versionGroups[0].Key;
                     System.Diagnostics.Debug.WriteLine($"  Single requirement: {targetDepVersion}");
+                    
+                    // If it's "Unknown", we'll handle it below after getting depMod
                 }
                 else
                 {
@@ -2642,6 +2626,27 @@ namespace BeanModManager
                 // Check if we need to install/update the dependency
                 var depMod = _availableMods?.FirstOrDefault(m => 
                     string.Equals(m.Id, conflict.DependencyId, StringComparison.OrdinalIgnoreCase));
+                
+                // If targetDepVersion is "Unknown", try to get the latest version of the dependency
+                if (depMod != null && string.Equals(targetDepVersion, "Unknown", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (depMod.Versions != null && depMod.Versions.Any())
+                    {
+                        // Get the latest stable version
+                        var latestVersion = depMod.Versions
+                            .Where(v => !v.IsPreRelease && !string.IsNullOrEmpty(v.DownloadUrl))
+                            .OrderByDescending(v => v.ReleaseDate)
+                            .FirstOrDefault();
+                        
+                        if (latestVersion != null)
+                        {
+                            targetDepVersion = !string.IsNullOrEmpty(latestVersion.ReleaseTag) 
+                                ? latestVersion.ReleaseTag 
+                                : latestVersion.Version;
+                            System.Diagnostics.Debug.WriteLine($"  Replaced 'Unknown' with latest version {targetDepVersion} for {conflict.DependencyName}");
+                        }
+                    }
+                }
                 
                 if (depMod != null)
                 {

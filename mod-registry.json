@@ -12,16 +12,17 @@
       "category": "Host Mod",
       "assetFilters": {
         "steam": {
-          "patterns": ["SteamItchio", "steamitchio"],
-          "exclude": ["epic", "Epic"]
+          "patterns": ["SteamItchio", "steamitchio", "Steam-Itchio"],
+          "exclude": ["epic", "Epic", "EpicMsStore", "epicmsstore"]
         },
         "epic": {
-          "patterns": ["EpicMsStore", "epicmsstore", "epicms"],
-          "exclude": []
+          "patterns": ["EpicMsStore", "epicmsstore", "epicms", "Epic-MsStore"],
+          "exclude": ["steam", "Steam", "SteamItchio", "steamitchio"]
         },
         "dll": {
-          "patterns": ["TOHE.dll", ".dll"],
-          "exclude": ["steam", "epic", "Steam", "Epic"]
+          "patterns": ["TOHE.dll"],
+          "exactMatch": true,
+          "exclude": []
         }
       },
       "requiresDepot": false,
