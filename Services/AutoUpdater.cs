@@ -119,6 +119,28 @@ namespace BeanModManager.Services
 setlocal enabledelayedexpansion
 set MAX_RETRIES=15
 set RETRY_COUNT=0
+set UPDATE_SUCCESS=0
+
+REM Cleanup function
+:CLEANUP
+if %UPDATE_SUCCESS% EQU 1 (
+    REM Success - clean up old backup and temp files
+    if exist ""{oldFileBackup}"" del /F /Q ""{oldFileBackup}"" >nul 2>&1
+    if exist ""{tempUpdatePath}"" del /F /Q ""{tempUpdatePath}"" >nul 2>&1
+) else (
+    REM Failure - clean up temp update file but keep old backup for recovery
+    if exist ""{tempUpdatePath}"" del /F /Q ""{tempUpdatePath}"" >nul 2>&1
+)
+REM Always try to delete the script itself (may fail if still running, that's OK)
+timeout /t 1 /nobreak >nul
+if exist ""{updateScriptPath}"" (
+    del /F /Q ""{updateScriptPath}"" >nul 2>&1
+    REM If deletion fails, schedule it for deletion on next reboot
+    if exist ""{updateScriptPath}"" (
+        reg add ""HKLM\SYSTEM\CurrentControlSet\Control\Session Manager"" /v PendingFileRenameOperations /t REG_MULTI_SZ /d ""\??\{updateScriptPath}"" /f >nul 2>&1
+    )
+)
+exit /b %ERRORLEVEL%
 
 REM Wait for application to close
 :WAIT_PROCESS
@@ -137,8 +159,7 @@ REM Wait for file handles to be released (Windows 10 needs more time)
 set /a RETRY_COUNT+=1
 if !RETRY_COUNT! GTR %MAX_RETRIES% (
     echo Error: Could not release file handles after %MAX_RETRIES% attempts
-    pause
-    exit /b 1
+    goto CLEANUP_ERROR
 )
 
 REM Try to rename the old file (this will fail if file is still locked)
@@ -164,9 +185,9 @@ if errorlevel 1 (
     set /a COPY_RETRY+=1
     if !COPY_RETRY! GTR 5 (
         echo Error: Failed to copy new file after 5 attempts
+        REM Restore old file if backup exists
         if exist ""{oldFileBackup}"" ren ""{oldFileBackup}"" ""{appFileName}""
-        pause
-        exit /b 1
+        goto CLEANUP_ERROR
     )
     timeout /t 1 /nobreak >nul
     goto COPY_FILE
@@ -175,19 +196,21 @@ if errorlevel 1 (
 REM Verify new file exists
 if not exist ""{appPath}"" (
     echo Error: New file was not copied successfully
+    REM Restore old file if backup exists
     if exist ""{oldFileBackup}"" ren ""{oldFileBackup}"" ""{appFileName}""
-    pause
-    exit /b 1
+    goto CLEANUP_ERROR
 )
 
-REM Success! Clean up and start new version
-if exist ""{oldFileBackup}"" del /F /Q ""{oldFileBackup}"" >nul 2>&1
+REM Success! Start new version and clean up
+set UPDATE_SUCCESS=1
 timeout /t 1 /nobreak >nul
 start """" ""{appPath}""
 timeout /t 2 /nobreak >nul
-del /F /Q ""{updateScriptPath}"" >nul 2>&1
-del /F /Q ""{tempUpdatePath}"" >nul 2>&1
-endlocal
+goto CLEANUP
+
+:CLEANUP_ERROR
+set UPDATE_SUCCESS=0
+goto CLEANUP
 ";
 
                 File.WriteAllText(updateScriptPath, scriptContent);
@@ -207,6 +230,18 @@ endlocal
                 catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
                 {
                     OnProgressChanged("Update cancelled: administrator permission is required.");
+                    // Clean up temp files since update was cancelled
+                    try
+                    {
+                        if (File.Exists(tempUpdatePath))
+                            File.Delete(tempUpdatePath);
+                        if (File.Exists(updateScriptPath))
+                            File.Delete(updateScriptPath);
+                    }
+                    catch
+                    {
+                        // Ignore cleanup errors - files will be cleaned up on next run or by Windows temp cleanup
+                    }
                     return false;
                 }
 
