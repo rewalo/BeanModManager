@@ -1,5 +1,3 @@
-hi tobi
-
 <p align="center">
 	<a href="https://github.com/rewalo/BeanModManager/releases"><img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/rewalo/BeanModManager/total?label=Github%20downloads"></a>
 	<a href="https://www.curseforge.com/among-us/all-mods/bean-mod-manager"><img alt="Curseforge Downloads" src="https://cf.way2muchnoise.eu/1390152.svg"></a>
