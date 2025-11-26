@@ -59,7 +59,7 @@
           "fileName": "MiraAPI.dll",
           "githubOwner": "All-Of-Us-Mods",
           "githubRepo": "MiraAPI",
-          "requiredVersion": null,
+          "requiredVersion": "v0.3.3",
           "optional": false
         }
       ],
