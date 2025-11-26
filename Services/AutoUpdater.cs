@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -191,16 +192,25 @@ endlocal
 
                 File.WriteAllText(updateScriptPath, scriptContent);
 
-                // Launch the update script (will run after this process exits)
-                Process.Start(new ProcessStartInfo
+                // Launch the update script elevated (will run after this process exits)
+                try
                 {
-                    FileName = updateScriptPath,
-                    UseShellExecute = true,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    CreateNoWindow = true
-                });
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = updateScriptPath,
+                        UseShellExecute = true,
+                        Verb = "runas", // prompts for admin
+                        WindowStyle = ProcessWindowStyle.Hidden,
+                        CreateNoWindow = true
+                    });
+                }
+                catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+                {
+                    OnProgressChanged("Update cancelled: administrator permission is required.");
+                    return false;
+                }
 
-                OnProgressChanged("Update will be installed when you close the application.");
+                OnProgressChanged("Update will install after you close the app (allow the UAC prompt).");
                 return true;
             }
             catch (Exception ex)
