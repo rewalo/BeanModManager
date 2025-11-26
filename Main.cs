@@ -26,7 +26,7 @@ namespace BeanModManager
         private ModInstaller _modInstaller;
         private BepInExInstaller _bepInExInstaller;
         private SteamDepotService _steamDepotService;
-        private AutoUpdater _autoUpdater;
+        private UpdateChecker _updateChecker;
         private List<Mod> _availableMods;
         private Dictionary<string, ModCard> _modCards;
         private bool _isInstalling = false;
@@ -84,7 +84,7 @@ namespace BeanModManager
             _modDownloader = new ModDownloader();
             _modInstaller = new ModInstaller();
             _bepInExInstaller = new BepInExInstaller();
-            _autoUpdater = new AutoUpdater();
+            _updateChecker = new UpdateChecker();
             _modCards = new Dictionary<string, ModCard>();
 
 
@@ -95,8 +95,8 @@ namespace BeanModManager
             _bepInExInstaller.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _steamDepotService = new SteamDepotService();
             _steamDepotService.ProgressChanged += (s, msg) => UpdateStatus(msg);
-            _autoUpdater.ProgressChanged += (s, msg) => UpdateStatus(msg);
-            _autoUpdater.UpdateAvailable += AutoUpdater_UpdateAvailable;
+            _updateChecker.ProgressChanged += (s, msg) => UpdateStatus(msg);
+            _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
 
             LoadSettings();
             
@@ -1083,7 +1083,7 @@ namespace BeanModManager
                 try
                 {
                     await CheckForAppUpdatesAsync().ConfigureAwait(false);
-                    // If update found, AutoUpdater_UpdateAvailable will handle download immediately
+                    // If update found, UpdateChecker_UpdateAvailable will notify the user
                 }
                 catch (Exception ex)
                 {
@@ -2022,8 +2022,18 @@ namespace BeanModManager
 
             if (!string.Equals(categoryFilter, "All", StringComparison.OrdinalIgnoreCase))
             {
-                if (!NormalizeCategory(mod.Category).Equals(categoryFilter, StringComparison.OrdinalIgnoreCase))
-                    return false;
+                // Handle "Featured" category filter (only for store view)
+                if (string.Equals(categoryFilter, "Featured", StringComparison.OrdinalIgnoreCase) && !isInstalledView)
+                {
+                    if (!mod.IsFeatured)
+                        return false;
+                }
+                else
+                {
+                    // Regular category filter
+                    if (!NormalizeCategory(mod.Category).Equals(categoryFilter, StringComparison.OrdinalIgnoreCase))
+                        return false;
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(searchText))
@@ -2087,8 +2097,26 @@ namespace BeanModManager
                 categories.Insert(0, "All");
             }
 
+            // For installed category, use the regular categories
             UpdateCategoryCombo(cmbInstalledCategory, categories, ref _installedCategoryFilter);
-            UpdateCategoryCombo(cmbStoreCategory, categories, ref _storeCategoryFilter);
+            
+            // For store category, add "Featured" option after "All"
+            var storeCategories = new List<string>(categories);
+            if (!storeCategories.Contains("Featured", StringComparer.OrdinalIgnoreCase))
+            {
+                // Insert "Featured" right after "All"
+                var allIndex = storeCategories.FindIndex(c => c.Equals("All", StringComparison.OrdinalIgnoreCase));
+                if (allIndex >= 0)
+                {
+                    storeCategories.Insert(allIndex + 1, "Featured");
+                }
+                else
+                {
+                    storeCategories.Insert(0, "Featured");
+                }
+            }
+            
+            UpdateCategoryCombo(cmbStoreCategory, storeCategories, ref _storeCategoryFilter);
         }
 
         private void UpdateCategoryCombo(ComboBox combo, List<string> categories, ref string filterValue)
@@ -5688,9 +5716,9 @@ namespace BeanModManager
             try
             {
                 // Always check for updates, regardless of rate limits
-                // AutoUpdater uses cache and ETag, so it won't hit rate limits
-                var hasUpdate = await _autoUpdater.CheckForUpdatesAsync().ConfigureAwait(false);
-                // UpdateAvailable event will be fired if update is found, which will auto-download
+                // UpdateChecker uses cache and ETag, so it won't hit rate limits
+                var hasUpdate = await _updateChecker.CheckForUpdatesAsync().ConfigureAwait(false);
+                // UpdateAvailable event will be fired if update is found
             }
             catch (Exception ex)
             {
@@ -5699,73 +5727,41 @@ namespace BeanModManager
             }
         }
 
-        private async void AutoUpdater_UpdateAvailable(object sender, AutoUpdater.UpdateAvailableEventArgs e)
+        private void UpdateChecker_UpdateAvailable(object sender, UpdateChecker.UpdateAvailableEventArgs e)
         {
-            // Ask user FIRST before downloading
-            var downloadResult = SafeInvoke(() => MessageBox.Show(
-                $"A new version of Bean Mod Manager is available!\n\n" +
-                $"Current version: {e.CurrentVersion}\n" +
-                $"Latest version: {e.LatestVersion}\n\n" +
-                $"Would you like to download and install it now?\n\n" +
-                $"{(!string.IsNullOrEmpty(e.ReleaseNotes) ? $"Release notes:\n{e.ReleaseNotes.Substring(0, Math.Min(200, e.ReleaseNotes.Length))}..." : "")}",
-                "Update Available",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Information));
-
-            // Only download if user clicked Yes
-            if (downloadResult != DialogResult.Yes)
-            {
-                return;
-            }
-
-            // User confirmed, start downloading
             SafeInvoke(() =>
             {
-                progressBar.Visible = true;
-                progressBar.Style = ProgressBarStyle.Marquee;
-                UpdateStatus("Downloading update...");
+                var result = MessageBox.Show(
+                    $"A new version of Bean Mod Manager is available!\n\n" +
+                    $"Current version: {e.CurrentVersion}\n" +
+                    $"Latest version: {e.LatestVersion}\n\n" +
+                    $"{(!string.IsNullOrEmpty(e.ReleaseNotes) ? $"Release notes:\n{e.ReleaseNotes.Substring(0, Math.Min(200, e.ReleaseNotes.Length))}...\n\n" : "")}" +
+                    $"Would you like to open the download page?",
+                    "Update Available",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information);
+
+                if (result == DialogResult.Yes)
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = e.ReleaseUrl,
+                            UseShellExecute = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(
+                            $"Failed to open the download page.\n\nPlease visit: {e.ReleaseUrl}",
+                            "Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                        System.Diagnostics.Debug.WriteLine($"Failed to open release URL: {ex.Message}");
+                    }
+                }
             });
-
-            var success = await _autoUpdater.DownloadAndInstallUpdateAsync(e.DownloadUrl, e.LatestVersion).ConfigureAwait(false);
-            
-            if (success)
-            {
-                SafeInvoke(() =>
-                {
-                    progressBar.Visible = false;
-                    var result = MessageBox.Show(
-                        $"Update downloaded successfully!\n\n" +
-                        $"Current version: {e.CurrentVersion}\n" +
-                        $"Latest version: {e.LatestVersion}\n\n" +
-                        $"The application will close and restart with the new version.\n\n" +
-                        $"Click OK to close now, or Cancel to continue with current version.",
-                        "Update Ready",
-                        MessageBoxButtons.OKCancel,
-                        MessageBoxIcon.Information);
-
-                    if (result == DialogResult.OK)
-                    {
-                        Application.Exit();
-                    }
-                    else
-                    {
-                        UpdateStatus("Ready");
-                    }
-                });
-            }
-            else
-            {
-                SafeInvoke(() =>
-                {
-                    progressBar.Visible = false;
-                    MessageBox.Show(
-                        "Failed to download the update. Please try again later or download manually from GitHub.",
-                        "Update Failed",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    UpdateStatus("Ready");
-                });
-            }
         }
 
         private void btnBackupAmongUsData_Click(object sender, EventArgs e)

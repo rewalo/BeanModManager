@@ -70,7 +70,7 @@
     <Compile Include="Models\ModRegistry.cs" />
     <Compile Include="Themes\ThemeManager.cs" />
     <Compile Include="Services\AmongUsDetector.cs" />
-    <Compile Include="Services\AutoUpdater.cs" />
+    <Compile Include="Services\UpdateChecker.cs" />
     <Compile Include="Services\HttpDownloadHelper.cs" />
     <Compile Include="Services\ModDownloader.cs" />
     <Compile Include="Services\ModInstaller.cs" />
