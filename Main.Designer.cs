@@ -649,7 +649,7 @@
             this.grpFolders.Controls.Add(this.flowFolders);
             this.grpFolders.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpFolders.Location = new System.Drawing.Point(553, 140);
-            this.grpFolders.Margin = new System.Windows.Forms.Padding(3, 3, 13, 10);
+            this.grpFolders.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpFolders.Name = "grpFolders";
             this.grpFolders.Padding = new System.Windows.Forms.Padding(12);
             this.grpFolders.Size = new System.Drawing.Size(525, 170);
@@ -756,7 +756,7 @@
             "Light",
             "Dark"});
             this.cmbTheme.Location = new System.Drawing.Point(64, 5);
-            this.cmbTheme.Margin = new System.Windows.Forms.Padding(3, 5, 3, 0);
+            this.cmbTheme.Margin = new System.Windows.Forms.Padding(3, 4, 3, 0);
             this.cmbTheme.Name = "cmbTheme";
             this.cmbTheme.Size = new System.Drawing.Size(200, 23);
             this.cmbTheme.TabIndex = 1;
@@ -833,7 +833,7 @@
             this.grpData.Controls.Add(this.flowData);
             this.grpData.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpData.Location = new System.Drawing.Point(553, 439);
-            this.grpData.Margin = new System.Windows.Forms.Padding(3, 3, 13, 10);
+            this.grpData.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpData.Name = "grpData";
             this.grpData.Padding = new System.Windows.Forms.Padding(12);
             this.grpData.Size = new System.Drawing.Size(525, 343);

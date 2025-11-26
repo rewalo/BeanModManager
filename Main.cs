@@ -59,6 +59,13 @@ namespace BeanModManager
             this.Load += Main_Load;
             
             InitializeThemeSystem();
+            
+            // Handle tab selection changes to refresh scrollbars
+            if (tabControl != null)
+            {
+                tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
+            }
+            
             _modStore = new ModStore();
             _modDownloader = new ModDownloader();
             _modInstaller = new ModInstaller();
@@ -160,47 +167,14 @@ namespace BeanModManager
                 tabControl.Invalidate();
             }
 
-            if (InvokeRequired)
-            {
-                BeginInvoke(new Action(() =>
-                {
-                    ApplyTheme();
-                    ApplyDarkMode();
-                    this.Invalidate(true);
-                    this.Update();
-                    // Ensure scrollbars are refreshed after theme is applied
-                    BeginInvoke(new Action(() =>
-                    {
-                        if (panelStore != null && panelStore.IsHandleCreated)
-                        {
-                            panelStore.RefreshScrollbars();
-                        }
-                        if (panelInstalled != null && panelInstalled.IsHandleCreated)
-                        {
-                            panelInstalled.RefreshScrollbars();
-                        }
-                    }), 150);
-                }));
-                return;
-            }
+            ThemeManager_ThemeChanged(null, null);
 
-            ApplyTheme();
-            ApplyDarkMode();
-            this.Invalidate(true);
-            this.Update();
-            
-            // Ensure scrollbars are refreshed after theme is applied
-            BeginInvoke(new Action(() =>
-            {
-                if (panelStore != null && panelStore.IsHandleCreated)
-                {
-                    panelStore.RefreshScrollbars();
-                }
-                if (panelInstalled != null && panelInstalled.IsHandleCreated)
-                {
-                    panelInstalled.RefreshScrollbars();
-                }
-            }), 150);
+            if (!firstLaunch) return;
+
+            firstLaunch = false;
+            tabControl.SelectedIndex = 1;
+            ThemeManager_ThemeChanged(null, null);
+            tabControl.SelectedIndex = 0;
         }
 
         private void InitializeThemeSystem()
@@ -228,6 +202,14 @@ namespace BeanModManager
             ApplyDarkMode();
             this.Invalidate(true);
             this.Update();
+        }
+
+        bool firstLaunch = true;
+
+        private void TabControl_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            // Refresh scrollbars when switching tabs, especially for initially hidden tabs
+            if (tabControl == null) return;
         }
 
         private void ApplyDarkMode()

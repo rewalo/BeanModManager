@@ -42,33 +42,9 @@ namespace BeanModManager.Controls
 
         private void ThemeManager_ThemeChanged(object sender, EventArgs e)
         {
-            if (InvokeRequired)
-            {
-                BeginInvoke(new Action(() =>
-                {
-                    UpdatePalette();
-                    Invalidate();
-                    InvalidateScrollbars();
-                }));
-            }
-            else
-            {
-                UpdatePalette();
-                Invalidate();
-                InvalidateScrollbars();
-            }
-            // Also refresh after a delay to ensure it's applied
-            if (IsHandleCreated)
-            {
-                BeginInvoke(new Action(() =>
-                {
-                    if (IsHandleCreated && Visible)
-                    {
-                        UpdatePalette();
-                        InvalidateScrollbars();
-                    }
-                }), 50);
-            }
+            UpdatePalette();
+            Invalidate();
+            InvalidateScrollbars();
         }
 
         protected override void OnHandleCreated(EventArgs e)
@@ -80,27 +56,24 @@ namespace BeanModManager.Controls
             {
                 if (IsHandleCreated && Visible)
                 {
-                    UpdatePalette(); // Ensure palette is current
                     InvalidateScrollbars();
                 }
             }));
-            // Also refresh after a longer delay to catch theme changes during initialization
-            BeginInvoke(new Action(() =>
-            {
-                if (IsHandleCreated && Visible)
-                {
-                    UpdatePalette();
-                    InvalidateScrollbars();
-                }
-            }), 100);
         }
 
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            if (Visible)
+            if (Visible && IsHandleCreated)
             {
-                InvalidateScrollbars();
+                // Delay scrollbar refresh to ensure control is fully laid out
+                BeginInvoke(new Action(() =>
+                {
+                    if (IsHandleCreated && Visible)
+                    {
+                        InvalidateScrollbars();
+                    }
+                }));
             }
         }
 
