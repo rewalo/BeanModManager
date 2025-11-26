@@ -6,7 +6,7 @@
     To suppress generation of this file remove `set ide=true` from the PostBuildEvent of the VS project
 </auto-generated>
 -->
-  <Package Compressed="yes" ProductCode="5939155f-c7e1-43ee-aad9-9bc68a85e9c5" Name="Bean Mod Manager" Language="1033" Version="1.5.0" UpgradeCode="5939155f-c7e1-43ee-aad9-9bc67a35d9c5" Manufacturer="rewalo" Scope="perMachine" InstallerVersion="200">
+  <Package Compressed="yes" ProductCode="5939155f-c7e1-43ee-aad9-9bc68a85f9c5" Name="Bean Mod Manager" Language="1033" Version="1.5.1" UpgradeCode="5939155f-c7e1-43ee-aad9-9bc67a35d9c5" Manufacturer="rewalo" Scope="perMachine" InstallerVersion="200">
     <SummaryInformation Codepage="Windows-1252" />
     <Media Id="1" Cabinet="Bean20Mod20Manager.cab" EmbedCab="yes" />
 

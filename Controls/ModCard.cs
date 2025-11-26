@@ -235,8 +235,12 @@ namespace BeanModManager
             this.Margin = new Padding(14);
             this.Padding = new Padding(18, 20, 18, 18);
 
-            bool allowSelection =
-                _isInstalledView &&
+            // Enable selection only in installed view for launch selection
+            // Store view doesn't need selection checkboxes
+            bool allowSelection = _isInstalledView;
+            
+            // For installed view, keep the original restriction for "Include in launch"
+            bool isLaunchSelection = _isInstalledView &&
                 (!string.Equals(_mod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(_mod.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase));
 
@@ -480,9 +484,12 @@ namespace BeanModManager
 
             if (allowSelection)
             {
+                // Set checkbox text - "Select" for bulk operations, "Include in launch" for launch selection mods
+                string checkboxText = "Select";
+                
                 _chkSelected = new CheckBox
                 {
-                    Text = "Include in launch",
+                    Text = checkboxText,
                     AutoSize = true,
                     Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                     ForeColor = _palette.PrimaryTextColor,
@@ -575,18 +582,28 @@ namespace BeanModManager
 
                 if (isInstalled || _isInstalledView)
                 {
-                    _btnPlay.Location = new Point(10, 146);
-                    _btnOpenFolder.Location = new Point(110, 146);
-
                     if (HasUpdateAvailable)
                     {
+                        // When update is available: 3 buttons on top row, Uninstall on bottom row
+                        _btnPlay.Location = new Point(10, 146);
+                        _btnOpenFolder.Location = new Point(110, 146);
                         _btnUpdate.Location = new Point(210, 146);
                         _btnUninstall.Location = new Point(10, 186);
+                        // Increase card height to accommodate second row of buttons
+                        this.Height = 280;
                     }
                     else
                     {
+                        // No update: Play, Open Folder, Uninstall on single row
+                        _btnPlay.Location = new Point(10, 146);
+                        _btnOpenFolder.Location = new Point(110, 146);
                         _btnUninstall.Location = new Point(210, 146);
+                        // Reset card height when no update
+                        this.Height = 250;
                     }
+                    
+                    // Reposition footer panel after height change
+                    LayoutFooterPanel();
                 }
                 else
                 {

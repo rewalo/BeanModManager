@@ -14,6 +14,7 @@ using System.Text;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using System.Reflection;
 using BeanModManager.Themes;
+using BeanModManager.Controls;
 
 namespace BeanModManager
 {
@@ -38,6 +39,8 @@ namespace BeanModManager
         private bool _isUpdatingCategoryFilters = false;
         private Timer _installedSearchDebounceTimer;
         private Timer _storeSearchDebounceTimer;
+        private Timer _refreshDebounceTimer;
+        private bool _isRefreshing = false;
         private bool _isApplyingThemeSelection;
 
         public Main()
@@ -60,10 +63,21 @@ namespace BeanModManager
             
             InitializeThemeSystem();
             
-            // Handle tab selection changes to refresh scrollbars
+            // Handle tab selection changes to refresh scrollbars and sync sidebar
             if (tabControl != null)
             {
                 tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
+            }
+            
+            // Initialize sidebar and header
+            UpdateSidebarSelection();
+            UpdateStats();
+            UpdateHeaderInfo();
+            
+            // Ensure border panel is always on top after initialization
+            if (sidebarBorder != null && leftSidebar != null && leftSidebar.Controls.Contains(sidebarBorder))
+            {
+                leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
             }
             
             _modStore = new ModStore();
@@ -72,6 +86,7 @@ namespace BeanModManager
             _bepInExInstaller = new BepInExInstaller();
             _autoUpdater = new AutoUpdater();
             _modCards = new Dictionary<string, ModCard>();
+
 
             LoadSavedSelection();
 
@@ -93,14 +108,25 @@ namespace BeanModManager
             _installedSearchDebounceTimer.Tick += (s, e) =>
             {
                 _installedSearchDebounceTimer.Stop();
-                RefreshModCards();
+                RefreshModCardsDebounced();
             };
             
             _storeSearchDebounceTimer = new Timer { Interval = 300 };
             _storeSearchDebounceTimer.Tick += (s, e) =>
             {
                 _storeSearchDebounceTimer.Stop();
-                RefreshModCards();
+                RefreshModCardsDebounced();
+            };
+            
+            // Debounce refresh calls to prevent excessive refreshes during install/uninstall
+            _refreshDebounceTimer = new Timer { Interval = 150 };
+            _refreshDebounceTimer.Tick += (s, e) =>
+            {
+                _refreshDebounceTimer.Stop();
+                if (!_isRefreshing)
+                {
+                    RefreshModCards();
+                }
             };
         }
 
@@ -118,6 +144,7 @@ namespace BeanModManager
 
             txtAmongUsPath.Text = _config.AmongUsPath ?? "Not detected";
             UpdateLaunchButtonsState();
+            UpdateHeaderInfo();
 
             if (chkAutoUpdateMods != null)
             {
@@ -166,8 +193,20 @@ namespace BeanModManager
                 tabControl.BackColor = palette.WindowBackColor;
                 tabControl.Invalidate();
             }
+            
+            // Ensure sidebar border is on top after load
+            if (sidebarBorder != null && leftSidebar != null && leftSidebar.Controls.Contains(sidebarBorder))
+            {
+                leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
+            }
 
             ThemeManager_ThemeChanged(null, null);
+            
+            // Ensure sidebar border is always on top
+            if (sidebarBorder != null)
+            {
+                sidebarBorder.BringToFront();
+            }
 
             if (!firstLaunch) return;
 
@@ -175,6 +214,12 @@ namespace BeanModManager
             tabControl.SelectedIndex = 1;
             ThemeManager_ThemeChanged(null, null);
             tabControl.SelectedIndex = 0;
+            
+            // Ensure border stays on top after tab changes
+            if (sidebarBorder != null && leftSidebar != null && leftSidebar.Controls.Contains(sidebarBorder))
+            {
+                leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
+            }
         }
 
         private void InitializeThemeSystem()
@@ -210,6 +255,295 @@ namespace BeanModManager
         {
             // Refresh scrollbars when switching tabs, especially for initially hidden tabs
             if (tabControl == null) return;
+            
+            // Sync sidebar button selection with tab control
+            UpdateSidebarSelection();
+            
+            // Update header info when switching tabs (in case rate limit status changed)
+            UpdateHeaderInfo();
+            
+            // Refresh scrollbars when switching tabs to ensure they're properly displayed
+            // This also triggers a layout update which makes cards visible
+            if (IsHandleCreated)
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    if (panelStore.IsHandleCreated)
+                    {
+                        panelStore.RefreshScrollbars();
+                        panelStore.PerformLayout();
+                    }
+                    if (panelInstalled.IsHandleCreated)
+                    {
+                        panelInstalled.RefreshScrollbars();
+                        panelInstalled.PerformLayout();
+                    }
+                }));
+            }
+            
+            // Ensure border stays on top
+            if (sidebarBorder != null && leftSidebar != null && leftSidebar.Controls.Contains(sidebarBorder))
+            {
+                leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
+            }
+        }
+        
+        private void UpdateSidebarSelection()
+        {
+            if (tabControl == null) return;
+            
+            var selectedIndex = tabControl.SelectedIndex;
+            
+            // Update button styles based on selection
+            var palette = ThemeManager.Current;
+            
+            var selectedBgColor = ThemeManager.CurrentVariant == ThemeVariant.Dark 
+                ? Color.FromArgb(45, 50, 60) 
+                : Color.FromArgb(240, 242, 247);
+            
+            if (btnSidebarInstalled != null)
+            {
+                btnSidebarInstalled.BackColor = selectedIndex == 0 
+                    ? selectedBgColor 
+                    : Color.Transparent;
+                btnSidebarInstalled.Font = new Font("Segoe UI", 9.5F, 
+                    selectedIndex == 0 ? FontStyle.Bold : FontStyle.Regular);
+                btnSidebarInstalled.ForeColor = selectedIndex == 0 
+                    ? palette.SuccessButtonColor 
+                    : palette.SecondaryTextColor;
+            }
+            
+            if (btnSidebarStore != null)
+            {
+                btnSidebarStore.BackColor = selectedIndex == 1 
+                    ? selectedBgColor 
+                    : Color.Transparent;
+                btnSidebarStore.Font = new Font("Segoe UI", 9.5F, 
+                    selectedIndex == 1 ? FontStyle.Bold : FontStyle.Regular);
+                btnSidebarStore.ForeColor = selectedIndex == 1 
+                    ? palette.SuccessButtonColor 
+                    : palette.SecondaryTextColor;
+            }
+            
+            if (btnSidebarSettings != null)
+            {
+                btnSidebarSettings.BackColor = selectedIndex == 2 
+                    ? selectedBgColor 
+                    : Color.Transparent;
+                btnSidebarSettings.Font = new Font("Segoe UI", 9.5F, 
+                    selectedIndex == 2 ? FontStyle.Bold : FontStyle.Regular);
+                btnSidebarSettings.ForeColor = selectedIndex == 2 
+                    ? palette.SuccessButtonColor 
+                    : palette.SecondaryTextColor;
+            }
+            
+            // Update Launch Vanilla button styling (always visible, not a tab)
+            if (btnSidebarLaunchVanilla != null)
+            {
+                var palette2 = ThemeManager.Current;
+                btnSidebarLaunchVanilla.ForeColor = palette2.PrimaryButtonColor;
+            }
+        }
+        
+        private void btnSidebarInstalled_Click(object sender, EventArgs e)
+        {
+            if (tabControl != null && tabControl.SelectedIndex != 0)
+            {
+                tabControl.SelectedIndex = 0;
+            }
+        }
+        
+        private void btnSidebarStore_Click(object sender, EventArgs e)
+        {
+            if (tabControl != null && tabControl.SelectedIndex != 1)
+            {
+                tabControl.SelectedIndex = 1;
+            }
+        }
+        
+        private void btnSidebarSettings_Click(object sender, EventArgs e)
+        {
+            if (tabControl != null && tabControl.SelectedIndex != 2)
+            {
+                tabControl.SelectedIndex = 2;
+            }
+        }
+        
+        private void UpdateStats()
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(UpdateStats));
+                return;
+            }
+            
+            if (_availableMods == null)
+            {
+                if (lblInstalledCount != null)
+                    lblInstalledCount.Text = "Installed: 0 mods";
+                if (lblPendingUpdates != null)
+                    lblPendingUpdates.Text = "Pending Updates: 0";
+                return;
+            }
+            
+            // Count installed mods
+            var installedCount = _availableMods.Count(m => m.IsInstalled);
+            if (lblInstalledCount != null)
+            {
+                lblInstalledCount.Text = $"Installed: {installedCount} {(installedCount == 1 ? "mod" : "mods")}";
+            }
+            
+            // Count pending updates
+            var pendingUpdates = GetPendingUpdatesCount();
+            if (lblPendingUpdates != null)
+            {
+                lblPendingUpdates.Text = $"Pending Updates: {pendingUpdates}";
+                var palette = ThemeManager.Current;
+                lblPendingUpdates.ForeColor = pendingUpdates > 0 
+                    ? palette.WarningButtonColor 
+                    : palette.SecondaryTextColor;
+            }
+        }
+        
+        private int GetPendingUpdatesCount()
+        {
+            if (_availableMods == null)
+                return 0;
+                
+            var installedMods = _availableMods.Where(m => m.IsInstalled).ToList();
+            if (!installedMods.Any())
+                return 0;
+            
+            int count = 0;
+            foreach (var mod in installedMods)
+            {
+                if (mod.InstalledVersion == null)
+                    continue;
+                
+                // Always check ALL versions (including betas) to find the actual latest
+                // The beta setting only affects what's displayed, not what's considered the latest
+                var availableVersions = mod.Versions
+                    .Where(v => !string.IsNullOrEmpty(v.DownloadUrl))
+                    .OrderByDescending(v => v.ReleaseDate)
+                    .ToList();
+                
+                if (!availableVersions.Any())
+                    continue;
+                
+                var latestVersion = availableVersions.FirstOrDefault();
+                var installedTag = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version;
+                var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
+                
+                // If installed version is the latest version (same tag), no update available
+                if (string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                
+                // Special case: If installed version is a beta and it's the latest beta
+                if (mod.InstalledVersion.IsPreRelease)
+                {
+                    var latestBeta = mod.Versions
+                        .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && v.IsPreRelease)
+                        .OrderByDescending(v => v.ReleaseDate)
+                        .FirstOrDefault();
+                    
+                    if (latestBeta != null)
+                    {
+                        var latestBetaTag = latestBeta.ReleaseTag ?? latestBeta.Version;
+                        if (string.Equals(installedTag, latestBetaTag, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Check if there's a newer stable version
+                            var latestStable = mod.Versions
+                                .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && !v.IsPreRelease)
+                                .OrderByDescending(v => v.ReleaseDate)
+                                .FirstOrDefault();
+                            
+                            if (latestStable == null || latestStable.ReleaseDate <= mod.InstalledVersion.ReleaseDate)
+                            {
+                                // No newer stable version, so no update
+                                continue;
+                            }
+                        }
+                    }
+                }
+                
+                count++;
+            }
+            
+            return count;
+        }
+        
+        private void UpdateHeaderInfo()
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(UpdateHeaderInfo));
+                return;
+            }
+            
+            if (lblHeaderInfo == null)
+                return;
+            
+            var parts = new List<string>();
+            
+            // Among Us path status
+            var amongUsPath = _config?.AmongUsPath;
+            if (string.IsNullOrEmpty(amongUsPath))
+            {
+                parts.Add("Among Us: Not detected");
+            }
+            else
+            {
+                var exists = Directory.Exists(amongUsPath);
+                parts.Add($"Among Us: {(exists ? "✓" : "✗")} {amongUsPath}");
+            }
+            
+            // GitHub rate limit status
+            var isRateLimited = _modStore?.IsRateLimited() ?? false;
+            parts.Add($"GitHub: {(isRateLimited ? "Rate Limited" : "OK")}");
+            
+            // Last sync time
+            var lastSync = GetLastSyncTime();
+            if (lastSync.HasValue)
+            {
+                var timeAgo = DateTime.UtcNow - lastSync.Value;
+                string timeStr;
+                if (timeAgo.TotalMinutes < 1)
+                    timeStr = "Just now";
+                else if (timeAgo.TotalMinutes < 60)
+                    timeStr = $"{(int)timeAgo.TotalMinutes}m ago";
+                else if (timeAgo.TotalHours < 24)
+                    timeStr = $"{(int)timeAgo.TotalHours}h ago";
+                else
+                    timeStr = $"{(int)timeAgo.TotalDays}d ago";
+                parts.Add($"Last sync: {timeStr}");
+            }
+            else
+            {
+                parts.Add("Last sync: Never");
+            }
+            
+            lblHeaderInfo.Text = string.Join("  •  ", parts);
+        }
+        
+        private DateTime? GetLastSyncTime()
+        {
+            if (_availableMods == null || !_availableMods.Any())
+                return null;
+            
+            DateTime? latestSync = null;
+            
+            // Check cache timestamps for all mods
+            foreach (var mod in _availableMods)
+            {
+                var cacheKey = $"mod_{mod.Id}_all";
+                var cache = GitHubCacheHelper.GetCache(cacheKey);
+                if (cache != null && cache.LastChecked > latestSync.GetValueOrDefault(DateTime.MinValue))
+                {
+                    latestSync = cache.LastChecked;
+                }
+            }
+            
+            return latestSync;
         }
 
         private void ApplyDarkMode()
@@ -229,6 +563,41 @@ namespace BeanModManager
             {
                 e.Graphics.FillRectangle(brush, e.ClipRectangle);
             }
+        }
+        
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            
+            var palette = ThemeManager.Current;
+            using (var pen = new Pen(palette.CardBorderColor, 1))
+            {
+                // Draw header bottom border
+                if (headerStrip != null && headerStrip.Visible)
+                {
+                    var headerRect = headerStrip.Bounds;
+                    e.Graphics.DrawLine(pen, headerRect.Left, headerRect.Bottom - 1, headerRect.Right, headerRect.Bottom - 1);
+                }
+            }
+        }
+        
+        private void HeaderStrip_Paint(object sender, PaintEventArgs e)
+        {
+            var panel = sender as Panel;
+            if (panel == null) return;
+            
+            var palette = ThemeManager.Current;
+            var rect = panel.ClientRectangle;
+            using (var pen = new Pen(palette.CardBorderColor, 1))
+            {
+                // Draw bottom border
+                e.Graphics.DrawLine(pen, 0, rect.Height - 1, rect.Width, rect.Height - 1);
+            }
+        }
+        
+        private void Sidebar_Paint(object sender, PaintEventArgs e)
+        {
+            // Border is now handled by sidebarBorder panel
         }
 
         protected override void OnResize(EventArgs e)
@@ -258,6 +627,87 @@ namespace BeanModManager
 
             lblInstalledHeader.ForeColor = palette.HeadingTextColor;
             lblStoreHeader.ForeColor = palette.HeadingTextColor;
+            
+            // Apply theme to header strip
+            if (headerStrip != null)
+            {
+                headerStrip.BackColor = palette.WindowBackColor;
+                headerStrip.Paint -= HeaderStrip_Paint;
+                headerStrip.Paint += HeaderStrip_Paint;
+            }
+            if (lblHeaderInfo != null)
+            {
+                lblHeaderInfo.ForeColor = palette.SecondaryTextColor;
+            }
+            
+            // Apply theme to sidebar
+            if (leftSidebar != null)
+            {
+                leftSidebar.BackColor = palette.WindowBackColor;
+                leftSidebar.Paint -= Sidebar_Paint;
+                leftSidebar.Paint += Sidebar_Paint;
+                // Ensure border is always on top by setting its z-order explicitly
+                if (sidebarBorder != null && leftSidebar.Controls.Contains(sidebarBorder))
+                {
+                    // Set border to highest z-order (last index = drawn last = on top)
+                    leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
+                }
+                // Ensure the sidebar redraws to show the border
+                leftSidebar.Invalidate();
+            }
+            if (sidebarHeader != null)
+            {
+                sidebarHeader.BackColor = palette.WindowBackColor;
+            }
+            if (lblSidebarTitle != null)
+            {
+                lblSidebarTitle.ForeColor = palette.HeadingTextColor;
+            }
+            if (sidebarStats != null)
+            {
+                sidebarStats.BackColor = palette.WindowBackColor;
+            }
+            if (sidebarDivider != null)
+            {
+                sidebarDivider.BackColor = palette.CardBorderColor;
+            }
+            if (sidebarBorder != null)
+            {
+                sidebarBorder.BackColor = palette.CardBorderColor;
+            }
+            if (lblInstalledCount != null)
+            {
+                lblInstalledCount.ForeColor = palette.HeadingTextColor;
+            }
+            if (lblPendingUpdates != null)
+            {
+                lblPendingUpdates.ForeColor = palette.SecondaryTextColor;
+            }
+            
+            // Apply theme to sidebar buttons
+            var sidebarButtons = new[] { btnSidebarInstalled, btnSidebarStore, btnSidebarSettings };
+            foreach (var btn in sidebarButtons)
+            {
+                if (btn != null)
+                {
+                    var isSelected = tabControl != null && 
+                        ((btn == btnSidebarInstalled && tabControl.SelectedIndex == 0) ||
+                         (btn == btnSidebarStore && tabControl.SelectedIndex == 1) ||
+                         (btn == btnSidebarSettings && tabControl.SelectedIndex == 2));
+                    
+                    btn.BackColor = isSelected 
+                        ? (ThemeManager.CurrentVariant == ThemeVariant.Dark 
+                            ? Color.FromArgb(45, 50, 60) 
+                            : Color.FromArgb(240, 242, 247))
+                        : Color.Transparent;
+                    btn.ForeColor = isSelected 
+                        ? palette.SuccessButtonColor 
+                        : palette.SecondaryTextColor;
+                    btn.FlatAppearance.MouseOverBackColor = ThemeManager.CurrentVariant == ThemeVariant.Dark
+                        ? Color.FromArgb(45, 50, 60)
+                        : Color.FromArgb(240, 242, 247);
+                }
+            }
 
             var secondaryLabels = new[]
             {
@@ -364,7 +814,12 @@ namespace BeanModManager
             }
 
             ApplyButtonTheme(btnLaunchSelected, palette.SuccessButtonColor, palette.SuccessButtonTextColor);
-            ApplyButtonTheme(btnLaunchVanilla, palette.PrimaryButtonColor, palette.PrimaryButtonTextColor);
+            
+            // Update sidebar Launch Vanilla button color
+            if (btnSidebarLaunchVanilla != null)
+            {
+                btnSidebarLaunchVanilla.ForeColor = palette.PrimaryButtonColor;
+            }
             ApplyButtonTheme(btnInstallBepInEx, palette.PrimaryButtonColor, palette.PrimaryButtonTextColor);
             ApplyButtonTheme(btnUpdateAllMods, palette.PrimaryButtonColor, palette.PrimaryButtonTextColor);
             ApplyButtonTheme(btnClearBackup, palette.DangerButtonColor, palette.DangerButtonTextColor);
@@ -445,43 +900,15 @@ namespace BeanModManager
             if (tabControl == null || e.Index < 0 || e.Index >= tabControl.TabPages.Count)
                 return;
 
+            // Tabs are hidden (ItemSize is 0x1 and Appearance is FlatButtons), so just clear the background
+            // This prevents any visual artifacts while keeping TabControl functionality intact
             var palette = ThemeManager.Current;
-            var page = tabControl.TabPages[e.Index];
-            bool isSelected = tabControl.SelectedIndex == e.Index;
-
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-
-            var bounds = e.Bounds;
-            bounds.Inflate(-4, -2);
-
-            Color textColor = isSelected ? palette.HeadingTextColor : palette.SecondaryTextColor;
-
-            // Clear background behind this tab to match header background
             using (var bgBrush = new SolidBrush(palette.WindowBackColor))
             {
                 e.Graphics.FillRectangle(bgBrush, e.Bounds);
             }
-
-            // Draw text
-            TextRenderer.DrawText(
-                e.Graphics,
-                page.Text,
-                e.Font,
-                bounds,
-                textColor,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-
-            // Draw a clean underline for the selected tab
-            if (isSelected)
-            {
-                int underlineY = e.Bounds.Bottom - 3;
-                using (var pen = new Pen(palette.PrimaryButtonColor, 2))
-                {
-                    int margin = 12;
-                    e.Graphics.DrawLine(pen, e.Bounds.Left + margin, underlineY, e.Bounds.Right - margin, underlineY);
-                }
-            }
+            
+            // Ensure tabs are completely invisible by not drawing anything
         }
 
         private void ApplyGroupTheme(GroupBox group, ThemePalette palette)
@@ -711,7 +1138,43 @@ namespace BeanModManager
                         MessageBoxIcon.Warning));
                 }
                 
-                SafeInvoke(RefreshModCards);
+                SafeInvoke(() =>
+                {
+                    // Force immediate refresh after initial load (don't debounce)
+                    RefreshModCards();
+                    UpdateStats();
+                    UpdateHeaderInfo();
+                    
+                    // Also refresh after a short delay to handle any timing issues with mod detection
+                    // This ensures all mods are displayed even if detection wasn't complete on first refresh
+                    if (IsHandleCreated)
+                    {
+                        var ensureRefreshTimer = new Timer { Interval = 300 };
+                        ensureRefreshTimer.Tick += (s, e) =>
+                        {
+                            ensureRefreshTimer.Stop();
+                            ensureRefreshTimer.Dispose();
+                    // Only refresh if we have mods but they're not all showing
+                    if (_availableMods != null && _availableMods.Any())
+                    {
+                        var installedCount = _availableMods.Count(m => m.IsInstalled);
+                        System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Found {installedCount} installed mods in _availableMods");
+                        if (installedCount > 0)
+                        {
+                            // Check if panels have fewer cards than installed mods
+                            var installedCardsCount = panelInstalled?.Controls.OfType<ModCard>().Count() ?? 0;
+                            System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Panel has {installedCardsCount} cards, expected {installedCount}");
+                            if (installedCardsCount < installedCount)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Refreshing because cards count ({installedCardsCount}) < installed count ({installedCount})");
+                                RefreshModCards();
+                            }
+                        }
+                    }
+                        };
+                        ensureRefreshTimer.Start();
+                    }
+                });
 
                 // Check for mod updates if auto-update is enabled
                 // Note: App update check already ran at the start of LoadMods(), regardless of this setting
@@ -739,48 +1202,75 @@ namespace BeanModManager
         {
             if (InvokeRequired)
             {
-                Invoke(new Action(RefreshModCards));
+                if (IsHandleCreated)
+                {
+                    BeginInvoke(new Action(RefreshModCards));
+                }
                 return;
             }
 
-            UpdateCategoryFilters();
+            if (_isRefreshing)
+            {
+                System.Diagnostics.Debug.WriteLine("RefreshModCards: Already refreshing, skipping");
+                return;
+            }
 
-            panelStore.Controls.Clear();
-            panelInstalled.Controls.Clear();
-            lblEmptyStore.Visible = false;
-            lblEmptyInstalled.Visible = false;
-            panelStore.SuspendLayout();
-            panelInstalled.SuspendLayout();
+            _isRefreshing = true;
+            
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("RefreshModCards: Starting refresh");
+                UpdateCategoryFilters();
+                
+                // Update stats and header after refreshing mod cards
+                UpdateStats();
+                UpdateHeaderInfo();
+
+                lblEmptyStore.Visible = false;
+                lblEmptyInstalled.Visible = false;
+                
+                // Get existing cards BEFORE doing anything - we'll reuse them
+                var existingInstalledCards = panelInstalled.Controls.OfType<ModCard>().ToDictionary(c => c.BoundMod?.Id ?? "", c => c, StringComparer.OrdinalIgnoreCase);
+                var existingStoreCards = panelStore.Controls.OfType<ModCard>().ToDictionary(c => c.BoundMod?.Id ?? "", c => c, StringComparer.OrdinalIgnoreCase);
+                
             var nextCardMap = new Dictionary<string, ModCard>(StringComparer.OrdinalIgnoreCase);
             var installedCards = new List<ModCard>();
             var storeCards = new List<ModCard>();
 
-            if (_availableMods == null || !_availableMods.Any())
-            {
-                panelStore.ResumeLayout();
-                panelInstalled.ResumeLayout();
-                panelStore.RefreshScrollbars();
-                panelInstalled.RefreshScrollbars();
-                return;
-            }
+                if (_availableMods == null || !_availableMods.Any())
+                {
+                    if (panelStore.IsHandleCreated)
+                        panelStore.RefreshScrollbars();
+                    if (panelInstalled.IsHandleCreated)
+                        panelInstalled.RefreshScrollbars();
+                    return;
+                }
 
+            // Detect installed mods - cache the result to avoid multiple detections
             var modsFolder = GetModsFolder();
             var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, modsFolder);
             
             var detectedModIds = detectedMods.Select(m => m.ModId).ToList();
             
             // Also check for mod folders that exist but might not be detected
-            modsFolder = GetModsFolder();
+            // Use the same modsFolder variable (no need to call GetModsFolder again)
             var existingModFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (Directory.Exists(modsFolder))
             {
-                foreach (var modDir in Directory.GetDirectories(modsFolder))
+                try
                 {
-                    var modId = Path.GetFileName(modDir);
-                    if (!string.IsNullOrEmpty(modId))
+                    foreach (var modDir in Directory.GetDirectories(modsFolder))
                     {
-                        existingModFolders.Add(modId);
+                        var modId = Path.GetFileName(modDir);
+                        if (!string.IsNullOrEmpty(modId))
+                        {
+                            existingModFolders.Add(modId);
+                        }
                     }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error reading mod folders: {ex.Message}");
                 }
             }
             
@@ -797,15 +1287,24 @@ namespace BeanModManager
             // Don't add detected mods here - they'll be added during installation with proper version format
             // This prevents duplicates where detected version differs from installed version format
 
+            System.Diagnostics.Debug.WriteLine($"RefreshModCards: Processing {_availableMods.Count} mods");
+            System.Diagnostics.Debug.WriteLine($"RefreshModCards: Detected {detectedMods.Count} mods from filesystem");
+            System.Diagnostics.Debug.WriteLine($"RefreshModCards: Config has {_config.InstalledMods.Count} installed mods");
+            
+            int processedCount = 0;
             foreach (var mod in _availableMods)
             {
-                bool addedToInstalledList = false;
-                modsFolder = GetModsFolder();
-                var modStoragePath = Path.Combine(modsFolder, mod.Id);
-                bool modFolderExists = !string.IsNullOrEmpty(_config.AmongUsPath) && Directory.Exists(modStoragePath);
-                
-                var detectedMod = detectedMods.FirstOrDefault(d => d.ModId == mod.Id);
-                bool isInstalled = modFolderExists || detectedMod != null || _config.IsModInstalled(mod.Id);
+                try
+                {
+                    bool addedToInstalledList = false;
+                    // Use cached modsFolder instead of calling GetModsFolder() again
+                    var modStoragePath = Path.Combine(modsFolder, mod.Id);
+                    bool modFolderExists = !string.IsNullOrEmpty(_config.AmongUsPath) && Directory.Exists(modStoragePath);
+                    
+                    var detectedMod = detectedMods.FirstOrDefault(d => string.Equals(d.ModId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                    bool isInstalled = modFolderExists || detectedMod != null || _config.IsModInstalled(mod.Id);
+                    
+                    System.Diagnostics.Debug.WriteLine($"Mod {mod.Id}: folderExists={modFolderExists}, detected={detectedMod != null}, configInstalled={_config.IsModInstalled(mod.Id)}, isInstalled={isInstalled}");
 
                 if (isInstalled)
                 {
@@ -940,10 +1439,12 @@ namespace BeanModManager
                     installedCard.CheckForUpdate();
                     if (installedCard.IsSelectable)
                     {
-                        var currentMod = mod;
-                        installedCard.SelectionChanged += (cardControl, isSelected) =>
-                            HandleModSelectionChanged(currentMod, cardControl, isSelected, true);
-                        if (_selectedModIds.Contains(mod.Id))
+                        // Restore launch selection state if applicable (for game launching)
+                        bool isLaunchSelection = !string.Equals(mod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ||
+                                                   string.Equals(mod.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase);
+                        bool shouldBeLaunchSelected = isLaunchSelection && _selectedModIds.Contains(mod.Id);
+                        
+                        if (shouldBeLaunchSelected)
                         {
                             installedCard.SetSelected(true, true);
                         }
@@ -986,86 +1487,204 @@ namespace BeanModManager
                     }
                     
                     var storeCard = CreateModCard(mod, preferredVersion, false);
+                    
+                    
                     storeCards.Add(storeCard);
                 }
 
-                if (!addedToInstalledList)
+                    if (!addedToInstalledList)
+                    {
+                        // ensure selection cache stays clean
+                        nextCardMap.Remove(mod.Id);
+                    }
+                    
+                    processedCount++;
+                }
+                catch (Exception ex)
                 {
-                    // ensure selection cache stays clean
-                    nextCardMap.Remove(mod.Id);
+                    System.Diagnostics.Debug.WriteLine($"Error processing mod {mod?.Id ?? "unknown"}: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                    // Continue processing other mods even if one fails
                 }
             }
+            
+            System.Diagnostics.Debug.WriteLine($"RefreshModCards: Processed {processedCount} mods successfully");
 
             _modCards = nextCardMap;
 
-            var filteredInstalled = installedCards
-                .Where(card => MatchesFilters(card.BoundMod, true))
-                .OrderBy(card => GetCategorySortOrder(card.BoundMod?.Category))
-                .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+                System.Diagnostics.Debug.WriteLine($"RefreshModCards: Created {installedCards.Count} installed cards, {storeCards.Count} store cards");
 
-            var filteredStore = storeCards
-                .Where(card => MatchesFilters(card.BoundMod, false))
-                .OrderByDescending(card => card.BoundMod?.IsFeatured ?? false)
-                .ThenBy(card => GetCategorySortOrder(card.BoundMod?.Category))
-                .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+                // Filter and sort installed cards - ensure correct order
+                var filteredInstalled = installedCards
+                    .Where(card => MatchesFilters(card.BoundMod, true))
+                    .OrderBy(card => GetCategorySortOrder(card.BoundMod?.Category))
+                    .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
-            foreach (var card in filteredInstalled)
-            {
-                panelInstalled.Controls.Add(card);
+                // Filter and sort store cards - ensure correct order  
+                var filteredStore = storeCards
+                    .Where(card => MatchesFilters(card.BoundMod, false))
+                    .OrderByDescending(card => card.BoundMod?.IsFeatured ?? false)
+                    .ThenBy(card => GetCategorySortOrder(card.BoundMod?.Category))
+                    .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                
+                System.Diagnostics.Debug.WriteLine($"RefreshModCards: Filtered and sorted - {filteredInstalled.Count} installed, {filteredStore.Count} store");
+
+                System.Diagnostics.Debug.WriteLine($"RefreshModCards: After filtering - {filteredInstalled.Count} installed cards, {filteredStore.Count} store cards");
+
+                // Track which cards we need (for disposal of unused ones)
+                var neededInstalledIds = new HashSet<string>(filteredInstalled.Select(c => c.BoundMod?.Id ?? ""), StringComparer.OrdinalIgnoreCase);
+                var neededStoreIds = new HashSet<string>(filteredStore.Select(c => c.BoundMod?.Id ?? ""), StringComparer.OrdinalIgnoreCase);
+                
+                // Clear panels first to ensure correct order
+                panelInstalled.Controls.Clear();
+                panelStore.Controls.Clear();
+                
+                // Add cards in the EXACT sorted order
+                // filteredInstalled and filteredStore are already in the correct order
+                foreach (var card in filteredInstalled)
+                {
+                    var modId = card.BoundMod?.Id ?? "";
+                    panelInstalled.Controls.Add(card);
+                    nextCardMap[modId] = card;
+                }
+                
+                foreach (var card in filteredStore)
+                {
+                    panelStore.Controls.Add(card);
+                }
+                
+                // Dispose cards that are no longer needed (filtered out or uninstalled)
+                var usedCardIds = new HashSet<string>(filteredInstalled.Select(c => c.BoundMod?.Id ?? ""), StringComparer.OrdinalIgnoreCase);
+                usedCardIds.UnionWith(filteredStore.Select(c => c.BoundMod?.Id ?? ""));
+                
+                // Dispose existing cards that are no longer needed
+                foreach (var kvp in existingInstalledCards)
+                {
+                    if (!usedCardIds.Contains(kvp.Key))
+                    {
+                        kvp.Value.Dispose();
+                    }
+                }
+                
+                foreach (var kvp in existingStoreCards)
+                {
+                    if (!usedCardIds.Contains(kvp.Key))
+                    {
+                        kvp.Value.Dispose();
+                    }
+                }
+                
+                // Dispose newly created cards that weren't used (not in filtered lists)
+                foreach (var card in installedCards)
+                {
+                    var modId = card.BoundMod?.Id ?? "";
+                    if (!usedCardIds.Contains(modId))
+                    {
+                        card.Dispose();
+                    }
+                }
+                
+                foreach (var card in storeCards)
+                {
+                    var modId = card.BoundMod?.Id ?? "";
+                    if (!usedCardIds.Contains(modId))
+                    {
+                        card.Dispose();
+                    }
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"RefreshModCards: Updated installed panel ({panelInstalled.Controls.Count} cards), store panel ({panelStore.Controls.Count} cards)");
+
+                var stillInstalled = new HashSet<string>(_availableMods
+                    .Where(m => m.IsInstalled)
+                    .Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
+                var removedSelections = _selectedModIds.Where(id => !stillInstalled.Contains(id)).ToList();
+                foreach (var removed in removedSelections)
+                {
+                    _selectedModIds.Remove(removed);
+                }
+                if (removedSelections.Any())
+                {
+                    PersistSelectedMods();
+                }
+
+                if (panelStore.Controls.Count == 0)
+                {
+                    lblEmptyStore.BringToFront();
+                    lblEmptyStore.Visible = true;
+                }
+                else
+                {
+                    lblEmptyStore.Visible = false;
+                }
+
+                if (panelInstalled.Controls.Count == 0)
+                {
+                    lblEmptyInstalled.BringToFront();
+                    lblEmptyInstalled.Visible = true;
+                }
+                else
+                {
+                    lblEmptyInstalled.Visible = false;
+                }
+
+                _config.Save();
+                UpdateLaunchButtonsState();
+                
+                // No ResumeLayout needed since we never suspended it
+                // FlowLayoutPanel will layout naturally as controls are added
+                
+                // Refresh scrollbars
+                if (panelStore.IsHandleCreated)
+                    panelStore.RefreshScrollbars();
+                if (panelInstalled.IsHandleCreated)
+                    panelInstalled.RefreshScrollbars();
             }
-
-            foreach (var card in filteredStore)
+            finally
             {
-                panelStore.Controls.Add(card);
+                _isRefreshing = false;
             }
-
-            var stillInstalled = new HashSet<string>(_availableMods
-                .Where(m => m.IsInstalled)
-                .Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
-            var removedSelections = _selectedModIds.Where(id => !stillInstalled.Contains(id)).ToList();
-            foreach (var removed in removedSelections)
+        }
+        
+        private void RefreshModCardsDebounced()
+        {
+            // Debounce refresh calls - restart timer on each call
+            if (_refreshDebounceTimer != null)
             {
-                _selectedModIds.Remove(removed);
-            }
-            if (removedSelections.Any())
-            {
-                PersistSelectedMods();
-            }
-
-            if (panelStore.Controls.Count == 0)
-            {
-                lblEmptyStore.BringToFront();
-                lblEmptyStore.Visible = true;
+                _refreshDebounceTimer.Stop();
+                _refreshDebounceTimer.Start();
             }
             else
             {
-                lblEmptyStore.Visible = false;
+                // If timer not initialized yet, refresh immediately
+                RefreshModCards();
             }
-
-            if (panelInstalled.Controls.Count == 0)
-            {
-                lblEmptyInstalled.BringToFront();
-                lblEmptyInstalled.Visible = true;
-            }
-            else
-            {
-                lblEmptyInstalled.Visible = false;
-            }
-
-            _config.Save();
-            UpdateLaunchButtonsState();
-            panelStore.ResumeLayout();
-            panelInstalled.ResumeLayout();
-
-            panelStore.RefreshScrollbars();
-            panelInstalled.RefreshScrollbars();
         }
 
         private ModCard CreateModCard(Mod mod, ModVersion version, bool isInstalledView)
         {
             var card = new ModCard(mod, version, _config, isInstalledView);
+            
+            // Handle selection - only launch selection for installed mods
+            card.SelectionChanged += (cardControl, isSelected) =>
+            {
+                var currentMod = mod;
+                
+                // Handle launch selection for installed mods
+                if (isInstalledView)
+                {
+                    bool isLaunchSelection = !string.Equals(mod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ||
+                                             string.Equals(mod.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase);
+                    
+                    if (isLaunchSelection)
+                    {
+                        HandleModSelectionChanged(currentMod, cardControl, isSelected, true);
+                    }
+                }
+            };
+            
             card.InstallClicked += async (s, e) =>
             {
                 var selectedVersion = card.SelectedVersion;
@@ -1285,6 +1904,7 @@ namespace BeanModManager
 
                 _selectedModIds.Remove(mod.Id);
                 selectionChanged = true;
+                
             }
 
             if (selectionChanged)
@@ -2013,14 +2633,7 @@ namespace BeanModManager
                     }
                 }
 
-                var installResult = SafeInvoke(() => MessageBox.Show(
-                    $"Install {mod.Name} {version.Version}?",
-                    "Install Mod",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question));
-
-                if (installResult != DialogResult.Yes)
-                    return;
+                // No confirmation needed - status bar shows progress
 
                 SafeInvoke(() =>
                 {
@@ -2120,9 +2733,8 @@ namespace BeanModManager
                     
                     SafeInvoke(() =>
                     {
-                        RefreshModCards();
-                        MessageBox.Show($"{mod.Name} installed successfully!", "Success",
-                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        UpdateStatus($"{mod.Name} installed successfully!");
+                        RefreshModCardsDebounced();
                     });
                 }
                 catch (Exception ex)
@@ -2192,9 +2804,8 @@ namespace BeanModManager
                     
                     SafeInvoke(() =>
                     {
-                        RefreshModCards();
-                        MessageBox.Show($"{mod.Name} uninstalled!", "Success",
-                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        UpdateStatus($"{mod.Name} uninstalled!");
+                        RefreshModCardsDebounced();
                     });
                 }
                 else
@@ -3495,7 +4106,7 @@ namespace BeanModManager
                     UpdateStatus("Compatible versions installed. You can now launch the mods.");
                     
                     // Refresh the UI to show updated mod versions
-                    SafeInvoke(RefreshModCards);
+                    SafeInvoke(RefreshModCardsDebounced);
                     
                     return true;
                 }
@@ -4591,10 +5202,11 @@ namespace BeanModManager
             await LaunchSelectedModsAsync();
         }
 
-        private void btnLaunchVanilla_Click(object sender, EventArgs e)
+        private void btnSidebarLaunchVanilla_Click(object sender, EventArgs e)
         {
             LaunchGame();
         }
+
 
         private void txtInstalledSearch_TextChanged(object sender, EventArgs e)
         {
@@ -4621,7 +5233,7 @@ namespace BeanModManager
             if (!string.Equals(_installedCategoryFilter, selected, StringComparison.OrdinalIgnoreCase))
             {
                 _installedCategoryFilter = selected;
-                RefreshModCards();
+                RefreshModCardsDebounced();
             }
         }
 
@@ -4634,7 +5246,7 @@ namespace BeanModManager
             if (!string.Equals(_storeCategoryFilter, selected, StringComparison.OrdinalIgnoreCase))
             {
                 _storeCategoryFilter = selected;
-                RefreshModCards();
+                RefreshModCardsDebounced();
             }
         }
 
@@ -4691,7 +5303,7 @@ namespace BeanModManager
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
                         UpdateBepInExButtonState();
                         
-                        SafeInvoke(RefreshModCards);
+                        SafeInvoke(RefreshModCardsDebounced);
                     }
                 }
                 catch (Exception ex)
@@ -4781,8 +5393,7 @@ namespace BeanModManager
                 {
                     SafeInvoke(() =>
                     {
-                        MessageBox.Show("BepInEx installed successfully!", "Success",
-                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        UpdateStatus("BepInEx installed successfully!");
                         UpdateBepInExButtonState();
                     });
                 }
@@ -4829,10 +5440,12 @@ namespace BeanModManager
                 bool hasGame = !string.IsNullOrEmpty(_config.AmongUsPath) &&
                                File.Exists(Path.Combine(_config.AmongUsPath, "Among Us.exe"));
 
-                if (btnLaunchVanilla != null)
+                // Update sidebar Launch Vanilla button
+                if (btnSidebarLaunchVanilla != null)
                 {
-                    btnLaunchVanilla.Enabled = hasGame;
+                    btnSidebarLaunchVanilla.Enabled = hasGame;
                 }
+
 
                 if (btnLaunchSelected != null)
                 {
@@ -4894,7 +5507,8 @@ namespace BeanModManager
                 txtAmongUsPath.Text = detectedPath;
                 UpdateLaunchButtonsState();
                 UpdateBepInExButtonState();
-                RefreshModCards(); // Refresh to detect installed mods
+                UpdateHeaderInfo();
+                RefreshModCardsDebounced(); // Refresh to detect installed mods
                 MessageBox.Show("Among Us path detected successfully!", "Success",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -4937,7 +5551,8 @@ namespace BeanModManager
 
                         UpdateLaunchButtonsState();
                         UpdateBepInExButtonState();
-                        RefreshModCards();
+                        UpdateHeaderInfo();
+                        RefreshModCardsDebounced();
 
                         MessageBox.Show("Among Us path set successfully!", "Success",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -5063,6 +5678,9 @@ namespace BeanModManager
 
             // Refresh mod cards to show/hide beta versions
             SafeInvoke(RefreshModCards);
+            
+            // Update stats to reflect correct pending updates count
+            SafeInvoke(UpdateStats);
         }
 
         private async Task CheckForAppUpdatesAsync()
@@ -5330,6 +5948,7 @@ return; // User cancelled
             }
         }
 
+
         private void InitializeUiPerformanceTweaks()
         {
             DoubleBuffered = true;
@@ -5434,35 +6053,54 @@ return; // User cancelled
                     updatesAvailable.Add(mod);
                 }
 
-                if (updatesAvailable.Any() && InvokeRequired)
+                if (updatesAvailable.Any())
                 {
-                    Invoke(new Action(() =>
+                    // If auto-update is enabled, update automatically without asking
+                    if (_config.AutoUpdateMods)
                     {
-                        var modNames = string.Join(", ", updatesAvailable.Select(m => m.Name));
-                        var result = MessageBox.Show(
-                            $"Updates available for: {modNames}\n\nWould you like to update them now?",
-                            "Updates Available",
-                            MessageBoxButtons.YesNo,
-                            MessageBoxIcon.Information);
-
-                        if (result == DialogResult.Yes)
+                        if (InvokeRequired)
                         {
                             _ = Task.Run(async () => await UpdateModsAsync(updatesAvailable).ConfigureAwait(false));
                         }
-                    }));
-                }
-                else if (updatesAvailable.Any())
-                {
-                    var modNames = string.Join(", ", updatesAvailable.Select(m => m.Name));
-                    var result = MessageBox.Show(
-                        $"Updates available for: {modNames}\n\nWould you like to update them now?",
-                        "Updates Available",
-                        MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Information);
-
-                    if (result == DialogResult.Yes)
+                        else
+                        {
+                            await UpdateModsAsync(updatesAvailable);
+                        }
+                    }
+                    else
                     {
-                        await UpdateModsAsync(updatesAvailable);
+                        // Auto-update is disabled, ask user first
+                        if (InvokeRequired)
+                        {
+                            Invoke(new Action(() =>
+                            {
+                                var modNames = string.Join(", ", updatesAvailable.Select(m => m.Name));
+                                var result = MessageBox.Show(
+                                    $"Updates available for: {modNames}\n\nWould you like to update them now?",
+                                    "Updates Available",
+                                    MessageBoxButtons.YesNo,
+                                    MessageBoxIcon.Information);
+
+                                if (result == DialogResult.Yes)
+                                {
+                                    _ = Task.Run(async () => await UpdateModsAsync(updatesAvailable).ConfigureAwait(false));
+                                }
+                            }));
+                        }
+                        else
+                        {
+                            var modNames = string.Join(", ", updatesAvailable.Select(m => m.Name));
+                            var result = MessageBox.Show(
+                                $"Updates available for: {modNames}\n\nWould you like to update them now?",
+                                "Updates Available",
+                                MessageBoxButtons.YesNo,
+                                MessageBoxIcon.Information);
+
+                            if (result == DialogResult.Yes)
+                            {
+                                await UpdateModsAsync(updatesAvailable);
+                            }
+                        }
                     }
                 }
             }
@@ -5555,6 +6193,94 @@ return; // User cancelled
             {
                 SafeInvoke(() => progressBar.Visible = false);
             }
+        }
+
+
+        private void HandleCompareVersions()
+        {
+            if (_selectedModIds.Count < 2)
+            {
+                MessageBox.Show("Please select at least 2 mods to compare versions.", "Compare Versions",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var selectedMods = _availableMods
+                .Where(m => _selectedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
+                .OrderBy(m => m.Name)
+                .ToList();
+
+            var comparisonText = new StringBuilder();
+            comparisonText.AppendLine("Version Comparison:\n");
+
+            foreach (var mod in selectedMods)
+            {
+                comparisonText.AppendLine($"• {mod.Name}");
+                
+                if (mod.IsInstalled && mod.InstalledVersion != null)
+                {
+                    var installedVersion = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version ?? "Unknown";
+                    comparisonText.AppendLine($"  Installed: {installedVersion}");
+                    
+                    if (mod.Versions != null && mod.Versions.Any())
+                    {
+                        var availableVersions = mod.Versions
+                            .Where(v => !string.IsNullOrEmpty(v.DownloadUrl));
+                        
+                        if (!_config.ShowBetaVersions)
+                        {
+                            availableVersions = availableVersions.Where(v => !v.IsPreRelease);
+                        }
+                        
+                        var latestVersion = availableVersions
+                            .OrderByDescending(v => v.ReleaseDate)
+                            .FirstOrDefault();
+                        
+                        if (latestVersion != null)
+                        {
+                            var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
+                            comparisonText.AppendLine($"  Latest: {latestTag}");
+                            
+                            if (!string.Equals(installedVersion, latestTag, StringComparison.OrdinalIgnoreCase))
+                            {
+                                comparisonText.AppendLine("  ⚠ Update available");
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (mod.Versions != null && mod.Versions.Any())
+                    {
+                        var availableVersions = mod.Versions
+                            .Where(v => !string.IsNullOrEmpty(v.DownloadUrl));
+                        
+                        if (!_config.ShowBetaVersions)
+                        {
+                            availableVersions = availableVersions.Where(v => !v.IsPreRelease);
+                        }
+                        
+                        var latestVersion = availableVersions
+                            .OrderByDescending(v => v.ReleaseDate)
+                            .FirstOrDefault();
+                        
+                        if (latestVersion != null)
+                        {
+                            var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
+                            comparisonText.AppendLine($"  Latest: {latestTag} (Not installed)");
+                        }
+                    }
+                    else
+                    {
+                        comparisonText.AppendLine("  Not installed");
+                    }
+                }
+                
+                comparisonText.AppendLine();
+            }
+
+            MessageBox.Show(comparisonText.ToString(), "Version Comparison",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)

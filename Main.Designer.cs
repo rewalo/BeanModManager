@@ -32,6 +32,24 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Main));
+            this.statusStrip = new System.Windows.Forms.StatusStrip();
+            this.lblStatus = new System.Windows.Forms.ToolStripStatusLabel();
+            this.progressBar = new System.Windows.Forms.ToolStripProgressBar();
+            this.headerStrip = new System.Windows.Forms.Panel();
+            this.lblHeaderInfo = new System.Windows.Forms.Label();
+            this.leftSidebar = new System.Windows.Forms.Panel();
+            this.sidebarButtons = new System.Windows.Forms.Panel();
+            this.btnSidebarLaunchVanilla = new System.Windows.Forms.Button();
+            this.btnSidebarSettings = new System.Windows.Forms.Button();
+            this.btnSidebarStore = new System.Windows.Forms.Button();
+            this.btnSidebarInstalled = new System.Windows.Forms.Button();
+            this.sidebarDivider = new System.Windows.Forms.Panel();
+            this.sidebarStats = new System.Windows.Forms.Panel();
+            this.lblPendingUpdates = new System.Windows.Forms.Label();
+            this.lblInstalledCount = new System.Windows.Forms.Label();
+            this.sidebarHeader = new System.Windows.Forms.Panel();
+            this.lblSidebarTitle = new System.Windows.Forms.Label();
+            this.sidebarBorder = new System.Windows.Forms.Panel();
             this.tabControl = new BeanModManager.Controls.ThemedTabControl();
             this.tabInstalled = new System.Windows.Forms.TabPage();
             this.installedLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -45,7 +63,6 @@
             this.lblEmptyInstalled = new System.Windows.Forms.Label();
             this.panelInstalled = new BeanModManager.Controls.ThemedFlowLayoutPanel();
             this.btnLaunchSelected = new System.Windows.Forms.Button();
-            this.btnLaunchVanilla = new System.Windows.Forms.Button();
             this.tabStore = new System.Windows.Forms.TabPage();
             this.storeLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblStoreHeader = new System.Windows.Forms.Label();
@@ -89,9 +106,12 @@
             this.btnBackupAmongUsData = new System.Windows.Forms.Button();
             this.btnRestoreAmongUsData = new System.Windows.Forms.Button();
             this.btnClearBackup = new System.Windows.Forms.Button();
-            this.statusStrip = new System.Windows.Forms.StatusStrip();
-            this.lblStatus = new System.Windows.Forms.ToolStripStatusLabel();
-            this.progressBar = new System.Windows.Forms.ToolStripProgressBar();
+            this.statusStrip.SuspendLayout();
+            this.headerStrip.SuspendLayout();
+            this.leftSidebar.SuspendLayout();
+            this.sidebarButtons.SuspendLayout();
+            this.sidebarStats.SuspendLayout();
+            this.sidebarHeader.SuspendLayout();
             this.tabControl.SuspendLayout();
             this.tabInstalled.SuspendLayout();
             this.installedLayout.SuspendLayout();
@@ -115,37 +135,267 @@
             this.flowMods.SuspendLayout();
             this.grpData.SuspendLayout();
             this.flowData.SuspendLayout();
-            this.statusStrip.SuspendLayout();
             this.SuspendLayout();
+            // 
+            // statusStrip
+            // 
+            this.statusStrip.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+            this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.lblStatus,
+            this.progressBar});
+            this.statusStrip.Location = new System.Drawing.Point(0, 742);
+            this.statusStrip.Name = "statusStrip";
+            this.statusStrip.Padding = new System.Windows.Forms.Padding(1, 0, 0, 0);
+            this.statusStrip.Size = new System.Drawing.Size(1335, 22);
+            this.statusStrip.TabIndex = 1;
+            this.statusStrip.Text = "statusStrip1";
+            // 
+            // lblStatus
+            // 
+            this.lblStatus.Name = "lblStatus";
+            this.lblStatus.Size = new System.Drawing.Size(39, 17);
+            this.lblStatus.Text = "Ready";
+            // 
+            // progressBar
+            // 
+            this.progressBar.Name = "progressBar";
+            this.progressBar.Size = new System.Drawing.Size(200, 16);
+            this.progressBar.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
+            this.progressBar.Visible = false;
+            // 
+            // headerStrip
+            // 
+            this.headerStrip.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+            this.headerStrip.Controls.Add(this.lblHeaderInfo);
+            this.headerStrip.Dock = System.Windows.Forms.DockStyle.Top;
+            this.headerStrip.Location = new System.Drawing.Point(0, 0);
+            this.headerStrip.Name = "headerStrip";
+            this.headerStrip.Padding = new System.Windows.Forms.Padding(0, 0, 0, 1);
+            this.headerStrip.Size = new System.Drawing.Size(1335, 32);
+            this.headerStrip.TabIndex = 2;
+            this.headerStrip.Paint += new System.Windows.Forms.PaintEventHandler(this.HeaderStrip_Paint);
+            // 
+            // lblHeaderInfo
+            // 
+            this.lblHeaderInfo.AutoSize = true;
+            this.lblHeaderInfo.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblHeaderInfo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(110)))));
+            this.lblHeaderInfo.Location = new System.Drawing.Point(16, 9);
+            this.lblHeaderInfo.Name = "lblHeaderInfo";
+            this.lblHeaderInfo.Size = new System.Drawing.Size(39, 15);
+            this.lblHeaderInfo.TabIndex = 0;
+            this.lblHeaderInfo.Text = "Ready";
+            // 
+            // leftSidebar
+            // 
+            this.leftSidebar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+            this.leftSidebar.Controls.Add(this.sidebarButtons);
+            this.leftSidebar.Controls.Add(this.sidebarDivider);
+            this.leftSidebar.Controls.Add(this.sidebarStats);
+            this.leftSidebar.Controls.Add(this.sidebarHeader);
+            this.leftSidebar.Controls.Add(this.sidebarBorder);
+            this.leftSidebar.Dock = System.Windows.Forms.DockStyle.Left;
+            this.leftSidebar.Location = new System.Drawing.Point(0, 32);
+            this.leftSidebar.Name = "leftSidebar";
+            this.leftSidebar.Size = new System.Drawing.Size(220, 710);
+            this.leftSidebar.TabIndex = 3;
+            // 
+            // sidebarButtons
+            // 
+            this.sidebarButtons.Controls.Add(this.btnSidebarLaunchVanilla);
+            this.sidebarButtons.Controls.Add(this.btnSidebarSettings);
+            this.sidebarButtons.Controls.Add(this.btnSidebarStore);
+            this.sidebarButtons.Controls.Add(this.btnSidebarInstalled);
+            this.sidebarButtons.Dock = System.Windows.Forms.DockStyle.Top;
+            this.sidebarButtons.Location = new System.Drawing.Point(0, 129);
+            this.sidebarButtons.Name = "sidebarButtons";
+            this.sidebarButtons.Padding = new System.Windows.Forms.Padding(8, 12, 8, 12);
+            this.sidebarButtons.Size = new System.Drawing.Size(219, 172);
+            this.sidebarButtons.TabIndex = 0;
+            // 
+            // btnSidebarLaunchVanilla
+            // 
+            this.btnSidebarLaunchVanilla.BackColor = System.Drawing.Color.Transparent;
+            this.btnSidebarLaunchVanilla.Dock = System.Windows.Forms.DockStyle.Top;
+            this.btnSidebarLaunchVanilla.FlatAppearance.BorderSize = 0;
+            this.btnSidebarLaunchVanilla.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this.btnSidebarLaunchVanilla.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSidebarLaunchVanilla.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSidebarLaunchVanilla.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(41)))), ((int)(((byte)(122)))), ((int)(((byte)(189)))));
+            this.btnSidebarLaunchVanilla.Location = new System.Drawing.Point(8, 132);
+            this.btnSidebarLaunchVanilla.Margin = new System.Windows.Forms.Padding(0);
+            this.btnSidebarLaunchVanilla.Name = "btnSidebarLaunchVanilla";
+            this.btnSidebarLaunchVanilla.Padding = new System.Windows.Forms.Padding(16, 0, 0, 0);
+            this.btnSidebarLaunchVanilla.Size = new System.Drawing.Size(203, 40);
+            this.btnSidebarLaunchVanilla.TabIndex = 3;
+            this.btnSidebarLaunchVanilla.Text = "Launch Vanilla";
+            this.btnSidebarLaunchVanilla.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.btnSidebarLaunchVanilla.UseVisualStyleBackColor = false;
+            this.btnSidebarLaunchVanilla.Click += new System.EventHandler(this.btnSidebarLaunchVanilla_Click);
+            // 
+            // btnSidebarSettings
+            // 
+            this.btnSidebarSettings.BackColor = System.Drawing.Color.Transparent;
+            this.btnSidebarSettings.Dock = System.Windows.Forms.DockStyle.Top;
+            this.btnSidebarSettings.FlatAppearance.BorderSize = 0;
+            this.btnSidebarSettings.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this.btnSidebarSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSidebarSettings.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSidebarSettings.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(110)))));
+            this.btnSidebarSettings.Location = new System.Drawing.Point(8, 92);
+            this.btnSidebarSettings.Margin = new System.Windows.Forms.Padding(0);
+            this.btnSidebarSettings.Name = "btnSidebarSettings";
+            this.btnSidebarSettings.Padding = new System.Windows.Forms.Padding(16, 0, 0, 0);
+            this.btnSidebarSettings.Size = new System.Drawing.Size(203, 40);
+            this.btnSidebarSettings.TabIndex = 2;
+            this.btnSidebarSettings.Text = "Settings";
+            this.btnSidebarSettings.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.btnSidebarSettings.UseVisualStyleBackColor = false;
+            this.btnSidebarSettings.Click += new System.EventHandler(this.btnSidebarSettings_Click);
+            // 
+            // btnSidebarStore
+            // 
+            this.btnSidebarStore.BackColor = System.Drawing.Color.Transparent;
+            this.btnSidebarStore.Dock = System.Windows.Forms.DockStyle.Top;
+            this.btnSidebarStore.FlatAppearance.BorderSize = 0;
+            this.btnSidebarStore.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this.btnSidebarStore.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSidebarStore.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSidebarStore.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(110)))));
+            this.btnSidebarStore.Location = new System.Drawing.Point(8, 52);
+            this.btnSidebarStore.Margin = new System.Windows.Forms.Padding(0);
+            this.btnSidebarStore.Name = "btnSidebarStore";
+            this.btnSidebarStore.Padding = new System.Windows.Forms.Padding(16, 0, 0, 0);
+            this.btnSidebarStore.Size = new System.Drawing.Size(203, 40);
+            this.btnSidebarStore.TabIndex = 1;
+            this.btnSidebarStore.Text = "Mod Store";
+            this.btnSidebarStore.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.btnSidebarStore.UseVisualStyleBackColor = false;
+            this.btnSidebarStore.Click += new System.EventHandler(this.btnSidebarStore_Click);
+            // 
+            // btnSidebarInstalled
+            // 
+            this.btnSidebarInstalled.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this.btnSidebarInstalled.Dock = System.Windows.Forms.DockStyle.Top;
+            this.btnSidebarInstalled.FlatAppearance.BorderSize = 0;
+            this.btnSidebarInstalled.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this.btnSidebarInstalled.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSidebarInstalled.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSidebarInstalled.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(34)))), ((int)(((byte)(155)))), ((int)(((byte)(105)))));
+            this.btnSidebarInstalled.Location = new System.Drawing.Point(8, 12);
+            this.btnSidebarInstalled.Margin = new System.Windows.Forms.Padding(0);
+            this.btnSidebarInstalled.Name = "btnSidebarInstalled";
+            this.btnSidebarInstalled.Padding = new System.Windows.Forms.Padding(16, 0, 0, 0);
+            this.btnSidebarInstalled.Size = new System.Drawing.Size(203, 40);
+            this.btnSidebarInstalled.TabIndex = 0;
+            this.btnSidebarInstalled.Text = "Installed Mods";
+            this.btnSidebarInstalled.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.btnSidebarInstalled.UseVisualStyleBackColor = false;
+            this.btnSidebarInstalled.Click += new System.EventHandler(this.btnSidebarInstalled_Click);
+            // 
+            // sidebarDivider
+            // 
+            this.sidebarDivider.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(225)))), ((int)(((byte)(235)))));
+            this.sidebarDivider.Dock = System.Windows.Forms.DockStyle.Top;
+            this.sidebarDivider.Location = new System.Drawing.Point(0, 128);
+            this.sidebarDivider.Name = "sidebarDivider";
+            this.sidebarDivider.Size = new System.Drawing.Size(219, 1);
+            this.sidebarDivider.TabIndex = 2;
+            // 
+            // sidebarStats
+            // 
+            this.sidebarStats.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+            this.sidebarStats.Controls.Add(this.lblPendingUpdates);
+            this.sidebarStats.Controls.Add(this.lblInstalledCount);
+            this.sidebarStats.Dock = System.Windows.Forms.DockStyle.Top;
+            this.sidebarStats.Location = new System.Drawing.Point(0, 48);
+            this.sidebarStats.Name = "sidebarStats";
+            this.sidebarStats.Padding = new System.Windows.Forms.Padding(16, 8, 16, 12);
+            this.sidebarStats.Size = new System.Drawing.Size(219, 80);
+            this.sidebarStats.TabIndex = 1;
+            // 
+            // lblPendingUpdates
+            // 
+            this.lblPendingUpdates.AutoSize = true;
+            this.lblPendingUpdates.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblPendingUpdates.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(110)))));
+            this.lblPendingUpdates.Location = new System.Drawing.Point(16, 48);
+            this.lblPendingUpdates.Name = "lblPendingUpdates";
+            this.lblPendingUpdates.Size = new System.Drawing.Size(109, 15);
+            this.lblPendingUpdates.TabIndex = 1;
+            this.lblPendingUpdates.Text = "Pending Updates: 0";
+            // 
+            // lblInstalledCount
+            // 
+            this.lblInstalledCount.AutoSize = true;
+            this.lblInstalledCount.Font = new System.Drawing.Font("Segoe UI Semibold", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblInstalledCount.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(40)))), ((int)(((byte)(55)))), ((int)(((byte)(85)))));
+            this.lblInstalledCount.Location = new System.Drawing.Point(16, 16);
+            this.lblInstalledCount.Name = "lblInstalledCount";
+            this.lblInstalledCount.Size = new System.Drawing.Size(115, 19);
+            this.lblInstalledCount.TabIndex = 0;
+            this.lblInstalledCount.Text = "Installed: 0 mods";
+            // 
+            // sidebarHeader
+            // 
+            this.sidebarHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+            this.sidebarHeader.Controls.Add(this.lblSidebarTitle);
+            this.sidebarHeader.Dock = System.Windows.Forms.DockStyle.Top;
+            this.sidebarHeader.Location = new System.Drawing.Point(0, 0);
+            this.sidebarHeader.Name = "sidebarHeader";
+            this.sidebarHeader.Padding = new System.Windows.Forms.Padding(16, 14, 16, 8);
+            this.sidebarHeader.Size = new System.Drawing.Size(219, 48);
+            this.sidebarHeader.TabIndex = 3;
+            // 
+            // lblSidebarTitle
+            // 
+            this.lblSidebarTitle.AutoSize = true;
+            this.lblSidebarTitle.Font = new System.Drawing.Font("Segoe UI Semibold", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblSidebarTitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(40)))), ((int)(((byte)(55)))), ((int)(((byte)(85)))));
+            this.lblSidebarTitle.Location = new System.Drawing.Point(16, 14);
+            this.lblSidebarTitle.Name = "lblSidebarTitle";
+            this.lblSidebarTitle.Size = new System.Drawing.Size(145, 20);
+            this.lblSidebarTitle.TabIndex = 0;
+            this.lblSidebarTitle.Text = "Bean Mod Manager";
+            // 
+            // sidebarBorder
+            // 
+            this.sidebarBorder.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(225)))), ((int)(((byte)(235)))));
+            this.sidebarBorder.Dock = System.Windows.Forms.DockStyle.Right;
+            this.sidebarBorder.Location = new System.Drawing.Point(219, 0);
+            this.sidebarBorder.Name = "sidebarBorder";
+            this.sidebarBorder.Size = new System.Drawing.Size(1, 710);
+            this.sidebarBorder.TabIndex = 4;
             // 
             // tabControl
             // 
+            this.tabControl.Appearance = System.Windows.Forms.TabAppearance.FlatButtons;
             this.tabControl.Controls.Add(this.tabInstalled);
             this.tabControl.Controls.Add(this.tabStore);
             this.tabControl.Controls.Add(this.tabSettings);
             this.tabControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tabControl.DrawMode = System.Windows.Forms.TabDrawMode.OwnerDrawFixed;
             this.tabControl.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tabControl.ItemSize = new System.Drawing.Size(120, 30);
-            this.tabControl.Location = new System.Drawing.Point(0, 0);
+            this.tabControl.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(212)))), ((int)(((byte)(219)))), ((int)(((byte)(238)))));
+            this.tabControl.ItemSize = new System.Drawing.Size(0, 1);
+            this.tabControl.Location = new System.Drawing.Point(220, 32);
             this.tabControl.Name = "tabControl";
-            this.tabControl.Padding = new System.Drawing.Point(12, 4);
+            this.tabControl.Padding = new System.Drawing.Point(0, 0);
             this.tabControl.SelectedIndex = 0;
-            this.tabControl.Size = new System.Drawing.Size(1115, 730);
+            this.tabControl.Size = new System.Drawing.Size(1115, 710);
             this.tabControl.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
             this.tabControl.TabIndex = 0;
-            this.tabControl.DrawMode = System.Windows.Forms.TabDrawMode.OwnerDrawFixed;
             this.tabControl.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.tabControl_DrawItem);
             // 
             // tabInstalled
             // 
             this.tabInstalled.Controls.Add(this.installedLayout);
-            this.tabInstalled.Location = new System.Drawing.Point(4, 34);
+            this.tabInstalled.Location = new System.Drawing.Point(4, 5);
             this.tabInstalled.Name = "tabInstalled";
             this.tabInstalled.Padding = new System.Windows.Forms.Padding(10);
-            this.tabInstalled.Size = new System.Drawing.Size(1107, 692);
+            this.tabInstalled.Size = new System.Drawing.Size(1107, 701);
             this.tabInstalled.TabIndex = 0;
             this.tabInstalled.Text = "Installed Mods";
-            this.tabInstalled.UseVisualStyleBackColor = false;
             // 
             // installedLayout
             // 
@@ -155,17 +405,16 @@
             this.installedLayout.Controls.Add(this.flowInstalledFilters, 0, 1);
             this.installedLayout.Controls.Add(this.panelInstalledHost, 0, 2);
             this.installedLayout.Controls.Add(this.btnLaunchSelected, 0, 3);
-            this.installedLayout.Controls.Add(this.btnLaunchVanilla, 0, 4);
             this.installedLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.installedLayout.Location = new System.Drawing.Point(10, 10);
             this.installedLayout.Name = "installedLayout";
-            this.installedLayout.RowCount = 5;
+            this.installedLayout.RowCount = 4;
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.installedLayout.Size = new System.Drawing.Size(1087, 672);
+            this.installedLayout.Size = new System.Drawing.Size(1087, 681);
             this.installedLayout.TabIndex = 3;
             // 
             // lblInstalledHeader
@@ -257,7 +506,7 @@
             this.panelInstalledHost.Location = new System.Drawing.Point(0, 60);
             this.panelInstalledHost.Margin = new System.Windows.Forms.Padding(0);
             this.panelInstalledHost.Name = "panelInstalledHost";
-            this.panelInstalledHost.Size = new System.Drawing.Size(1087, 512);
+            this.panelInstalledHost.Size = new System.Drawing.Size(1087, 571);
             this.panelInstalledHost.TabIndex = 3;
             // 
             // lblEmptyInstalled
@@ -267,7 +516,7 @@
             this.lblEmptyInstalled.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(150)))));
             this.lblEmptyInstalled.Location = new System.Drawing.Point(0, 0);
             this.lblEmptyInstalled.Name = "lblEmptyInstalled";
-            this.lblEmptyInstalled.Size = new System.Drawing.Size(1087, 512);
+            this.lblEmptyInstalled.Size = new System.Drawing.Size(1087, 571);
             this.lblEmptyInstalled.TabIndex = 2;
             this.lblEmptyInstalled.Text = "😢 No mods installed";
             this.lblEmptyInstalled.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -276,12 +525,14 @@
             // panelInstalled
             // 
             this.panelInstalled.AutoScroll = true;
+            this.panelInstalled.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(32)))), ((int)(((byte)(45)))));
             this.panelInstalled.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panelInstalled.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(212)))), ((int)(((byte)(219)))), ((int)(((byte)(238)))));
             this.panelInstalled.Location = new System.Drawing.Point(0, 0);
             this.panelInstalled.Margin = new System.Windows.Forms.Padding(0);
             this.panelInstalled.Name = "panelInstalled";
             this.panelInstalled.Padding = new System.Windows.Forms.Padding(10);
-            this.panelInstalled.Size = new System.Drawing.Size(1087, 512);
+            this.panelInstalled.Size = new System.Drawing.Size(1087, 571);
             this.panelInstalled.TabIndex = 1;
             // 
             // btnLaunchSelected
@@ -293,7 +544,7 @@
             this.btnLaunchSelected.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLaunchSelected.Font = new System.Drawing.Font("Segoe UI", 10.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnLaunchSelected.ForeColor = System.Drawing.Color.White;
-            this.btnLaunchSelected.Location = new System.Drawing.Point(10, 582);
+            this.btnLaunchSelected.Location = new System.Drawing.Point(10, 641);
             this.btnLaunchSelected.Margin = new System.Windows.Forms.Padding(10, 10, 10, 0);
             this.btnLaunchSelected.Name = "btnLaunchSelected";
             this.btnLaunchSelected.Size = new System.Drawing.Size(1067, 40);
@@ -302,34 +553,15 @@
             this.btnLaunchSelected.UseVisualStyleBackColor = false;
             this.btnLaunchSelected.Click += new System.EventHandler(this.btnLaunchSelected_Click);
             // 
-            // btnLaunchVanilla
-            // 
-            this.btnLaunchVanilla.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(41)))), ((int)(((byte)(122)))), ((int)(((byte)(189)))));
-            this.btnLaunchVanilla.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnLaunchVanilla.FlatAppearance.BorderSize = 0;
-            this.btnLaunchVanilla.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(35)))), ((int)(((byte)(105)))), ((int)(((byte)(166)))));
-            this.btnLaunchVanilla.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnLaunchVanilla.Font = new System.Drawing.Font("Segoe UI", 10.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnLaunchVanilla.ForeColor = System.Drawing.Color.White;
-            this.btnLaunchVanilla.Location = new System.Drawing.Point(10, 632);
-            this.btnLaunchVanilla.Margin = new System.Windows.Forms.Padding(10, 10, 10, 0);
-            this.btnLaunchVanilla.Name = "btnLaunchVanilla";
-            this.btnLaunchVanilla.Size = new System.Drawing.Size(1067, 40);
-            this.btnLaunchVanilla.TabIndex = 0;
-            this.btnLaunchVanilla.Text = "Launch Vanilla Among Us";
-            this.btnLaunchVanilla.UseVisualStyleBackColor = false;
-            this.btnLaunchVanilla.Click += new System.EventHandler(this.btnLaunchVanilla_Click);
-            // 
             // tabStore
             // 
             this.tabStore.Controls.Add(this.storeLayout);
-            this.tabStore.Location = new System.Drawing.Point(4, 34);
+            this.tabStore.Location = new System.Drawing.Point(4, 5);
             this.tabStore.Name = "tabStore";
             this.tabStore.Padding = new System.Windows.Forms.Padding(10);
-            this.tabStore.Size = new System.Drawing.Size(1107, 692);
+            this.tabStore.Size = new System.Drawing.Size(1110, 701);
             this.tabStore.TabIndex = 1;
             this.tabStore.Text = "Mod Store";
-            this.tabStore.UseVisualStyleBackColor = false;
             // 
             // storeLayout
             // 
@@ -345,7 +577,7 @@
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.storeLayout.Size = new System.Drawing.Size(1087, 672);
+            this.storeLayout.Size = new System.Drawing.Size(1090, 681);
             this.storeLayout.TabIndex = 2;
             // 
             // lblStoreHeader
@@ -373,7 +605,7 @@
             this.flowStoreFilters.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.flowStoreFilters.Name = "flowStoreFilters";
             this.flowStoreFilters.Padding = new System.Windows.Forms.Padding(0, 3, 0, 3);
-            this.flowStoreFilters.Size = new System.Drawing.Size(1087, 29);
+            this.flowStoreFilters.Size = new System.Drawing.Size(1090, 29);
             this.flowStoreFilters.TabIndex = 4;
             this.flowStoreFilters.WrapContents = false;
             // 
@@ -436,7 +668,7 @@
             this.panelStoreHost.Location = new System.Drawing.Point(0, 60);
             this.panelStoreHost.Margin = new System.Windows.Forms.Padding(0);
             this.panelStoreHost.Name = "panelStoreHost";
-            this.panelStoreHost.Size = new System.Drawing.Size(1087, 612);
+            this.panelStoreHost.Size = new System.Drawing.Size(1090, 621);
             this.panelStoreHost.TabIndex = 2;
             // 
             // lblEmptyStore
@@ -446,7 +678,7 @@
             this.lblEmptyStore.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(150)))));
             this.lblEmptyStore.Location = new System.Drawing.Point(0, 0);
             this.lblEmptyStore.Name = "lblEmptyStore";
-            this.lblEmptyStore.Size = new System.Drawing.Size(1087, 612);
+            this.lblEmptyStore.Size = new System.Drawing.Size(1090, 621);
             this.lblEmptyStore.TabIndex = 5;
             this.lblEmptyStore.Text = "😢 No more mods to install";
             this.lblEmptyStore.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -455,23 +687,24 @@
             // panelStore
             // 
             this.panelStore.AutoScroll = true;
+            this.panelStore.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(26)))), ((int)(((byte)(32)))), ((int)(((byte)(45)))));
             this.panelStore.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panelStore.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(212)))), ((int)(((byte)(219)))), ((int)(((byte)(238)))));
             this.panelStore.Location = new System.Drawing.Point(0, 0);
             this.panelStore.Name = "panelStore";
             this.panelStore.Padding = new System.Windows.Forms.Padding(10);
-            this.panelStore.Size = new System.Drawing.Size(1087, 612);
+            this.panelStore.Size = new System.Drawing.Size(1090, 621);
             this.panelStore.TabIndex = 0;
             // 
             // tabSettings
             // 
             this.tabSettings.Controls.Add(this.settingsLayout);
-            this.tabSettings.Location = new System.Drawing.Point(4, 34);
+            this.tabSettings.Location = new System.Drawing.Point(4, 5);
             this.tabSettings.Name = "tabSettings";
             this.tabSettings.Padding = new System.Windows.Forms.Padding(3);
-            this.tabSettings.Size = new System.Drawing.Size(1107, 692);
+            this.tabSettings.Size = new System.Drawing.Size(1110, 701);
             this.tabSettings.TabIndex = 2;
             this.tabSettings.Text = "Settings";
-            this.tabSettings.UseVisualStyleBackColor = false;
             // 
             // settingsLayout
             // 
@@ -493,13 +726,12 @@
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.settingsLayout.Size = new System.Drawing.Size(1101, 686);
+            this.settingsLayout.Size = new System.Drawing.Size(1104, 695);
             this.settingsLayout.TabIndex = 0;
             // 
             // grpPath
             // 
             this.settingsLayout.SetColumnSpan(this.grpPath, 2);
-            this.settingsLayout.SetColumnSpan(this.grpAppearance, 2);
             this.grpPath.Controls.Add(this.pathLayout);
             this.grpPath.Controls.Add(this.lblAmongUsPath);
             this.grpPath.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -507,7 +739,7 @@
             this.grpPath.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpPath.Name = "grpPath";
             this.grpPath.Padding = new System.Windows.Forms.Padding(12);
-            this.grpPath.Size = new System.Drawing.Size(1075, 114);
+            this.grpPath.Size = new System.Drawing.Size(1078, 114);
             this.grpPath.TabIndex = 0;
             this.grpPath.TabStop = false;
             this.grpPath.Text = "Among Us Path";
@@ -527,7 +759,7 @@
             this.pathLayout.Name = "pathLayout";
             this.pathLayout.RowCount = 1;
             this.pathLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.pathLayout.Size = new System.Drawing.Size(1051, 35);
+            this.pathLayout.Size = new System.Drawing.Size(1054, 35);
             this.pathLayout.TabIndex = 2;
             // 
             // txtAmongUsPath
@@ -537,14 +769,14 @@
             this.txtAmongUsPath.Location = new System.Drawing.Point(3, 3);
             this.txtAmongUsPath.Name = "txtAmongUsPath";
             this.txtAmongUsPath.ReadOnly = true;
-            this.txtAmongUsPath.Size = new System.Drawing.Size(805, 23);
+            this.txtAmongUsPath.Size = new System.Drawing.Size(808, 23);
             this.txtAmongUsPath.TabIndex = 0;
             // 
             // btnBrowsePath
             // 
             this.btnBrowsePath.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnBrowsePath.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnBrowsePath.Location = new System.Drawing.Point(814, 3);
+            this.btnBrowsePath.Location = new System.Drawing.Point(817, 3);
             this.btnBrowsePath.Name = "btnBrowsePath";
             this.btnBrowsePath.Size = new System.Drawing.Size(114, 29);
             this.btnBrowsePath.TabIndex = 1;
@@ -556,7 +788,7 @@
             // 
             this.btnDetectPath.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnDetectPath.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnDetectPath.Location = new System.Drawing.Point(934, 3);
+            this.btnDetectPath.Location = new System.Drawing.Point(937, 3);
             this.btnDetectPath.Name = "btnDetectPath";
             this.btnDetectPath.Size = new System.Drawing.Size(114, 29);
             this.btnDetectPath.TabIndex = 2;
@@ -585,7 +817,7 @@
             this.grpBepInEx.Margin = new System.Windows.Forms.Padding(3, 3, 10, 10);
             this.grpBepInEx.Name = "grpBepInEx";
             this.grpBepInEx.Padding = new System.Windows.Forms.Padding(12);
-            this.grpBepInEx.Size = new System.Drawing.Size(527, 170);
+            this.grpBepInEx.Size = new System.Drawing.Size(529, 170);
             this.grpBepInEx.TabIndex = 1;
             this.grpBepInEx.TabStop = false;
             this.grpBepInEx.Text = "BepInEx";
@@ -602,7 +834,7 @@
             this.flowBepInEx.Location = new System.Drawing.Point(12, 28);
             this.flowBepInEx.Name = "flowBepInEx";
             this.flowBepInEx.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowBepInEx.Size = new System.Drawing.Size(503, 130);
+            this.flowBepInEx.Size = new System.Drawing.Size(505, 130);
             this.flowBepInEx.TabIndex = 0;
             this.flowBepInEx.WrapContents = false;
             // 
@@ -648,11 +880,11 @@
             this.grpFolders.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.grpFolders.Controls.Add(this.flowFolders);
             this.grpFolders.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpFolders.Location = new System.Drawing.Point(553, 140);
+            this.grpFolders.Location = new System.Drawing.Point(555, 140);
             this.grpFolders.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpFolders.Name = "grpFolders";
             this.grpFolders.Padding = new System.Windows.Forms.Padding(12);
-            this.grpFolders.Size = new System.Drawing.Size(525, 170);
+            this.grpFolders.Size = new System.Drawing.Size(536, 170);
             this.grpFolders.TabIndex = 2;
             this.grpFolders.TabStop = false;
             this.grpFolders.Text = "Quick Folders";
@@ -669,7 +901,7 @@
             this.flowFolders.Location = new System.Drawing.Point(12, 28);
             this.flowFolders.Name = "flowFolders";
             this.flowFolders.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowFolders.Size = new System.Drawing.Size(501, 130);
+            this.flowFolders.Size = new System.Drawing.Size(512, 130);
             this.flowFolders.TabIndex = 0;
             this.flowFolders.WrapContents = false;
             // 
@@ -711,13 +943,14 @@
             // 
             // grpAppearance
             // 
+            this.settingsLayout.SetColumnSpan(this.grpAppearance, 2);
             this.grpAppearance.Controls.Add(this.appearanceLayout);
             this.grpAppearance.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAppearance.Location = new System.Drawing.Point(13, 323);
             this.grpAppearance.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpAppearance.Name = "grpAppearance";
             this.grpAppearance.Padding = new System.Windows.Forms.Padding(12);
-            this.grpAppearance.Size = new System.Drawing.Size(1075, 110);
+            this.grpAppearance.Size = new System.Drawing.Size(1078, 110);
             this.grpAppearance.TabIndex = 5;
             this.grpAppearance.TabStop = false;
             this.grpAppearance.Text = "Appearance";
@@ -734,7 +967,7 @@
             this.appearanceLayout.Name = "appearanceLayout";
             this.appearanceLayout.RowCount = 1;
             this.appearanceLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.appearanceLayout.Size = new System.Drawing.Size(1051, 70);
+            this.appearanceLayout.Size = new System.Drawing.Size(1054, 70);
             this.appearanceLayout.TabIndex = 0;
             // 
             // lblTheme
@@ -744,7 +977,7 @@
             this.lblTheme.Location = new System.Drawing.Point(3, 8);
             this.lblTheme.Margin = new System.Windows.Forms.Padding(3, 8, 10, 0);
             this.lblTheme.Name = "lblTheme";
-            this.lblTheme.Size = new System.Drawing.Size(48, 15);
+            this.lblTheme.Size = new System.Drawing.Size(49, 15);
             this.lblTheme.TabIndex = 0;
             this.lblTheme.Text = "Theme:";
             // 
@@ -755,7 +988,7 @@
             this.cmbTheme.Items.AddRange(new object[] {
             "Light",
             "Dark"});
-            this.cmbTheme.Location = new System.Drawing.Point(64, 5);
+            this.cmbTheme.Location = new System.Drawing.Point(65, 4);
             this.cmbTheme.Margin = new System.Windows.Forms.Padding(3, 4, 3, 0);
             this.cmbTheme.Name = "cmbTheme";
             this.cmbTheme.Size = new System.Drawing.Size(200, 23);
@@ -766,11 +999,11 @@
             // 
             this.grpMods.Controls.Add(this.flowMods);
             this.grpMods.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpMods.Location = new System.Drawing.Point(13, 439);
+            this.grpMods.Location = new System.Drawing.Point(13, 446);
             this.grpMods.Margin = new System.Windows.Forms.Padding(3, 3, 10, 10);
             this.grpMods.Name = "grpMods";
             this.grpMods.Padding = new System.Windows.Forms.Padding(12);
-            this.grpMods.Size = new System.Drawing.Size(527, 343);
+            this.grpMods.Size = new System.Drawing.Size(529, 229);
             this.grpMods.TabIndex = 3;
             this.grpMods.TabStop = false;
             this.grpMods.Text = "Mod Management";
@@ -786,7 +1019,7 @@
             this.flowMods.Location = new System.Drawing.Point(12, 28);
             this.flowMods.Name = "flowMods";
             this.flowMods.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowMods.Size = new System.Drawing.Size(503, 303);
+            this.flowMods.Size = new System.Drawing.Size(505, 189);
             this.flowMods.TabIndex = 0;
             this.flowMods.WrapContents = false;
             // 
@@ -832,18 +1065,17 @@
             // 
             this.grpData.Controls.Add(this.flowData);
             this.grpData.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpData.Location = new System.Drawing.Point(553, 439);
+            this.grpData.Location = new System.Drawing.Point(555, 446);
             this.grpData.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpData.Name = "grpData";
             this.grpData.Padding = new System.Windows.Forms.Padding(12);
-            this.grpData.Size = new System.Drawing.Size(525, 343);
+            this.grpData.Size = new System.Drawing.Size(536, 229);
             this.grpData.TabIndex = 4;
             this.grpData.TabStop = false;
             this.grpData.Text = "Save Data";
             // 
             // flowData
             // 
-            this.flowData.AutoScroll = false;
             this.flowData.Controls.Add(this.btnBackupAmongUsData);
             this.flowData.Controls.Add(this.btnRestoreAmongUsData);
             this.flowData.Controls.Add(this.btnClearBackup);
@@ -852,7 +1084,7 @@
             this.flowData.Location = new System.Drawing.Point(12, 28);
             this.flowData.Name = "flowData";
             this.flowData.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowData.Size = new System.Drawing.Size(501, 303);
+            this.flowData.Size = new System.Drawing.Size(512, 189);
             this.flowData.TabIndex = 0;
             this.flowData.WrapContents = false;
             // 
@@ -892,38 +1124,15 @@
             this.btnClearBackup.UseVisualStyleBackColor = true;
             this.btnClearBackup.Click += new System.EventHandler(this.btnClearBackup_Click);
             // 
-            // statusStrip
-            // 
-            this.statusStrip.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
-            this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.lblStatus,
-            this.progressBar});
-            this.statusStrip.Location = new System.Drawing.Point(0, 730);
-            this.statusStrip.Name = "statusStrip";
-            this.statusStrip.Size = new System.Drawing.Size(1115, 22);
-            this.statusStrip.TabIndex = 1;
-            this.statusStrip.Text = "statusStrip1";
-            // 
-            // lblStatus
-            // 
-            this.lblStatus.Name = "lblStatus";
-            this.lblStatus.Size = new System.Drawing.Size(39, 17);
-            this.lblStatus.Text = "Ready";
-            // 
-            // progressBar
-            // 
-            this.progressBar.Name = "progressBar";
-            this.progressBar.Size = new System.Drawing.Size(200, 16);
-            this.progressBar.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
-            this.progressBar.Visible = false;
-            // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
-            this.ClientSize = new System.Drawing.Size(1115, 752);
+            this.ClientSize = new System.Drawing.Size(1335, 764);
             this.Controls.Add(this.tabControl);
+            this.Controls.Add(this.leftSidebar);
+            this.Controls.Add(this.headerStrip);
             this.Controls.Add(this.statusStrip);
             this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -931,6 +1140,16 @@
             this.Name = "Main";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Bean Mod Manager";
+            this.statusStrip.ResumeLayout(false);
+            this.statusStrip.PerformLayout();
+            this.headerStrip.ResumeLayout(false);
+            this.headerStrip.PerformLayout();
+            this.leftSidebar.ResumeLayout(false);
+            this.sidebarButtons.ResumeLayout(false);
+            this.sidebarStats.ResumeLayout(false);
+            this.sidebarStats.PerformLayout();
+            this.sidebarHeader.ResumeLayout(false);
+            this.sidebarHeader.PerformLayout();
             this.tabControl.ResumeLayout(false);
             this.tabInstalled.ResumeLayout(false);
             this.installedLayout.ResumeLayout(false);
@@ -965,8 +1184,6 @@
             this.flowMods.PerformLayout();
             this.grpData.ResumeLayout(false);
             this.flowData.ResumeLayout(false);
-            this.statusStrip.ResumeLayout(false);
-            this.statusStrip.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -978,14 +1195,28 @@
         private System.Windows.Forms.TabPage tabInstalled;
         private System.Windows.Forms.TabPage tabStore;
         private System.Windows.Forms.TabPage tabSettings;
+        private System.Windows.Forms.Panel headerStrip;
+        private System.Windows.Forms.Label lblHeaderInfo;
+        private System.Windows.Forms.Panel leftSidebar;
+        private System.Windows.Forms.Panel sidebarHeader;
+        private System.Windows.Forms.Label lblSidebarTitle;
+        private System.Windows.Forms.Panel sidebarStats;
+        private System.Windows.Forms.Label lblInstalledCount;
+        private System.Windows.Forms.Label lblPendingUpdates;
+        private System.Windows.Forms.Panel sidebarDivider;
+        private System.Windows.Forms.Panel sidebarBorder;
+        private System.Windows.Forms.Panel sidebarButtons;
+        private System.Windows.Forms.Button btnSidebarInstalled;
+        private System.Windows.Forms.Button btnSidebarStore;
+        private System.Windows.Forms.Button btnSidebarSettings;
         private System.Windows.Forms.TableLayoutPanel installedLayout;
         private System.Windows.Forms.Label lblInstalledHeader;
         private BeanModManager.Controls.ThemedFlowLayoutPanel panelInstalled;
         private System.Windows.Forms.Panel panelInstalledHost;
         private BeanModManager.Controls.ThemedFlowLayoutPanel panelStore;
         private System.Windows.Forms.Panel panelStoreHost;
-        private System.Windows.Forms.Button btnLaunchVanilla;
         private System.Windows.Forms.Button btnLaunchSelected;
+        private System.Windows.Forms.Button btnSidebarLaunchVanilla;
         private System.Windows.Forms.TableLayoutPanel storeLayout;
         private System.Windows.Forms.Label lblStoreHeader;
         private System.Windows.Forms.TableLayoutPanel settingsLayout;
