@@ -2,15 +2,18 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using BeanModManager.Models;
 using BeanModManager.Services;
+using BeanModManager.Helpers;
 using System.Text;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using System.Reflection;
+using BeanModManager.Themes;
 
 namespace BeanModManager
 {
@@ -35,6 +38,7 @@ namespace BeanModManager
         private bool _isUpdatingCategoryFilters = false;
         private Timer _installedSearchDebounceTimer;
         private Timer _storeSearchDebounceTimer;
+        private bool _isApplyingThemeSelection;
 
         public Main()
         {
@@ -46,6 +50,15 @@ namespace BeanModManager
             
             InitializeUiPerformanceTweaks();
             _config = Config.Load();
+            
+            // Initialize dark mode support
+            DarkModeHelper.InitializeDarkMode();
+            
+            // Apply dark mode after handle is created
+            this.HandleCreated += Main_HandleCreated;
+            this.Load += Main_Load;
+            
+            InitializeThemeSystem();
             _modStore = new ModStore();
             _modDownloader = new ModDownloader();
             _modInstaller = new ModInstaller();
@@ -108,9 +121,520 @@ namespace BeanModManager
                 chkShowBetaVersions.Checked = _config.ShowBetaVersions;
             }
 
+            if (cmbTheme != null)
+            {
+                _isApplyingThemeSelection = true;
+                var preferredTheme = _config.ThemePreference ?? ThemeManager.CurrentVariant.ToString();
+                cmbTheme.SelectedItem = preferredTheme;
+                if (cmbTheme.SelectedIndex < 0 && cmbTheme.Items.Count > 0)
+                {
+                    cmbTheme.SelectedIndex = 0;
+                }
+                _isApplyingThemeSelection = false;
+            }
+
             UpdateBepInExButtonState();
 
             // Update check is now done in constructor before LoadMods()
+        }
+
+        private void Main_HandleCreated(object sender, EventArgs e)
+        {
+            ApplyDarkMode();
+            // Ensure form background is set immediately
+            var palette = ThemeManager.Current;
+            this.BackColor = palette.WindowBackColor;
+            this.Invalidate(true);
+        }
+
+        private void Main_Load(object sender, EventArgs e)
+        {
+            // Ensure form is fully painted with theme colors
+            var palette = ThemeManager.Current;
+            this.BackColor = palette.WindowBackColor;
+            this.ForeColor = palette.PrimaryTextColor;
+            
+            if (tabControl != null)
+            {
+                tabControl.BackColor = palette.WindowBackColor;
+                tabControl.Invalidate();
+            }
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    ApplyTheme();
+                    ApplyDarkMode();
+                    this.Invalidate(true);
+                    this.Update();
+                }));
+                return;
+            }
+
+            ApplyTheme();
+            ApplyDarkMode();
+            this.Invalidate(true);
+            this.Update();
+        }
+
+        private void InitializeThemeSystem()
+        {
+            ThemeManager.ThemeChanged += ThemeManager_ThemeChanged;
+            var preferredTheme = ThemeManager.FromName(_config?.ThemePreference);
+            ThemeManager.SetTheme(preferredTheme, force: true);
+        }
+
+        private void ThemeManager_ThemeChanged(object sender, EventArgs e)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    ApplyTheme();
+                    ApplyDarkMode();
+                    this.Invalidate(true);
+                    this.Update();
+                }));
+                return;
+            }
+
+            ApplyTheme();
+            ApplyDarkMode();
+            this.Invalidate(true);
+            this.Update();
+        }
+
+        private void ApplyDarkMode()
+        {
+            if (!IsHandleCreated)
+                return;
+
+            bool isDark = ThemeManager.CurrentVariant == ThemeVariant.Dark;
+            DarkModeHelper.EnableDarkMode(this, isDark);
+            DarkModeHelper.ApplyThemeToControl(this, isDark);
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            var palette = ThemeManager.Current;
+            using (var brush = new SolidBrush(palette.WindowBackColor))
+            {
+                e.Graphics.FillRectangle(brush, e.ClipRectangle);
+            }
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            Invalidate();
+        }
+
+        private void ApplyTheme()
+        {
+            var palette = ThemeManager.Current;
+
+            this.BackColor = palette.WindowBackColor;
+            this.ForeColor = palette.PrimaryTextColor;
+
+            if (tabControl != null)
+            {
+                // ThemedTabControl handles its own background
+                foreach (TabPage page in tabControl.TabPages)
+                {
+                    ApplyTabTheme(page, palette);
+                }
+            }
+
+            ApplyFilterBarTheme(flowInstalledFilters, palette);
+            ApplyFilterBarTheme(flowStoreFilters, palette);
+
+            lblInstalledHeader.ForeColor = palette.HeadingTextColor;
+            lblStoreHeader.ForeColor = palette.HeadingTextColor;
+
+            var secondaryLabels = new[]
+            {
+                lblInstalledSearch,
+                lblInstalledCategory,
+                lblStoreSearch,
+                lblStoreCategory,
+                lblAmongUsPath,
+                lblTheme
+            };
+
+            foreach (var label in secondaryLabels)
+            {
+                if (label != null)
+                {
+                    label.ForeColor = palette.SecondaryTextColor;
+                }
+            }
+
+            lblEmptyInstalled.ForeColor = palette.MutedTextColor;
+            lblEmptyStore.ForeColor = palette.MutedTextColor;
+
+            if (panelInstalledHost != null)
+            {
+                panelInstalledHost.BackColor = palette.SurfaceColor;
+            }
+            if (panelStoreHost != null)
+            {
+                panelStoreHost.BackColor = palette.SurfaceColor;
+            }
+            if (panelInstalled != null)
+            {
+                panelInstalled.BackColor = palette.SurfaceColor;
+            }
+            if (panelStore != null)
+            {
+                panelStore.BackColor = palette.SurfaceColor;
+            }
+
+            // Ensure all layout panels have correct backgrounds
+            if (installedLayout != null)
+            {
+                installedLayout.BackColor = palette.WindowBackColor;
+            }
+            if (storeLayout != null)
+            {
+                storeLayout.BackColor = palette.WindowBackColor;
+            }
+            if (settingsLayout != null)
+            {
+                settingsLayout.BackColor = palette.WindowBackColor;
+            }
+
+            ApplyGroupTheme(grpPath, palette);
+            ApplyGroupTheme(grpBepInEx, palette);
+            ApplyGroupTheme(grpFolders, palette);
+            ApplyGroupTheme(grpAppearance, palette);
+            ApplyGroupTheme(grpMods, palette);
+            ApplyGroupTheme(grpData, palette);
+
+            if (flowBepInEx != null)
+            {
+                flowBepInEx.BackColor = Color.Transparent;
+                flowBepInEx.ForeColor = palette.PrimaryTextColor;
+            }
+
+            if (flowFolders != null)
+            {
+                flowFolders.BackColor = Color.Transparent;
+                flowFolders.ForeColor = palette.PrimaryTextColor;
+            }
+
+            if (appearanceLayout != null)
+            {
+                appearanceLayout.BackColor = Color.Transparent;
+                appearanceLayout.ForeColor = palette.PrimaryTextColor;
+            }
+
+            if (flowMods != null)
+            {
+                flowMods.BackColor = Color.Transparent;
+                flowMods.ForeColor = palette.PrimaryTextColor;
+            }
+
+            if (flowData != null)
+            {
+                flowData.BackColor = Color.Transparent;
+                flowData.ForeColor = palette.PrimaryTextColor;
+            }
+
+            ApplyTextInputTheme(txtInstalledSearch, palette);
+            ApplyTextInputTheme(txtStoreSearch, palette);
+            ApplyTextInputTheme(txtAmongUsPath, palette);
+
+            ApplyComboTheme(cmbInstalledCategory, palette);
+            ApplyComboTheme(cmbStoreCategory, palette);
+            ApplyComboTheme(cmbTheme, palette);
+            
+            // Force repaint of combo boxes to ensure backgrounds are updated
+            if (cmbTheme != null)
+            {
+                cmbTheme.Invalidate();
+                cmbTheme.Update();
+            }
+
+            ApplyButtonTheme(btnLaunchSelected, palette.SuccessButtonColor, palette.SuccessButtonTextColor);
+            ApplyButtonTheme(btnLaunchVanilla, palette.PrimaryButtonColor, palette.PrimaryButtonTextColor);
+            ApplyButtonTheme(btnInstallBepInEx, palette.PrimaryButtonColor, palette.PrimaryButtonTextColor);
+            ApplyButtonTheme(btnUpdateAllMods, palette.PrimaryButtonColor, palette.PrimaryButtonTextColor);
+            ApplyButtonTheme(btnClearBackup, palette.DangerButtonColor, palette.DangerButtonTextColor);
+
+            var neutralButtons = new[]
+            {
+                btnBrowsePath,
+                btnDetectPath,
+                btnOpenBepInExFolder,
+                btnOpenPluginsFolder,
+                btnOpenModsFolder,
+                btnOpenAmongUsFolder,
+                btnOpenDataFolder,
+                btnBackupAmongUsData,
+                btnRestoreAmongUsData
+            };
+
+            foreach (var button in neutralButtons)
+            {
+                ApplyButtonTheme(button, palette.SecondaryButtonColor, palette.SecondaryButtonTextColor);
+            }
+
+            if (statusStrip != null)
+            {
+                statusStrip.BackColor = palette.StatusStripBackColor;
+                statusStrip.ForeColor = palette.StatusStripTextColor;
+            }
+
+            if (lblStatus != null)
+            {
+                lblStatus.ForeColor = palette.StatusStripTextColor;
+            }
+
+            if (progressBar != null)
+            {
+                progressBar.ForeColor = palette.ProgressForeColor;
+                progressBar.BackColor = palette.ProgressBackColor;
+            }
+
+            // Refresh scrollbars
+            if (panelInstalled != null)
+            {
+                panelInstalled.RefreshScrollbars();
+            }
+            if (panelStore != null)
+            {
+                panelStore.RefreshScrollbars();
+            }
+
+            tabControl?.Invalidate();
+        }
+
+        private void ApplyTabTheme(TabPage tabPage, ThemePalette palette)
+        {
+            if (tabPage == null)
+                return;
+
+            tabPage.UseVisualStyleBackColor = false;
+            tabPage.BackColor = palette.SurfaceColor;
+            tabPage.ForeColor = palette.PrimaryTextColor;
+            
+            // Ensure tab page paints its background
+            tabPage.Paint -= TabPage_Paint;
+            tabPage.Paint += TabPage_Paint;
+        }
+
+        private void TabPage_Paint(object sender, PaintEventArgs e)
+        {
+            var palette = ThemeManager.Current;
+            using (var brush = new SolidBrush(palette.SurfaceColor))
+            {
+                e.Graphics.FillRectangle(brush, e.ClipRectangle);
+            }
+        }
+
+        private void tabControl_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (tabControl == null || e.Index < 0 || e.Index >= tabControl.TabPages.Count)
+                return;
+
+            var palette = ThemeManager.Current;
+            var page = tabControl.TabPages[e.Index];
+            bool isSelected = tabControl.SelectedIndex == e.Index;
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            var bounds = e.Bounds;
+            bounds.Inflate(-4, -2);
+
+            Color textColor = isSelected ? palette.HeadingTextColor : palette.SecondaryTextColor;
+
+            // Clear background behind this tab to match header background
+            using (var bgBrush = new SolidBrush(palette.WindowBackColor))
+            {
+                e.Graphics.FillRectangle(bgBrush, e.Bounds);
+            }
+
+            // Draw text
+            TextRenderer.DrawText(
+                e.Graphics,
+                page.Text,
+                e.Font,
+                bounds,
+                textColor,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+
+            // Draw a clean underline for the selected tab
+            if (isSelected)
+            {
+                int underlineY = e.Bounds.Bottom - 3;
+                using (var pen = new Pen(palette.PrimaryButtonColor, 2))
+                {
+                    int margin = 12;
+                    e.Graphics.DrawLine(pen, e.Bounds.Left + margin, underlineY, e.Bounds.Right - margin, underlineY);
+                }
+            }
+        }
+
+        private void ApplyGroupTheme(GroupBox group, ThemePalette palette)
+        {
+            if (group == null)
+                return;
+
+            group.BackColor = palette.SurfaceColor;
+            group.ForeColor = palette.PrimaryTextColor;
+        }
+
+        private void ApplyFilterBarTheme(FlowLayoutPanel panel, ThemePalette palette)
+        {
+            if (panel == null)
+                return;
+
+            panel.BackColor = palette.FilterBarBackground;
+            panel.ForeColor = palette.PrimaryTextColor;
+        }
+
+        private void ApplyTextInputTheme(TextBox textBox, ThemePalette palette)
+        {
+            if (textBox == null)
+                return;
+
+            textBox.BackColor = palette.InputBackColor;
+            textBox.ForeColor = palette.InputTextColor;
+            textBox.BorderStyle = BorderStyle.FixedSingle;
+        }
+
+        private void ApplyComboTheme(ComboBox comboBox, ThemePalette palette)
+        {
+            if (comboBox == null)
+                return;
+
+            comboBox.BackColor = palette.InputBackColor;
+            comboBox.ForeColor = palette.InputTextColor;
+            comboBox.FlatStyle = FlatStyle.Flat;
+            comboBox.DrawMode = DrawMode.OwnerDrawFixed;
+            comboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            comboBox.DrawItem -= ComboBox_DrawItem;
+            comboBox.DrawItem += ComboBox_DrawItem;
+            comboBox.Paint -= ComboBox_Paint;
+            comboBox.Paint += ComboBox_Paint;
+            comboBox.ItemHeight = Math.Max(comboBox.ItemHeight, 22);
+            comboBox.Invalidate();
+        }
+
+        private void ComboBox_Paint(object sender, PaintEventArgs e)
+        {
+            var combo = sender as ComboBox;
+            if (combo == null || combo.DroppedDown)
+                return;
+
+            var palette = ThemeManager.Current;
+            
+            // Fill the combo box background
+            using (var brush = new SolidBrush(palette.InputBackColor))
+            {
+                e.Graphics.FillRectangle(brush, e.ClipRectangle);
+            }
+            
+            // Draw the selected item text
+            if (combo.SelectedIndex >= 0 && combo.SelectedIndex < combo.Items.Count)
+            {
+                var text = combo.Items[combo.SelectedIndex]?.ToString() ?? combo.Text;
+                if (!string.IsNullOrEmpty(text))
+                {
+                    var textRect = combo.ClientRectangle;
+                    textRect.Inflate(-4, -2);
+                    TextRenderer.DrawText(
+                        e.Graphics,
+                        text,
+                        combo.Font,
+                        textRect,
+                        palette.InputTextColor,
+                        TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding);
+                }
+            }
+            else if (!string.IsNullOrEmpty(combo.Text))
+            {
+                var textRect = combo.ClientRectangle;
+                textRect.Inflate(-4, -2);
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    combo.Text,
+                    combo.Font,
+                    textRect,
+                    palette.InputTextColor,
+                    TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding);
+            }
+        }
+
+        private void ComboBox_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            var combo = sender as ComboBox;
+            if (combo == null)
+                return;
+
+            var palette = ThemeManager.Current;
+            var isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            var backColor = isSelected ? palette.PrimaryButtonColor : palette.InputBackColor;
+            var textColor = isSelected ? palette.PrimaryButtonTextColor : palette.InputTextColor;
+
+            using (var backBrush = new SolidBrush(backColor))
+            {
+                e.Graphics.FillRectangle(backBrush, e.Bounds);
+            }
+
+            string text;
+            if (e.Index >= 0 && e.Index < combo.Items.Count)
+            {
+                text = combo.Items[e.Index]?.ToString() ?? string.Empty;
+            }
+            else
+            {
+                text = combo.Text;
+            }
+
+            if (!string.IsNullOrEmpty(text))
+            {
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    text,
+                    combo.Font,
+                    e.Bounds,
+                    textColor,
+                    TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+            }
+
+            e.DrawFocusRectangle();
+        }
+
+        private GraphicsPath CreateRoundedRectangle(Rectangle rect, int radius)
+        {
+            var path = new GraphicsPath();
+            int diameter = radius * 2;
+
+            path.AddArc(rect.X, rect.Y, diameter, diameter, 180, 90);
+            path.AddArc(rect.Right - diameter, rect.Y, diameter, diameter, 270, 90);
+            path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+
+            return path;
+        }
+
+        private void ApplyButtonTheme(Button button, Color backColor, Color foreColor)
+        {
+            if (button == null)
+                return;
+
+            button.UseVisualStyleBackColor = false;
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderSize = 0;
+            button.BackColor = backColor;
+            button.ForeColor = foreColor;
+            button.FlatAppearance.BorderColor = backColor;
+            button.FlatAppearance.MouseOverBackColor = ControlPaint.Light(backColor);
+            button.FlatAppearance.MouseDownBackColor = ControlPaint.Dark(backColor);
         }
 
         private async void LoadMods()
@@ -228,6 +752,8 @@ namespace BeanModManager
             {
                 panelStore.ResumeLayout();
                 panelInstalled.ResumeLayout();
+                panelStore.RefreshScrollbars();
+                panelInstalled.RefreshScrollbars();
                 return;
             }
 
@@ -525,6 +1051,9 @@ namespace BeanModManager
             UpdateLaunchButtonsState();
             panelStore.ResumeLayout();
             panelInstalled.ResumeLayout();
+
+            panelStore.RefreshScrollbars();
+            panelInstalled.RefreshScrollbars();
         }
 
         private ModCard CreateModCard(Mod mod, ModVersion version, bool isInstalledView)
@@ -4102,6 +4631,21 @@ namespace BeanModManager
             }
         }
 
+        private void cmbTheme_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_isApplyingThemeSelection)
+                return;
+
+            var selected = cmbTheme?.SelectedItem?.ToString();
+            if (string.IsNullOrWhiteSpace(selected))
+                return;
+
+            var variant = ThemeManager.FromName(selected);
+            _config.ThemePreference = variant.ToString();
+            _ = _config.SaveAsync();
+            ThemeManager.SetTheme(variant);
+        }
+
         private async void btnInstallBepInEx_Click(object sender, EventArgs e)
         {
             if (string.IsNullOrEmpty(_config.AmongUsPath))
@@ -5004,6 +5548,12 @@ return; // User cancelled
             {
                 SafeInvoke(() => progressBar.Visible = false);
             }
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            ThemeManager.ThemeChanged -= ThemeManager_ThemeChanged;
+            base.OnFormClosed(e);
         }
     }
 }

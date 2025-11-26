@@ -32,7 +32,7 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Main));
-            this.tabControl = new System.Windows.Forms.TabControl();
+            this.tabControl = new BeanModManager.Controls.ThemedTabControl();
             this.tabInstalled = new System.Windows.Forms.TabPage();
             this.installedLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblInstalledHeader = new System.Windows.Forms.Label();
@@ -43,7 +43,7 @@
             this.cmbInstalledCategory = new System.Windows.Forms.ComboBox();
             this.panelInstalledHost = new System.Windows.Forms.Panel();
             this.lblEmptyInstalled = new System.Windows.Forms.Label();
-            this.panelInstalled = new System.Windows.Forms.FlowLayoutPanel();
+            this.panelInstalled = new BeanModManager.Controls.ThemedFlowLayoutPanel();
             this.btnLaunchSelected = new System.Windows.Forms.Button();
             this.btnLaunchVanilla = new System.Windows.Forms.Button();
             this.tabStore = new System.Windows.Forms.TabPage();
@@ -56,7 +56,7 @@
             this.cmbStoreCategory = new System.Windows.Forms.ComboBox();
             this.panelStoreHost = new System.Windows.Forms.Panel();
             this.lblEmptyStore = new System.Windows.Forms.Label();
-            this.panelStore = new System.Windows.Forms.FlowLayoutPanel();
+            this.panelStore = new BeanModManager.Controls.ThemedFlowLayoutPanel();
             this.tabSettings = new System.Windows.Forms.TabPage();
             this.settingsLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpPath = new System.Windows.Forms.GroupBox();
@@ -75,6 +75,10 @@
             this.btnOpenModsFolder = new System.Windows.Forms.Button();
             this.btnOpenAmongUsFolder = new System.Windows.Forms.Button();
             this.btnOpenDataFolder = new System.Windows.Forms.Button();
+            this.grpAppearance = new System.Windows.Forms.GroupBox();
+            this.appearanceLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.lblTheme = new System.Windows.Forms.Label();
+            this.cmbTheme = new System.Windows.Forms.ComboBox();
             this.grpMods = new System.Windows.Forms.GroupBox();
             this.flowMods = new System.Windows.Forms.FlowLayoutPanel();
             this.chkAutoUpdateMods = new System.Windows.Forms.CheckBox();
@@ -105,6 +109,8 @@
             this.flowBepInEx.SuspendLayout();
             this.grpFolders.SuspendLayout();
             this.flowFolders.SuspendLayout();
+            this.grpAppearance.SuspendLayout();
+            this.appearanceLayout.SuspendLayout();
             this.grpMods.SuspendLayout();
             this.flowMods.SuspendLayout();
             this.grpData.SuspendLayout();
@@ -127,6 +133,8 @@
             this.tabControl.Size = new System.Drawing.Size(1115, 730);
             this.tabControl.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
             this.tabControl.TabIndex = 0;
+            this.tabControl.DrawMode = System.Windows.Forms.TabDrawMode.OwnerDrawFixed;
+            this.tabControl.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.tabControl_DrawItem);
             // 
             // tabInstalled
             // 
@@ -137,7 +145,7 @@
             this.tabInstalled.Size = new System.Drawing.Size(1107, 692);
             this.tabInstalled.TabIndex = 0;
             this.tabInstalled.Text = "Installed Mods";
-            this.tabInstalled.UseVisualStyleBackColor = true;
+            this.tabInstalled.UseVisualStyleBackColor = false;
             // 
             // installedLayout
             // 
@@ -175,7 +183,7 @@
             // flowInstalledFilters
             // 
             this.flowInstalledFilters.AutoSize = true;
-            this.flowInstalledFilters.BackColor = System.Drawing.Color.WhiteSmoke;
+            this.flowInstalledFilters.BackColor = System.Drawing.Color.Transparent;
             this.flowInstalledFilters.Controls.Add(this.lblInstalledSearch);
             this.flowInstalledFilters.Controls.Add(this.txtInstalledSearch);
             this.flowInstalledFilters.Controls.Add(this.lblInstalledCategory);
@@ -321,7 +329,7 @@
             this.tabStore.Size = new System.Drawing.Size(1107, 692);
             this.tabStore.TabIndex = 1;
             this.tabStore.Text = "Mod Store";
-            this.tabStore.UseVisualStyleBackColor = true;
+            this.tabStore.UseVisualStyleBackColor = false;
             // 
             // storeLayout
             // 
@@ -355,7 +363,7 @@
             // flowStoreFilters
             // 
             this.flowStoreFilters.AutoSize = true;
-            this.flowStoreFilters.BackColor = System.Drawing.Color.WhiteSmoke;
+            this.flowStoreFilters.BackColor = System.Drawing.Color.Transparent;
             this.flowStoreFilters.Controls.Add(this.lblStoreSearch);
             this.flowStoreFilters.Controls.Add(this.txtStoreSearch);
             this.flowStoreFilters.Controls.Add(this.lblStoreCategory);
@@ -463,7 +471,7 @@
             this.tabSettings.Size = new System.Drawing.Size(1107, 692);
             this.tabSettings.TabIndex = 2;
             this.tabSettings.Text = "Settings";
-            this.tabSettings.UseVisualStyleBackColor = true;
+            this.tabSettings.UseVisualStyleBackColor = false;
             // 
             // settingsLayout
             // 
@@ -473,13 +481,15 @@
             this.settingsLayout.Controls.Add(this.grpPath, 0, 0);
             this.settingsLayout.Controls.Add(this.grpBepInEx, 0, 1);
             this.settingsLayout.Controls.Add(this.grpFolders, 1, 1);
-            this.settingsLayout.Controls.Add(this.grpMods, 0, 2);
-            this.settingsLayout.Controls.Add(this.grpData, 1, 2);
+            this.settingsLayout.Controls.Add(this.grpAppearance, 0, 2);
+            this.settingsLayout.Controls.Add(this.grpMods, 0, 3);
+            this.settingsLayout.Controls.Add(this.grpData, 1, 3);
             this.settingsLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.settingsLayout.Location = new System.Drawing.Point(3, 3);
             this.settingsLayout.Name = "settingsLayout";
             this.settingsLayout.Padding = new System.Windows.Forms.Padding(10);
-            this.settingsLayout.RowCount = 3;
+            this.settingsLayout.RowCount = 4;
+            this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -489,6 +499,7 @@
             // grpPath
             // 
             this.settingsLayout.SetColumnSpan(this.grpPath, 2);
+            this.settingsLayout.SetColumnSpan(this.grpAppearance, 2);
             this.grpPath.Controls.Add(this.pathLayout);
             this.grpPath.Controls.Add(this.lblAmongUsPath);
             this.grpPath.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -698,11 +709,64 @@
             this.btnOpenDataFolder.UseVisualStyleBackColor = true;
             this.btnOpenDataFolder.Click += new System.EventHandler(this.btnOpenDataFolder_Click);
             // 
+            // grpAppearance
+            // 
+            this.grpAppearance.Controls.Add(this.appearanceLayout);
+            this.grpAppearance.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpAppearance.Location = new System.Drawing.Point(13, 323);
+            this.grpAppearance.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
+            this.grpAppearance.Name = "grpAppearance";
+            this.grpAppearance.Padding = new System.Windows.Forms.Padding(12);
+            this.grpAppearance.Size = new System.Drawing.Size(1075, 110);
+            this.grpAppearance.TabIndex = 5;
+            this.grpAppearance.TabStop = false;
+            this.grpAppearance.Text = "Appearance";
+            // 
+            // appearanceLayout
+            // 
+            this.appearanceLayout.ColumnCount = 2;
+            this.appearanceLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
+            this.appearanceLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.appearanceLayout.Controls.Add(this.lblTheme, 0, 0);
+            this.appearanceLayout.Controls.Add(this.cmbTheme, 1, 0);
+            this.appearanceLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.appearanceLayout.Location = new System.Drawing.Point(12, 28);
+            this.appearanceLayout.Name = "appearanceLayout";
+            this.appearanceLayout.RowCount = 1;
+            this.appearanceLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.appearanceLayout.Size = new System.Drawing.Size(1051, 70);
+            this.appearanceLayout.TabIndex = 0;
+            // 
+            // lblTheme
+            // 
+            this.lblTheme.AutoSize = true;
+            this.lblTheme.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblTheme.Location = new System.Drawing.Point(3, 8);
+            this.lblTheme.Margin = new System.Windows.Forms.Padding(3, 8, 10, 0);
+            this.lblTheme.Name = "lblTheme";
+            this.lblTheme.Size = new System.Drawing.Size(48, 15);
+            this.lblTheme.TabIndex = 0;
+            this.lblTheme.Text = "Theme:";
+            // 
+            // cmbTheme
+            // 
+            this.cmbTheme.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbTheme.FormattingEnabled = true;
+            this.cmbTheme.Items.AddRange(new object[] {
+            "Light",
+            "Dark"});
+            this.cmbTheme.Location = new System.Drawing.Point(64, 5);
+            this.cmbTheme.Margin = new System.Windows.Forms.Padding(3, 5, 3, 0);
+            this.cmbTheme.Name = "cmbTheme";
+            this.cmbTheme.Size = new System.Drawing.Size(200, 23);
+            this.cmbTheme.TabIndex = 1;
+            this.cmbTheme.SelectedIndexChanged += new System.EventHandler(this.cmbTheme_SelectedIndexChanged);
+            // 
             // grpMods
             // 
             this.grpMods.Controls.Add(this.flowMods);
             this.grpMods.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpMods.Location = new System.Drawing.Point(13, 323);
+            this.grpMods.Location = new System.Drawing.Point(13, 439);
             this.grpMods.Margin = new System.Windows.Forms.Padding(3, 3, 10, 10);
             this.grpMods.Name = "grpMods";
             this.grpMods.Padding = new System.Windows.Forms.Padding(12);
@@ -768,7 +832,7 @@
             // 
             this.grpData.Controls.Add(this.flowData);
             this.grpData.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpData.Location = new System.Drawing.Point(553, 323);
+            this.grpData.Location = new System.Drawing.Point(553, 439);
             this.grpData.Margin = new System.Windows.Forms.Padding(3, 3, 13, 10);
             this.grpData.Name = "grpData";
             this.grpData.Padding = new System.Windows.Forms.Padding(12);
@@ -779,7 +843,7 @@
             // 
             // flowData
             // 
-            this.flowData.AutoScroll = true;
+            this.flowData.AutoScroll = false;
             this.flowData.Controls.Add(this.btnBackupAmongUsData);
             this.flowData.Controls.Add(this.btnRestoreAmongUsData);
             this.flowData.Controls.Add(this.btnClearBackup);
@@ -893,6 +957,9 @@
             this.grpFolders.ResumeLayout(false);
             this.grpFolders.PerformLayout();
             this.flowFolders.ResumeLayout(false);
+            this.grpAppearance.ResumeLayout(false);
+            this.appearanceLayout.ResumeLayout(false);
+            this.appearanceLayout.PerformLayout();
             this.grpMods.ResumeLayout(false);
             this.flowMods.ResumeLayout(false);
             this.flowMods.PerformLayout();
@@ -907,15 +974,15 @@
 
         #endregion
 
-        private System.Windows.Forms.TabControl tabControl;
+        private BeanModManager.Controls.ThemedTabControl tabControl;
         private System.Windows.Forms.TabPage tabInstalled;
         private System.Windows.Forms.TabPage tabStore;
         private System.Windows.Forms.TabPage tabSettings;
         private System.Windows.Forms.TableLayoutPanel installedLayout;
         private System.Windows.Forms.Label lblInstalledHeader;
-        private System.Windows.Forms.FlowLayoutPanel panelInstalled;
+        private BeanModManager.Controls.ThemedFlowLayoutPanel panelInstalled;
         private System.Windows.Forms.Panel panelInstalledHost;
-        private System.Windows.Forms.FlowLayoutPanel panelStore;
+        private BeanModManager.Controls.ThemedFlowLayoutPanel panelStore;
         private System.Windows.Forms.Panel panelStoreHost;
         private System.Windows.Forms.Button btnLaunchVanilla;
         private System.Windows.Forms.Button btnLaunchSelected;
@@ -963,6 +1030,10 @@
         private System.Windows.Forms.TextBox txtStoreSearch;
         private System.Windows.Forms.Label lblStoreCategory;
         private System.Windows.Forms.ComboBox cmbStoreCategory;
+        private System.Windows.Forms.GroupBox grpAppearance;
+        private System.Windows.Forms.TableLayoutPanel appearanceLayout;
+        private System.Windows.Forms.Label lblTheme;
+        private System.Windows.Forms.ComboBox cmbTheme;
     }
 }
 

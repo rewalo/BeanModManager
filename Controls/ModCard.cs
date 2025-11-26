@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
 using BeanModManager.Models;
+using BeanModManager.Themes;
 
 namespace BeanModManager
 {
@@ -31,6 +32,7 @@ namespace BeanModManager
         private Panel _footerPanel;
         private Label _lblCategory;
         private Label _lblFeatured;
+        private ThemePalette _palette;
 
         public event EventHandler InstallClicked;
         public event EventHandler UninstallClicked;
@@ -69,6 +71,16 @@ namespace BeanModManager
             {
                 _chkSelected.Enabled = enabled;
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                ThemeManager.ThemeChanged -= ThemeManager_ThemeChanged;
+            }
+
+            base.Dispose(disposing);
         }
 
         private void LayoutFooterPanel()
@@ -117,7 +129,7 @@ namespace BeanModManager
             rect.Width -= 1;
             rect.Height -= 1;
 
-            using (var pen = new Pen(Color.FromArgb(225, 228, 236)))
+            using (var pen = new Pen(_palette?.CardBorderColor ?? Color.FromArgb(225, 228, 236)))
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 e.Graphics.DrawRectangle(pen, rect);
@@ -206,9 +218,12 @@ namespace BeanModManager
             _version = version;
             _config = config;
             _isInstalledView = isInstalledView;
+            _palette = ThemeManager.Current;
+            ThemeManager.ThemeChanged += ThemeManager_ThemeChanged;
 
             this.DoubleBuffered = true;
             InitializeComponent();
+            ApplyThemeToStaticElements();
             UpdateUI();
         }
 
@@ -216,7 +231,7 @@ namespace BeanModManager
         {
             this.Size = new Size(320, 250);
             this.BorderStyle = BorderStyle.None;
-            this.BackColor = Color.FromArgb(252, 253, 255);
+            this.BackColor = _palette.CardBackground;
             this.Margin = new Padding(14);
             this.Padding = new Padding(18, 20, 18, 18);
 
@@ -229,7 +244,7 @@ namespace BeanModManager
             {
                 Text = string.IsNullOrEmpty(_mod.Category) ? "MOD" : _mod.Category.ToUpperInvariant(),
                 Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(135, 145, 170),
+                ForeColor = _palette.MutedTextColor,
                 AutoSize = true,
                 Location = new Point(10, 4)
             };
@@ -238,7 +253,7 @@ namespace BeanModManager
             {
                 Text = "⭐ Featured",
                 Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(184, 134, 11),
+                ForeColor = _palette.FeaturedBadgeTextColor,
                 BackColor = Color.Transparent,
                 AutoSize = true,
                 Padding = new Padding(6, 2, 6, 2),
@@ -253,11 +268,11 @@ namespace BeanModManager
                 if (label == null) return;
                 
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                var parentBackColor = label.Parent?.BackColor ?? Color.FromArgb(252, 253, 255);
+                var parentBackColor = label.Parent?.BackColor ?? (_palette?.CardBackground ?? Color.FromArgb(252, 253, 255));
                 e.Graphics.Clear(parentBackColor);
                 
-                using (var brush = new SolidBrush(Color.FromArgb(255, 248, 220)))
-                using (var pen = new Pen(Color.FromArgb(255, 193, 7), 1))
+                using (var brush = new SolidBrush(_palette?.FeaturedBadgeFill ?? Color.FromArgb(255, 248, 220)))
+                using (var pen = new Pen(_palette?.FeaturedBadgeBorder ?? Color.FromArgb(255, 193, 7), 1))
                 {
                     var rect = new Rectangle(0, 0, label.Width - 1, label.Height - 1);
                     var path = new GraphicsPath();
@@ -338,13 +353,18 @@ namespace BeanModManager
                 {
                     var version = (ModVersion)_cmbVersion.Items[e.Index];
                     var text = version.ToString();
-                    using (var brush = (e.State & DrawItemState.Selected) == DrawItemState.Selected
-                        ? new SolidBrush(Color.White)
-                        : new SolidBrush(Color.Black))
+                    var isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+                    var color = isSelected
+                        ? SystemColors.HighlightText
+                        : (_palette?.PrimaryTextColor ?? Color.Black);
+
+                    using (var brush = new SolidBrush(color))
                     {
                         e.Graphics.DrawString(text, _cmbVersion.Font, brush, e.Bounds);
                     }
                 }
+
+                e.DrawFocusRectangle();
             };
             _cmbVersion.SelectedIndexChanged += _cmbVersion_SelectedIndexChanged;
 
@@ -453,7 +473,7 @@ namespace BeanModManager
 
             _footerPanel = new Panel
             {
-                BackColor = Color.FromArgb(244, 247, 252),
+                BackColor = _palette.FooterBackColor,
                 Height = 36,
                 Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
@@ -465,11 +485,12 @@ namespace BeanModManager
                     Text = "Include in launch",
                     AutoSize = true,
                     Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(74, 110, 165),
+                    ForeColor = _palette.PrimaryTextColor,
                     FlatStyle = FlatStyle.Flat,
-                    BackColor = Color.Transparent
+                    BackColor = _palette.FooterBackColor
                 };
                 _chkSelected.FlatAppearance.BorderSize = 0;
+                _chkSelected.Paint += CheckBox_Paint;
                 _chkSelected.CheckedChanged += (s, e) =>
                 {
                     if (_suppressSelectionEvent)
@@ -519,6 +540,11 @@ namespace BeanModManager
             
             try
             {
+                if (_palette == null)
+                {
+                    _palette = ThemeManager.Current;
+                }
+
                 bool isInstalled = _mod.IsInstalled;
 
                 CheckForUpdate();
@@ -684,21 +710,21 @@ namespace BeanModManager
             if (!string.IsNullOrEmpty(_version.GameVersion))
                 versionText += $" ({_version.GameVersion})";
 
-            var versionColor = Color.FromArgb(52, 93, 138);
+            var versionColor = _palette.SecondaryTextColor;
 
             if (HasUpdateAvailable && (isInstalled || _isInstalledView))
             {
-                this.BackColor = Color.FromArgb(255, 249, 237);
+                this.BackColor = _palette.CardBackgroundAlert;
                 versionText += "  • Update available";
-                versionColor = Color.FromArgb(218, 122, 48);
+                versionColor = _palette.WarningButtonColor;
             }
             else if (isInstalled || _isInstalledView)
             {
-                this.BackColor = Color.White;
+                this.BackColor = _palette.CardBackgroundInstalled;
             }
             else
             {
-                this.BackColor = Color.FromArgb(248, 250, 255);
+                this.BackColor = _palette.CardBackground;
             }
 
             if (_lblVersion.Visible)
@@ -713,6 +739,148 @@ namespace BeanModManager
             {
                 _isUpdatingUI = false;
             }
+        }
+
+        private void ThemeManager_ThemeChanged(object sender, EventArgs e)
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                if (!IsHandleCreated)
+                {
+                    return;
+                }
+
+                BeginInvoke(new Action(ApplyThemeAndRefresh));
+                return;
+            }
+
+            ApplyThemeAndRefresh();
+        }
+
+        private void ApplyThemeAndRefresh()
+        {
+            ApplyThemeToStaticElements();
+            UpdateUI();
+        }
+
+        private void ApplyThemeToStaticElements()
+        {
+            _palette = ThemeManager.Current;
+
+            if (_lblName == null)
+                return;
+
+            this.BackColor = _palette.CardBackground;
+            this.ForeColor = _palette.PrimaryTextColor;
+
+            _lblName.ForeColor = _palette.HeadingTextColor;
+            _lblAuthor.ForeColor = _palette.SecondaryTextColor;
+            _lblDescription.ForeColor = _palette.SecondaryTextColor;
+            _lblCategory.ForeColor = _palette.MutedTextColor;
+            _lblFeatured.ForeColor = _palette.FeaturedBadgeTextColor;
+
+            _linkGitHub.LinkColor = _palette.LinkColor;
+            _linkGitHub.ActiveLinkColor = _palette.LinkActiveColor;
+            _linkGitHub.VisitedLinkColor = _palette.LinkColor;
+
+            _footerPanel.BackColor = _palette.FooterBackColor;
+
+            if (_chkSelected != null)
+            {
+                _chkSelected.ForeColor = _palette.PrimaryTextColor;
+                _chkSelected.BackColor = _palette.FooterBackColor;
+                _chkSelected.Invalidate();
+            }
+
+            StyleButton(_btnInstall, _palette.PrimaryButtonColor, _palette.PrimaryButtonTextColor);
+            StyleButton(_btnUninstall, _palette.DangerButtonColor, _palette.DangerButtonTextColor);
+            StyleButton(_btnPlay, _palette.SuccessButtonColor, _palette.SuccessButtonTextColor);
+            StyleButton(_btnOpenFolder, _palette.NeutralButtonColor, _palette.NeutralButtonTextColor);
+            StyleButton(_btnUpdate, _palette.WarningButtonColor, _palette.WarningButtonTextColor);
+
+            _cmbVersion.BackColor = _palette.InputBackColor;
+            _cmbVersion.ForeColor = _palette.InputTextColor;
+
+            Invalidate();
+        }
+
+        private void CheckBox_Paint(object sender, PaintEventArgs e)
+        {
+            var checkbox = sender as CheckBox;
+            if (checkbox == null) return;
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            
+            // Fill background
+            using (var bgBrush = new SolidBrush(_palette.FooterBackColor))
+            {
+                e.Graphics.FillRectangle(bgBrush, e.ClipRectangle);
+            }
+
+            // Calculate checkbox box size and position
+            int boxSize = 14;
+            int boxX = 0;
+            int boxY = (checkbox.Height - boxSize) / 2;
+            var boxRect = new Rectangle(boxX, boxY, boxSize, boxSize);
+
+            // Draw checkbox border
+            var borderColor = _palette.Variant == ThemeVariant.Dark 
+                ? Color.FromArgb(100, 120, 150) 
+                : Color.FromArgb(180, 190, 200);
+            using (var borderPen = new Pen(borderColor, 1.5f))
+            {
+                e.Graphics.DrawRectangle(borderPen, boxRect);
+            }
+
+            // Draw checkmark if checked
+            if (checkbox.Checked)
+            {
+                var checkColor = _palette.Variant == ThemeVariant.Dark
+                    ? Color.FromArgb(120, 185, 255)  // Use link color for visibility
+                    : Color.FromArgb(0, 122, 204);     // Use link color for light mode too
+                using (var checkPen = new Pen(checkColor, 2.5f))
+                {
+                    checkPen.StartCap = LineCap.Round;
+                    checkPen.EndCap = LineCap.Round;
+                    checkPen.LineJoin = LineJoin.Round;
+                    
+                    // Draw checkmark
+                    var points = new[]
+                    {
+                        new Point(boxX + 3, boxY + boxSize / 2),
+                        new Point(boxX + boxSize / 2 - 1, boxY + boxSize - 4),
+                        new Point(boxX + boxSize - 3, boxY + 2)
+                    };
+                    e.Graphics.DrawLines(checkPen, points);
+                }
+            }
+
+            // Draw text
+            var textRect = new Rectangle(boxSize + 6, 0, checkbox.Width - boxSize - 6, checkbox.Height);
+            TextRenderer.DrawText(e.Graphics, checkbox.Text, checkbox.Font, textRect, checkbox.ForeColor, 
+                TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+        }
+
+        private void StyleButton(Button button, Color backColor, Color textColor)
+        {
+            if (button == null)
+                return;
+
+            button.UseVisualStyleBackColor = false;
+            button.BackColor = backColor;
+            button.ForeColor = textColor;
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderSize = 0;
+            button.FlatAppearance.BorderColor = backColor;
+            
+            // Add subtle hover effects
+            var hoverColor = ControlPaint.Light(backColor, 0.1f);
+            var pressedColor = ControlPaint.Dark(backColor, 0.1f);
+            button.FlatAppearance.MouseOverBackColor = hoverColor;
+            button.FlatAppearance.MouseDownBackColor = pressedColor;
         }
     }
 }

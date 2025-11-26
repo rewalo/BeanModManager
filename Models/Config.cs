@@ -16,6 +16,7 @@ namespace BeanModManager.Models
         public bool AutoUpdateMods { get; set; }
         public bool ShowBetaVersions { get; set; }
         public List<string> SelectedMods { get; set; }
+        public string ThemePreference { get; set; }
 
         private static string ConfigPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -31,6 +32,7 @@ namespace BeanModManager.Models
             DataPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "BeanModManager");
+            ThemePreference = "Light";
         }
 
         public static Config Load()
@@ -47,6 +49,8 @@ namespace BeanModManager.Models
                             config.InstalledMods = new List<InstalledMod>();
                         if (config.SelectedMods == null)
                             config.SelectedMods = new List<string>();
+                        if (string.IsNullOrWhiteSpace(config.ThemePreference))
+                            config.ThemePreference = "Dark";
                         return config;
                     }
                 }
