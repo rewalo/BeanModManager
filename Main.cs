@@ -168,6 +168,18 @@ namespace BeanModManager
                     ApplyDarkMode();
                     this.Invalidate(true);
                     this.Update();
+                    // Ensure scrollbars are refreshed after theme is applied
+                    BeginInvoke(new Action(() =>
+                    {
+                        if (panelStore != null && panelStore.IsHandleCreated)
+                        {
+                            panelStore.RefreshScrollbars();
+                        }
+                        if (panelInstalled != null && panelInstalled.IsHandleCreated)
+                        {
+                            panelInstalled.RefreshScrollbars();
+                        }
+                    }), 150);
                 }));
                 return;
             }
@@ -176,6 +188,19 @@ namespace BeanModManager
             ApplyDarkMode();
             this.Invalidate(true);
             this.Update();
+            
+            // Ensure scrollbars are refreshed after theme is applied
+            BeginInvoke(new Action(() =>
+            {
+                if (panelStore != null && panelStore.IsHandleCreated)
+                {
+                    panelStore.RefreshScrollbars();
+                }
+                if (panelInstalled != null && panelInstalled.IsHandleCreated)
+                {
+                    panelInstalled.RefreshScrollbars();
+                }
+            }), 150);
         }
 
         private void InitializeThemeSystem()
