@@ -32,7 +32,8 @@ namespace BeanModManager
         private bool _isInstalling = false;
         private readonly object _installLock = new object();
         private readonly HashSet<string> _selectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<string> _bulkSelectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // For bulk operations
+        private readonly HashSet<string> _bulkSelectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // For bulk operations in installed tab
+        private readonly HashSet<string> _bulkSelectedStoreModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // For bulk operations in store tab
         private string _installedSearchText = string.Empty;
         private string _storeSearchText = string.Empty;
         private string _installedCategoryFilter = "All";
@@ -2136,8 +2137,8 @@ namespace BeanModManager
                         storeCard = CreateModCard(mod, preferredVersion, false);
                     }
                     
-                    // Restore bulk selection state for store cards
-                    if (storeCard.IsSelectable && _bulkSelectedModIds.Contains(mod.Id))
+                    // Restore bulk selection state for store cards (use store-specific collection)
+                    if (storeCard.IsSelectable && _bulkSelectedStoreModIds.Contains(mod.Id))
                     {
                         storeCard.SetSelected(true, true);
                     }
@@ -2672,11 +2673,14 @@ namespace BeanModManager
             if (mod == null)
                 return;
 
+            // Use separate collections for installed vs store tabs
+            var bulkSelection = isInstalledView ? _bulkSelectedModIds : _bulkSelectedStoreModIds;
+
             if (isSelected)
             {
-                if (!_bulkSelectedModIds.Contains(mod.Id))
+                if (!bulkSelection.Contains(mod.Id))
                 {
-                    _bulkSelectedModIds.Add(mod.Id);
+                    bulkSelection.Add(mod.Id);
                 }
                 
                 // For installed mods, also sync with launch selection if applicable
@@ -2693,7 +2697,7 @@ namespace BeanModManager
             }
             else
             {
-                _bulkSelectedModIds.Remove(mod.Id);
+                bulkSelection.Remove(mod.Id);
                 
                 // For installed mods, also remove from launch selection
                 if (isInstalledView)
@@ -2720,7 +2724,9 @@ namespace BeanModManager
                 return;
             }
 
-            int selectedCount = _bulkSelectedModIds.Count;
+            // Use the appropriate collection based on tab
+            var bulkSelection = isInstalledView ? _bulkSelectedModIds : _bulkSelectedStoreModIds;
+            int selectedCount = bulkSelection.Count;
             bool hasSelection = selectedCount > 0;
 
             if (isInstalledView)
@@ -6111,11 +6117,11 @@ namespace BeanModManager
 
         private async void btnBulkInstallStore_Click(object sender, EventArgs e)
         {
-            if (_bulkSelectedModIds.Count == 0)
+            if (_bulkSelectedStoreModIds.Count == 0)
                 return;
 
             var selectedMods = _availableMods?
-                .Where(m => _bulkSelectedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
+                .Where(m => _bulkSelectedStoreModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
                 .ToList();
 
             if (selectedMods == null || !selectedMods.Any())
@@ -6270,10 +6276,7 @@ namespace BeanModManager
                 // Clear selections after install and update UI on UI thread
                 SafeInvoke(() =>
                 {
-                    // Deselect all mods in both tabs
-                    var allSelectedModIds = _bulkSelectedModIds.Union(_selectedModIds).ToList();
-                    
-                    // Deselect cards in store panel
+                    // Deselect all mods in store tab only (since this is store install)
                     foreach (var card in panelStore.Controls.OfType<ModCard>())
                     {
                         if (card.IsSelectable && card.IsSelected)
@@ -6282,22 +6285,8 @@ namespace BeanModManager
                         }
                     }
                     
-                    // Deselect cards in installed panel
-                    foreach (var card in panelInstalled.Controls.OfType<ModCard>())
-                    {
-                        if (card.IsSelectable && card.IsSelected)
-                        {
-                            card.SetSelected(false, true);
-                        }
-                    }
-                    
-                    _bulkSelectedModIds.Clear();
-                    _selectedModIds.Clear();
-                    PersistSelectedMods();
-                    
+                    _bulkSelectedStoreModIds.Clear();
                     UpdateBulkActionToolbar(false);
-                    UpdateBulkActionToolbar(true); // Also update installed tab toolbar
-                    UpdateLaunchButtonsState();
                     RefreshModCardsDebounced();
 
                     // Build result message
@@ -6581,7 +6570,7 @@ namespace BeanModManager
 
         private void btnBulkDeselectAllInstalled_Click(object sender, EventArgs e)
         {
-            // Clear both bulk and launch selections
+            // Clear both bulk and launch selections for installed tab
             var modsToDeselect = _bulkSelectedModIds.Union(_selectedModIds).ToList();
             
             foreach (var modId in modsToDeselect)
@@ -6589,6 +6578,17 @@ namespace BeanModManager
                 if (_modCards.TryGetValue(modId, out var card) && card.IsSelectable)
                 {
                     card.SetSelected(false, true);
+                }
+                else
+                {
+                    // Also check panel controls if not in dictionary
+                    var cardInInstalled = panelInstalled.Controls.OfType<ModCard>()
+                        .FirstOrDefault(c => c.BoundMod != null && 
+                            string.Equals(c.BoundMod.Id, modId, StringComparison.OrdinalIgnoreCase));
+                    if (cardInInstalled != null && cardInInstalled.IsSelectable)
+                    {
+                        cardInInstalled.SetSelected(false, true);
+                    }
                 }
             }
             
@@ -6602,14 +6602,25 @@ namespace BeanModManager
 
         private void btnBulkDeselectAllStore_Click(object sender, EventArgs e)
         {
-            foreach (var modId in _bulkSelectedModIds.ToList())
+            foreach (var modId in _bulkSelectedStoreModIds.ToList())
             {
                 if (_modCards.TryGetValue(modId, out var card) && card.IsSelectable)
                 {
                     card.SetSelected(false, true);
                 }
+                else
+                {
+                    // Also check panel controls if not in dictionary
+                    var cardInStore = panelStore.Controls.OfType<ModCard>()
+                        .FirstOrDefault(c => c.BoundMod != null && 
+                            string.Equals(c.BoundMod.Id, modId, StringComparison.OrdinalIgnoreCase));
+                    if (cardInStore != null && cardInStore.IsSelectable)
+                    {
+                        cardInStore.SetSelected(false, true);
+                    }
+                }
             }
-            _bulkSelectedModIds.Clear();
+            _bulkSelectedStoreModIds.Clear();
             UpdateBulkActionToolbar(false);
         }
 
