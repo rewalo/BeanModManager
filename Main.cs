@@ -32,6 +32,7 @@ namespace BeanModManager
         private bool _isInstalling = false;
         private readonly object _installLock = new object();
         private readonly HashSet<string> _selectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _bulkSelectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // For bulk operations
         private string _installedSearchText = string.Empty;
         private string _storeSearchText = string.Empty;
         private string _installedCategoryFilter = "All";
@@ -274,6 +275,16 @@ namespace BeanModManager
             
             // Update header info when switching tabs (in case rate limit status changed)
             UpdateHeaderInfo();
+            
+            // Update bulk action toolbar visibility based on current tab
+            if (tabControl.SelectedIndex == 0) // Installed tab
+            {
+                UpdateBulkActionToolbar(true);
+            }
+            else if (tabControl.SelectedIndex == 1) // Store tab
+            {
+                UpdateBulkActionToolbar(false);
+            }
             
             // Refresh scrollbars when switching tabs to ensure they're properly displayed
             // This also triggers a layout update which makes cards visible
@@ -803,10 +814,8 @@ namespace BeanModManager
             {
                 lblInstalledCount.ForeColor = palette.HeadingTextColor;
             }
-            if (lblPendingUpdates != null)
-            {
-                lblPendingUpdates.ForeColor = palette.SecondaryTextColor;
-            }
+            // Note: lblPendingUpdates color is set by UpdateStats() based on pending updates count
+            // Don't override it here - UpdateStats() will be called after theme is applied
             
             // Apply theme to sidebar buttons
             var sidebarButtons = new[] { btnSidebarInstalled, btnSidebarStore, btnSidebarSettings };
@@ -909,6 +918,42 @@ namespace BeanModManager
             if (panelStoreHost != null)
             {
                 panelStoreHost.BackColor = palette.SurfaceColor;
+            }
+            if (panelBulkActionsInstalled != null)
+            {
+                panelBulkActionsInstalled.BackColor = palette.FooterBackColor;
+                if (lblBulkSelectedCountInstalled != null)
+                {
+                    lblBulkSelectedCountInstalled.ForeColor = palette.PrimaryTextColor;
+                }
+                if (btnBulkUninstallInstalled != null)
+                {
+                    btnBulkUninstallInstalled.BackColor = palette.DangerButtonColor;
+                    btnBulkUninstallInstalled.ForeColor = palette.DangerButtonTextColor;
+                }
+                if (btnBulkDeselectAllInstalled != null)
+                {
+                    btnBulkDeselectAllInstalled.BackColor = palette.NeutralButtonColor;
+                    btnBulkDeselectAllInstalled.ForeColor = palette.NeutralButtonTextColor;
+                }
+            }
+            if (panelBulkActionsStore != null)
+            {
+                panelBulkActionsStore.BackColor = palette.FooterBackColor;
+                if (lblBulkSelectedCountStore != null)
+                {
+                    lblBulkSelectedCountStore.ForeColor = palette.PrimaryTextColor;
+                }
+                if (btnBulkInstallStore != null)
+                {
+                    btnBulkInstallStore.BackColor = palette.PrimaryButtonColor;
+                    btnBulkInstallStore.ForeColor = palette.PrimaryButtonTextColor;
+                }
+                if (btnBulkDeselectAllStore != null)
+                {
+                    btnBulkDeselectAllStore.BackColor = palette.NeutralButtonColor;
+                    btnBulkDeselectAllStore.ForeColor = palette.NeutralButtonTextColor;
+                }
             }
             if (panelInstalled != null)
             {
@@ -1043,6 +1088,9 @@ namespace BeanModManager
             }
 
             tabControl?.Invalidate();
+            
+            // Update stats after theme is applied to ensure pending updates color is correct
+            UpdateStats();
         }
 
         private void ApplyTabTheme(TabPage tabPage, ThemePalette palette)
@@ -2009,7 +2057,17 @@ namespace BeanModManager
                                                    string.Equals(mod.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase);
                         bool shouldBeLaunchSelected = isLaunchSelection && _selectedModIds.Contains(mod.Id);
                         
-                        if (shouldBeLaunchSelected)
+                        // Restore bulk selection state (sync with launch selection for installed mods)
+                        bool shouldBeBulkSelected = _bulkSelectedModIds.Contains(mod.Id);
+                        
+                        // Sync: if launch-selected, also add to bulk selections
+                        if (shouldBeLaunchSelected && !shouldBeBulkSelected)
+                        {
+                            _bulkSelectedModIds.Add(mod.Id);
+                            shouldBeBulkSelected = true;
+                        }
+                        
+                        if (shouldBeLaunchSelected || shouldBeBulkSelected)
                         {
                             installedCard.SetSelected(true, true);
                         }
@@ -2017,6 +2075,7 @@ namespace BeanModManager
                     else
                     {
                         _selectedModIds.Remove(mod.Id);
+                        _bulkSelectedModIds.Remove(mod.Id);
                     }
                     installedCards.Add(installedCard);
                     nextCardMap[mod.Id] = installedCard;
@@ -2075,6 +2134,12 @@ namespace BeanModManager
                     {
                         // Create new card only if it doesn't exist
                         storeCard = CreateModCard(mod, preferredVersion, false);
+                    }
+                    
+                    // Restore bulk selection state for store cards
+                    if (storeCard.IsSelectable && _bulkSelectedModIds.Contains(mod.Id))
+                    {
+                        storeCard.SetSelected(true, true);
                     }
                     
                     storeCards.Add(storeCard);
@@ -2274,7 +2339,7 @@ namespace BeanModManager
                     else
                     {
                         // No mods installed at all
-                        lblEmptyInstalled.Text = "No mods installed 😢";
+                        lblEmptyInstalled.Text = "No mods installed";
                     }
                     
                     // Show browse buttons to help user find mods
@@ -2307,6 +2372,19 @@ namespace BeanModManager
             finally
             {
                 _isRefreshing = false;
+                
+                // Update bulk action toolbar after refresh completes
+                if (tabControl != null)
+                {
+                    if (tabControl.SelectedIndex == 0) // Installed tab
+                    {
+                        UpdateBulkActionToolbar(true);
+                    }
+                    else if (tabControl.SelectedIndex == 1) // Store tab
+                    {
+                        UpdateBulkActionToolbar(false);
+                    }
+                }
             }
         }
         
@@ -2329,12 +2407,15 @@ namespace BeanModManager
         {
             var card = new ModCard(mod, version, _config, isInstalledView);
             
-            // Handle selection - only launch selection for installed mods
+            // Handle selection - bulk operations for both tabs, launch selection for installed mods
             card.SelectionChanged += (cardControl, isSelected) =>
             {
                 var currentMod = mod;
                 
-                // Handle launch selection for installed mods
+                // Handle bulk selection (for install/uninstall operations)
+                HandleBulkSelectionChanged(currentMod, cardControl, isSelected, isInstalledView);
+                
+                // Handle launch selection for installed mods (separate from bulk)
                 if (isInstalledView)
                 {
                     bool isLaunchSelection = !string.Equals(mod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ||
@@ -2548,6 +2629,11 @@ namespace BeanModManager
                 }
 
                 _selectedModIds.Add(mod.Id);
+                // Sync with bulk selections for installed mods
+                if (!_bulkSelectedModIds.Contains(mod.Id))
+                {
+                    _bulkSelectedModIds.Add(mod.Id);
+                }
                 selectionChanged = true;
                 AutoSelectDependencies(mod);
             }
@@ -2565,6 +2651,8 @@ namespace BeanModManager
                 }
 
                 _selectedModIds.Remove(mod.Id);
+                // Sync with bulk selections - remove from bulk if not selected for launch
+                _bulkSelectedModIds.Remove(mod.Id);
                 selectionChanged = true;
                 
             }
@@ -2572,9 +2660,91 @@ namespace BeanModManager
             if (selectionChanged)
             {
                 PersistSelectedMods();
+                // Update bulk toolbar when launch selections change
+                UpdateBulkActionToolbar(true);
             }
 
             UpdateLaunchButtonsState();
+        }
+
+        private void HandleBulkSelectionChanged(Mod mod, ModCard card, bool isSelected, bool isInstalledView)
+        {
+            if (mod == null)
+                return;
+
+            if (isSelected)
+            {
+                if (!_bulkSelectedModIds.Contains(mod.Id))
+                {
+                    _bulkSelectedModIds.Add(mod.Id);
+                }
+                
+                // For installed mods, also sync with launch selection if applicable
+                if (isInstalledView)
+                {
+                    bool isLaunchSelection = !string.Equals(mod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ||
+                                             string.Equals(mod.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase);
+                    if (isLaunchSelection && !_selectedModIds.Contains(mod.Id))
+                    {
+                        _selectedModIds.Add(mod.Id);
+                        PersistSelectedMods();
+                    }
+                }
+            }
+            else
+            {
+                _bulkSelectedModIds.Remove(mod.Id);
+                
+                // For installed mods, also remove from launch selection
+                if (isInstalledView)
+                {
+                    if (_selectedModIds.Remove(mod.Id))
+                    {
+                        PersistSelectedMods();
+                    }
+                }
+            }
+
+            UpdateBulkActionToolbar(isInstalledView);
+            if (isInstalledView)
+            {
+                UpdateLaunchButtonsState();
+            }
+        }
+
+        private void UpdateBulkActionToolbar(bool isInstalledView)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<bool>(UpdateBulkActionToolbar), isInstalledView);
+                return;
+            }
+
+            int selectedCount = _bulkSelectedModIds.Count;
+            bool hasSelection = selectedCount > 0;
+
+            if (isInstalledView)
+            {
+                if (panelBulkActionsInstalled != null)
+                {
+                    panelBulkActionsInstalled.Visible = hasSelection;
+                    if (hasSelection && lblBulkSelectedCountInstalled != null)
+                    {
+                        lblBulkSelectedCountInstalled.Text = $"{selectedCount} mod{(selectedCount == 1 ? "" : "s")} selected";
+                    }
+                }
+            }
+            else
+            {
+                if (panelBulkActionsStore != null)
+                {
+                    panelBulkActionsStore.Visible = hasSelection;
+                    if (hasSelection && lblBulkSelectedCountStore != null)
+                    {
+                        lblBulkSelectedCountStore.Text = $"{selectedCount} mod{(selectedCount == 1 ? "" : "s")} selected";
+                    }
+                }
+            }
         }
 
         private bool EnsureDependenciesInstalled(Mod mod, bool showMessage)
@@ -3497,7 +3667,7 @@ namespace BeanModManager
 
             var result = SafeInvoke(() => MessageBox.Show(
                 $"Uninstall {mod.Name} {version.Version}?",
-                "Uninstall Mod",
+                "Uninstall Mod(s)",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question));
 
@@ -5937,6 +6107,510 @@ namespace BeanModManager
         private async void btnLaunchSelected_Click(object sender, EventArgs e)
         {
             await LaunchSelectedModsAsync();
+        }
+
+        private async void btnBulkInstallStore_Click(object sender, EventArgs e)
+        {
+            if (_bulkSelectedModIds.Count == 0)
+                return;
+
+            var selectedMods = _availableMods?
+                .Where(m => _bulkSelectedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+
+            if (selectedMods == null || !selectedMods.Any())
+                return;
+
+            // Filter out already installed mods for confirmation message
+            var modsToInstall = selectedMods.Where(m => !m.IsInstalled).ToList();
+            var alreadyInstalled = selectedMods.Where(m => m.IsInstalled).ToList();
+            
+            if (modsToInstall.Count == 0)
+            {
+                MessageBox.Show(
+                    "All selected mods are already installed.",
+                    "Already Installed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            // Build confirmation message
+            string confirmMessage = $"Install {modsToInstall.Count} mod{(modsToInstall.Count == 1 ? "" : "s")}?\n\n";
+            
+            if (modsToInstall.Count <= 5)
+            {
+                confirmMessage += string.Join("\n", modsToInstall.Select(m => m.Name));
+            }
+            else
+            {
+                confirmMessage += string.Join("\n", modsToInstall.Take(5).Select(m => m.Name));
+                confirmMessage += $"\n... and {modsToInstall.Count - 5} more";
+            }
+            
+            if (alreadyInstalled.Count > 0)
+            {
+                confirmMessage += $"\n\nNote: {alreadyInstalled.Count} mod{(alreadyInstalled.Count == 1 ? "" : "s")} {(alreadyInstalled.Count == 1 ? "is" : "are")} already installed and will be skipped.";
+            }
+
+            var result = MessageBox.Show(
+                confirmMessage,
+                "Install Mod(s)",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            // Collect selected versions from cards BEFORE async operation (must be on UI thread)
+            var modVersions = new Dictionary<string, ModVersion>(StringComparer.OrdinalIgnoreCase);
+            foreach (var mod in modsToInstall)
+            {
+                ModVersion version = null;
+                
+                // First try the dictionary
+                if (_modCards.TryGetValue(mod.Id, out var card))
+                {
+                    version = card.SelectedVersion;
+                }
+                else
+                {
+                    // If not in dictionary, search panel controls directly (cards might be filtered/hidden)
+                    card = panelStore.Controls.OfType<ModCard>()
+                        .FirstOrDefault(c => c.BoundMod != null && 
+                            string.Equals(c.BoundMod.Id, mod.Id, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (card != null)
+                    {
+                        version = card.SelectedVersion;
+                    }
+                }
+                
+                // Fallback: if no card or no selected version, try to find a suitable version
+                if (version == null || string.IsNullOrEmpty(version.DownloadUrl))
+                {
+                    // Try to find a suitable version based on game type
+                    bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) &&
+                                          AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                    
+                    if (isEpicOrMsStore)
+                    {
+                        version = mod.Versions?.FirstOrDefault(v => v.GameVersion == "Epic/MS Store" && !string.IsNullOrEmpty(v.DownloadUrl))
+                            ?? mod.Versions?.FirstOrDefault(v => !string.IsNullOrEmpty(v.DownloadUrl));
+                    }
+                    else
+                    {
+                        version = mod.Versions?.FirstOrDefault(v => v.GameVersion == "Steam/Itch.io" && !string.IsNullOrEmpty(v.DownloadUrl))
+                            ?? mod.Versions?.FirstOrDefault(v => !string.IsNullOrEmpty(v.DownloadUrl));
+                    }
+                }
+                
+                if (version != null)
+                {
+                    modVersions[mod.Id] = version;
+                }
+            }
+
+            // Disable buttons during operation
+            btnBulkInstallStore.Enabled = false;
+            btnBulkDeselectAllStore.Enabled = false;
+
+            try
+            {
+                int successCount = 0;
+                int failCount = 0;
+                var failedMods = new List<string>();
+
+                foreach (var mod in modsToInstall)
+                {
+                    // Use the version we collected from the card
+                    ModVersion version = null;
+                    if (modVersions.TryGetValue(mod.Id, out version))
+                    {
+                        // Version already collected from card
+                    }
+                    else
+                    {
+                        // Fallback if somehow not collected
+                        bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) &&
+                                              AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                        
+                        if (isEpicOrMsStore)
+                        {
+                            version = mod.Versions?.FirstOrDefault(v => v.GameVersion == "Epic/MS Store" && !string.IsNullOrEmpty(v.DownloadUrl))
+                                ?? mod.Versions?.FirstOrDefault(v => !string.IsNullOrEmpty(v.DownloadUrl));
+                        }
+                        else
+                        {
+                            version = mod.Versions?.FirstOrDefault(v => v.GameVersion == "Steam/Itch.io" && !string.IsNullOrEmpty(v.DownloadUrl))
+                                ?? mod.Versions?.FirstOrDefault(v => !string.IsNullOrEmpty(v.DownloadUrl));
+                        }
+                    }
+
+                    if (version != null && !string.IsNullOrEmpty(version.DownloadUrl))
+                    {
+                        try
+                        {
+                            await InstallMod(mod, version).ConfigureAwait(false);
+                            successCount++;
+                        }
+                        catch
+                        {
+                            failCount++;
+                            failedMods.Add(mod.Name);
+                        }
+                    }
+                    else
+                    {
+                        failCount++;
+                        failedMods.Add(mod.Name);
+                    }
+                }
+
+                // Clear selections after install and update UI on UI thread
+                SafeInvoke(() =>
+                {
+                    // Deselect all mods in both tabs
+                    var allSelectedModIds = _bulkSelectedModIds.Union(_selectedModIds).ToList();
+                    
+                    // Deselect cards in store panel
+                    foreach (var card in panelStore.Controls.OfType<ModCard>())
+                    {
+                        if (card.IsSelectable && card.IsSelected)
+                        {
+                            card.SetSelected(false, true);
+                        }
+                    }
+                    
+                    // Deselect cards in installed panel
+                    foreach (var card in panelInstalled.Controls.OfType<ModCard>())
+                    {
+                        if (card.IsSelectable && card.IsSelected)
+                        {
+                            card.SetSelected(false, true);
+                        }
+                    }
+                    
+                    _bulkSelectedModIds.Clear();
+                    _selectedModIds.Clear();
+                    PersistSelectedMods();
+                    
+                    UpdateBulkActionToolbar(false);
+                    UpdateBulkActionToolbar(true); // Also update installed tab toolbar
+                    UpdateLaunchButtonsState();
+                    RefreshModCardsDebounced();
+
+                    // Build result message
+                    string resultMessage;
+                    if (successCount > 0 && failCount == 0)
+                    {
+                        resultMessage = $"Successfully installed {successCount} mod{(successCount == 1 ? "" : "s")}.";
+                    }
+                    else if (successCount > 0 && failCount > 0)
+                    {
+                        resultMessage = $"Installation completed with issues:\n\n";
+                        resultMessage += $"Successfully installed: {successCount} mod{(successCount == 1 ? "" : "s")}\n";
+                        resultMessage += $"Failed to install: {failCount} mod{(failCount == 1 ? "" : "s")}";
+                        if (failedMods.Any() && failedMods.Count <= 5)
+                        {
+                            resultMessage += "\n\nFailed mods:\n" + string.Join("\n", failedMods);
+                        }
+                        else if (failedMods.Any())
+                        {
+                            resultMessage += "\n\nFailed mods:\n" + string.Join("\n", failedMods.Take(5));
+                            resultMessage += $"\n... and {failedMods.Count - 5} more";
+                        }
+                    }
+                    else
+                    {
+                        resultMessage = $"Failed to install {failCount} mod{(failCount == 1 ? "" : "s")}.\n\n";
+                        if (failedMods.Any() && failedMods.Count <= 5)
+                        {
+                            resultMessage += "Failed mods:\n" + string.Join("\n", failedMods);
+                        }
+                        else if (failedMods.Any())
+                        {
+                            resultMessage += "Failed mods:\n" + string.Join("\n", failedMods.Take(5));
+                            resultMessage += $"\n... and {failedMods.Count - 5} more";
+                        }
+                        resultMessage += "\n\nPlease check the status bar for details or try installing them individually.";
+                    }
+                    
+                    MessageBox.Show(
+                        resultMessage,
+                        "Install Mod(s)",
+                        MessageBoxButtons.OK,
+                        failCount > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+                });
+            }
+            finally
+            {
+                SafeInvoke(() =>
+                {
+                    btnBulkInstallStore.Enabled = true;
+                    btnBulkDeselectAllStore.Enabled = true;
+                });
+            }
+        }
+
+        private async void btnBulkUninstallInstalled_Click(object sender, EventArgs e)
+        {
+            if (_bulkSelectedModIds.Count == 0)
+                return;
+
+            var selectedMods = _availableMods?
+                .Where(m => _bulkSelectedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase) && m.IsInstalled)
+                .ToList();
+
+            if (selectedMods == null || !selectedMods.Any())
+                return;
+
+            // Check for blocking dependencies - group by mod being uninstalled
+            var modsWithDependencies = new Dictionary<string, List<string>>();
+            foreach (var mod in selectedMods)
+            {
+                var dependents = GetInstalledDependents(mod.Id);
+                var blockingDependents = dependents
+                    .Where(d => !_bulkSelectedModIds.Contains(d.Id, StringComparer.OrdinalIgnoreCase))
+                    .Select(d => d.Name)
+                    .ToList();
+                
+                if (blockingDependents.Any())
+                {
+                    modsWithDependencies[mod.Name] = blockingDependents;
+                }
+            }
+
+            if (modsWithDependencies.Any())
+            {
+                string dependencyMessage = "The following mods cannot be uninstalled because other mods depend on them:\n\n";
+                
+                int modCount = 0;
+                foreach (var kvp in modsWithDependencies)
+                {
+                    if (modCount >= 5)
+                    {
+                        dependencyMessage += $"\n... and {modsWithDependencies.Count - modCount} more mod{(modsWithDependencies.Count - modCount == 1 ? "" : "s")} with dependencies";
+                        break;
+                    }
+                    
+                    dependencyMessage += $"{kvp.Key} cannot be uninstalled because the following mods depend on it:\n";
+                    if (kvp.Value.Count <= 5)
+                    {
+                        dependencyMessage += string.Join("\n", kvp.Value.Select(d => $"  {d}"));
+                    }
+                    else
+                    {
+                        dependencyMessage += string.Join("\n", kvp.Value.Take(5).Select(d => $"  {d}"));
+                        dependencyMessage += $"\n  ... and {kvp.Value.Count - 5} more";
+                    }
+                    dependencyMessage += "\n\n";
+                    modCount++;
+                }
+                
+                dependencyMessage += "\nTo proceed, either:\n";
+                dependencyMessage += "Uninstall the dependent mods first, or\n";
+                dependencyMessage += "Include them in your selection";
+                
+                MessageBox.Show(
+                    dependencyMessage,
+                    "Dependencies Detected",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Build confirmation message
+            string confirmMessage = $"Uninstall {selectedMods.Count} mod{(selectedMods.Count == 1 ? "" : "s")}?\n\n";
+            
+            if (selectedMods.Count <= 5)
+            {
+                confirmMessage += string.Join("\n", selectedMods.Select(m => m.Name));
+            }
+            else
+            {
+                confirmMessage += string.Join("\n", selectedMods.Take(5).Select(m => m.Name));
+                confirmMessage += $"\n... and {selectedMods.Count - 5} more";
+            }
+            
+            confirmMessage += "\n\nThis action cannot be undone.";
+
+            var result = MessageBox.Show(
+                confirmMessage,
+                "Uninstall Mod(s)",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            // Disable buttons during operation
+            btnBulkUninstallInstalled.Enabled = false;
+            btnBulkDeselectAllInstalled.Enabled = false;
+            progressBar.Visible = true;
+            progressBar.Style = ProgressBarStyle.Marquee;
+
+            try
+            {
+                int successCount = 0;
+                int failCount = 0;
+                var failedMods = new List<string>();
+
+                foreach (var mod in selectedMods)
+                {
+                    if (!mod.IsInstalled)
+                    {
+                        failCount++;
+                        continue;
+                    }
+
+                    var version = mod.InstalledVersion ?? mod.Versions?.FirstOrDefault();
+                    if (version != null)
+                    {
+                        try
+                        {
+                            UpdateStatus($"Uninstalling {mod.Name}...");
+                            
+                            // Run uninstall on background thread
+                            var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
+                            var uninstalled = await Task.Run(() => _modInstaller.UninstallMod(mod, _config.AmongUsPath, modStoragePath)).ConfigureAwait(false);
+                            
+                            // Delete depot if mod requires it
+                            if (uninstalled && _modStore.ModRequiresDepot(mod.Id))
+                            {
+                                UpdateStatus($"Removing depot for {mod.Name}...");
+                                await Task.Run(() => _steamDepotService.DeleteModDepot(mod.Id)).ConfigureAwait(false);
+                            }
+                            
+                            if (uninstalled)
+                            {
+                                // Mark as explicitly set and update mod state
+                                _explicitlySetMods.Add(mod.Id);
+                                mod.IsInstalled = false;
+                                mod.InstalledVersion = null;
+                                
+                                _config.RemoveInstalledMod(mod.Id, version.Version);
+                                await _config.SaveAsync().ConfigureAwait(false);
+                                
+                                successCount++;
+                            }
+                            else
+                            {
+                                failCount++;
+                                failedMods.Add(mod.Name);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            failCount++;
+                            failedMods.Add(mod.Name);
+                            //System.Diagnostics.Debug.WriteLine($"Error uninstalling {mod.Name}: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        failCount++;
+                        failedMods.Add(mod.Name);
+                    }
+                }
+
+                // Force cache refresh
+                RefreshModDetectionCache(force: true);
+                _cachedPendingUpdatesCount = null;
+
+                // Clear selections after uninstall and update UI on UI thread
+                SafeInvoke(() =>
+                {
+                    _bulkSelectedModIds.Clear();
+                    UpdateBulkActionToolbar(true);
+                    RefreshModCardsDebounced();
+
+                    // Build result message
+                    string resultMessage;
+                    if (successCount > 0 && failCount == 0)
+                    {
+                        resultMessage = $"Successfully uninstalled {successCount} mod{(successCount == 1 ? "" : "s")}.";
+                    }
+                    else if (successCount > 0 && failCount > 0)
+                    {
+                        resultMessage = $"Uninstallation completed with issues:\n\n";
+                        resultMessage += $"Successfully uninstalled: {successCount} mod{(successCount == 1 ? "" : "s")}\n";
+                        resultMessage += $"Failed to uninstall: {failCount} mod{(failCount == 1 ? "" : "s")}";
+                        if (failedMods.Any() && failedMods.Count <= 5)
+                        {
+                            resultMessage += "\n\nFailed mods:\n" + string.Join("\n", failedMods);
+                        }
+                        else if (failedMods.Any())
+                        {
+                            resultMessage += "\n\nFailed mods:\n" + string.Join("\n", failedMods.Take(5));
+                            resultMessage += $"\n... and {failedMods.Count - 5} more";
+                        }
+                    }
+                    else
+                    {
+                        resultMessage = $"Failed to uninstall {failCount} mod{(failCount == 1 ? "" : "s")}.\n\n";
+                        if (failedMods.Any() && failedMods.Count <= 5)
+                        {
+                            resultMessage += "Failed mods:\n" + string.Join("\n", failedMods);
+                        }
+                        else if (failedMods.Any())
+                        {
+                            resultMessage += "Failed mods:\n" + string.Join("\n", failedMods.Take(5));
+                            resultMessage += $"\n... and {failedMods.Count - 5} more";
+                        }
+                        resultMessage += "\n\nPlease check the status bar for details or try uninstalling them individually.";
+                    }
+                    
+                    MessageBox.Show(
+                        resultMessage,
+                        "Uninstall Mod(s)",
+                        MessageBoxButtons.OK,
+                        failCount > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+                });
+            }
+            finally
+            {
+                SafeInvoke(() =>
+                {
+                    progressBar.Visible = false;
+                    btnBulkUninstallInstalled.Enabled = true;
+                    btnBulkDeselectAllInstalled.Enabled = true;
+                });
+            }
+        }
+
+        private void btnBulkDeselectAllInstalled_Click(object sender, EventArgs e)
+        {
+            // Clear both bulk and launch selections
+            var modsToDeselect = _bulkSelectedModIds.Union(_selectedModIds).ToList();
+            
+            foreach (var modId in modsToDeselect)
+            {
+                if (_modCards.TryGetValue(modId, out var card) && card.IsSelectable)
+                {
+                    card.SetSelected(false, true);
+                }
+            }
+            
+            _bulkSelectedModIds.Clear();
+            _selectedModIds.Clear();
+            PersistSelectedMods();
+            
+            UpdateBulkActionToolbar(true);
+            UpdateLaunchButtonsState();
+        }
+
+        private void btnBulkDeselectAllStore_Click(object sender, EventArgs e)
+        {
+            foreach (var modId in _bulkSelectedModIds.ToList())
+            {
+                if (_modCards.TryGetValue(modId, out var card) && card.IsSelectable)
+                {
+                    card.SetSelected(false, true);
+                }
+            }
+            _bulkSelectedModIds.Clear();
+            UpdateBulkActionToolbar(false);
         }
 
         private void btnSidebarLaunchVanilla_Click(object sender, EventArgs e)

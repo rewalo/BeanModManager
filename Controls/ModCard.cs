@@ -244,9 +244,8 @@ namespace BeanModManager
             this.Margin = new Padding(14);
             this.Padding = new Padding(18, 20, 18, 18);
 
-            // Enable selection only in installed view for launch selection
-            // Store view doesn't need selection checkboxes
-            bool allowSelection = _isInstalledView;
+            // Enable selection in both views for bulk operations
+            bool allowSelection = true;
             
             // For installed view, keep the original restriction for "Include in launch"
             bool isLaunchSelection = _isInstalledView &&

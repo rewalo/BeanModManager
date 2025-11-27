@@ -80,6 +80,14 @@
             this.btnEmptyStoreClearFilters = new System.Windows.Forms.Button();
             this.btnEmptyStoreBrowseFeatured = new System.Windows.Forms.Button();
             this.panelStore = new BeanModManager.Controls.ThemedFlowLayoutPanel();
+            this.panelBulkActionsInstalled = new System.Windows.Forms.Panel();
+            this.lblBulkSelectedCountInstalled = new System.Windows.Forms.Label();
+            this.btnBulkUninstallInstalled = new System.Windows.Forms.Button();
+            this.btnBulkDeselectAllInstalled = new System.Windows.Forms.Button();
+            this.panelBulkActionsStore = new System.Windows.Forms.Panel();
+            this.lblBulkSelectedCountStore = new System.Windows.Forms.Label();
+            this.btnBulkInstallStore = new System.Windows.Forms.Button();
+            this.btnBulkDeselectAllStore = new System.Windows.Forms.Button();
             this.tabSettings = new System.Windows.Forms.TabPage();
             this.settingsLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpPath = new System.Windows.Forms.GroupBox();
@@ -130,6 +138,8 @@
             this.flowStoreFilters.SuspendLayout();
             this.panelStoreHost.SuspendLayout();
             this.panelEmptyStore.SuspendLayout();
+            this.panelBulkActionsInstalled.SuspendLayout();
+            this.panelBulkActionsStore.SuspendLayout();
             this.tabSettings.SuspendLayout();
             this.settingsLayout.SuspendLayout();
             this.grpPath.SuspendLayout();
@@ -412,16 +422,17 @@
             this.installedLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.installedLayout.Controls.Add(this.lblInstalledHeader, 0, 0);
             this.installedLayout.Controls.Add(this.flowInstalledFilters, 0, 1);
-            this.installedLayout.Controls.Add(this.panelInstalledHost, 0, 2);
-            this.installedLayout.Controls.Add(this.btnLaunchSelected, 0, 3);
+            this.installedLayout.Controls.Add(this.panelBulkActionsInstalled, 0, 2);
+            this.installedLayout.Controls.Add(this.panelInstalledHost, 0, 3);
+            this.installedLayout.Controls.Add(this.btnLaunchSelected, 0, 4);
             this.installedLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.installedLayout.Location = new System.Drawing.Point(10, 10);
             this.installedLayout.Name = "installedLayout";
-            this.installedLayout.RowCount = 4;
+            this.installedLayout.RowCount = 5;
+            this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.installedLayout.Size = new System.Drawing.Size(1087, 681);
             this.installedLayout.TabIndex = 3;
@@ -506,13 +517,73 @@
             this.cmbInstalledCategory.TabIndex = 3;
             this.cmbInstalledCategory.SelectedIndexChanged += new System.EventHandler(this.cmbInstalledCategory_SelectedIndexChanged);
             // 
+            // panelBulkActionsInstalled
+            // 
+            this.panelBulkActionsInstalled.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this.panelBulkActionsInstalled.Controls.Add(this.lblBulkSelectedCountInstalled);
+            this.panelBulkActionsInstalled.Controls.Add(this.btnBulkUninstallInstalled);
+            this.panelBulkActionsInstalled.Controls.Add(this.btnBulkDeselectAllInstalled);
+            this.panelBulkActionsInstalled.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelBulkActionsInstalled.Location = new System.Drawing.Point(0, 52);
+            this.panelBulkActionsInstalled.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.panelBulkActionsInstalled.Name = "panelBulkActionsInstalled";
+            this.panelBulkActionsInstalled.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
+            this.panelBulkActionsInstalled.Size = new System.Drawing.Size(1087, 44);
+            this.panelBulkActionsInstalled.TabIndex = 5;
+            this.panelBulkActionsInstalled.Visible = false;
+            // 
+            // lblBulkSelectedCountInstalled
+            // 
+            this.lblBulkSelectedCountInstalled.AutoSize = true;
+            this.lblBulkSelectedCountInstalled.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblBulkSelectedCountInstalled.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(90)))));
+            this.lblBulkSelectedCountInstalled.Location = new System.Drawing.Point(12, 11);
+            this.lblBulkSelectedCountInstalled.Name = "lblBulkSelectedCountInstalled";
+            this.lblBulkSelectedCountInstalled.Size = new System.Drawing.Size(95, 15);
+            this.lblBulkSelectedCountInstalled.TabIndex = 0;
+            this.lblBulkSelectedCountInstalled.Text = "0 mods selected";
+            // 
+            // btnBulkUninstallInstalled
+            // 
+            this.btnBulkUninstallInstalled.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnBulkUninstallInstalled.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(94)))));
+            this.btnBulkUninstallInstalled.FlatAppearance.BorderSize = 0;
+            this.btnBulkUninstallInstalled.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(210)))), ((int)(((byte)(80)))), ((int)(((byte)(81)))));
+            this.btnBulkUninstallInstalled.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnBulkUninstallInstalled.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.btnBulkUninstallInstalled.ForeColor = System.Drawing.Color.White;
+            this.btnBulkUninstallInstalled.Location = new System.Drawing.Point(800, 6);
+            this.btnBulkUninstallInstalled.Name = "btnBulkUninstallInstalled";
+            this.btnBulkUninstallInstalled.Size = new System.Drawing.Size(130, 28);
+            this.btnBulkUninstallInstalled.TabIndex = 1;
+            this.btnBulkUninstallInstalled.Text = "Uninstall Selected";
+            this.btnBulkUninstallInstalled.UseVisualStyleBackColor = false;
+            this.btnBulkUninstallInstalled.Click += new System.EventHandler(this.btnBulkUninstallInstalled_Click);
+            // 
+            // btnBulkDeselectAllInstalled
+            // 
+            this.btnBulkDeselectAllInstalled.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnBulkDeselectAllInstalled.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(108)))), ((int)(((byte)(117)))), ((int)(((byte)(125)))));
+            this.btnBulkDeselectAllInstalled.FlatAppearance.BorderSize = 0;
+            this.btnBulkDeselectAllInstalled.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(98)))), ((int)(((byte)(105)))));
+            this.btnBulkDeselectAllInstalled.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnBulkDeselectAllInstalled.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.btnBulkDeselectAllInstalled.ForeColor = System.Drawing.Color.White;
+            this.btnBulkDeselectAllInstalled.Location = new System.Drawing.Point(936, 6);
+            this.btnBulkDeselectAllInstalled.Name = "btnBulkDeselectAllInstalled";
+            this.btnBulkDeselectAllInstalled.Size = new System.Drawing.Size(139, 28);
+            this.btnBulkDeselectAllInstalled.TabIndex = 2;
+            this.btnBulkDeselectAllInstalled.Text = "Deselect All";
+            this.btnBulkDeselectAllInstalled.UseVisualStyleBackColor = false;
+            this.btnBulkDeselectAllInstalled.Click += new System.EventHandler(this.btnBulkDeselectAllInstalled_Click);
+            // 
             // panelInstalledHost
             // 
             this.panelInstalledHost.BackColor = System.Drawing.Color.Transparent;
             this.panelInstalledHost.Controls.Add(this.panelEmptyInstalled);
             this.panelInstalledHost.Controls.Add(this.panelInstalled);
             this.panelInstalledHost.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelInstalledHost.Location = new System.Drawing.Point(0, 60);
+            this.panelInstalledHost.Location = new System.Drawing.Point(0, 68);
             this.panelInstalledHost.Margin = new System.Windows.Forms.Padding(0);
             this.panelInstalledHost.Name = "panelInstalledHost";
             this.panelInstalledHost.Size = new System.Drawing.Size(1087, 571);
@@ -623,11 +694,13 @@
             this.storeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.storeLayout.Controls.Add(this.lblStoreHeader, 0, 0);
             this.storeLayout.Controls.Add(this.flowStoreFilters, 0, 1);
-            this.storeLayout.Controls.Add(this.panelStoreHost, 0, 2);
+            this.storeLayout.Controls.Add(this.panelBulkActionsStore, 0, 2);
+            this.storeLayout.Controls.Add(this.panelStoreHost, 0, 3);
             this.storeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.storeLayout.Location = new System.Drawing.Point(10, 10);
             this.storeLayout.Name = "storeLayout";
-            this.storeLayout.RowCount = 3;
+            this.storeLayout.RowCount = 4;
+            this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -713,13 +786,73 @@
             this.cmbStoreCategory.TabIndex = 3;
             this.cmbStoreCategory.SelectedIndexChanged += new System.EventHandler(this.cmbStoreCategory_SelectedIndexChanged);
             // 
+            // panelBulkActionsStore
+            // 
+            this.panelBulkActionsStore.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
+            this.panelBulkActionsStore.Controls.Add(this.lblBulkSelectedCountStore);
+            this.panelBulkActionsStore.Controls.Add(this.btnBulkInstallStore);
+            this.panelBulkActionsStore.Controls.Add(this.btnBulkDeselectAllStore);
+            this.panelBulkActionsStore.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelBulkActionsStore.Location = new System.Drawing.Point(0, 52);
+            this.panelBulkActionsStore.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.panelBulkActionsStore.Name = "panelBulkActionsStore";
+            this.panelBulkActionsStore.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
+            this.panelBulkActionsStore.Size = new System.Drawing.Size(1090, 44);
+            this.panelBulkActionsStore.TabIndex = 6;
+            this.panelBulkActionsStore.Visible = false;
+            // 
+            // lblBulkSelectedCountStore
+            // 
+            this.lblBulkSelectedCountStore.AutoSize = true;
+            this.lblBulkSelectedCountStore.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblBulkSelectedCountStore.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(90)))));
+            this.lblBulkSelectedCountStore.Location = new System.Drawing.Point(12, 11);
+            this.lblBulkSelectedCountStore.Name = "lblBulkSelectedCountStore";
+            this.lblBulkSelectedCountStore.Size = new System.Drawing.Size(95, 15);
+            this.lblBulkSelectedCountStore.TabIndex = 0;
+            this.lblBulkSelectedCountStore.Text = "0 mods selected";
+            // 
+            // btnBulkInstallStore
+            // 
+            this.btnBulkInstallStore.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnBulkInstallStore.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(122)))), ((int)(((byte)(204)))));
+            this.btnBulkInstallStore.FlatAppearance.BorderSize = 0;
+            this.btnBulkInstallStore.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(100)))), ((int)(((byte)(170)))));
+            this.btnBulkInstallStore.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnBulkInstallStore.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.btnBulkInstallStore.ForeColor = System.Drawing.Color.White;
+            this.btnBulkInstallStore.Location = new System.Drawing.Point(800, 6);
+            this.btnBulkInstallStore.Name = "btnBulkInstallStore";
+            this.btnBulkInstallStore.Size = new System.Drawing.Size(130, 28);
+            this.btnBulkInstallStore.TabIndex = 1;
+            this.btnBulkInstallStore.Text = "Install Selected";
+            this.btnBulkInstallStore.UseVisualStyleBackColor = false;
+            this.btnBulkInstallStore.Click += new System.EventHandler(this.btnBulkInstallStore_Click);
+            // 
+            // btnBulkDeselectAllStore
+            // 
+            this.btnBulkDeselectAllStore.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnBulkDeselectAllStore.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(108)))), ((int)(((byte)(117)))), ((int)(((byte)(125)))));
+            this.btnBulkDeselectAllStore.FlatAppearance.BorderSize = 0;
+            this.btnBulkDeselectAllStore.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(98)))), ((int)(((byte)(105)))));
+            this.btnBulkDeselectAllStore.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnBulkDeselectAllStore.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.btnBulkDeselectAllStore.ForeColor = System.Drawing.Color.White;
+            this.btnBulkDeselectAllStore.Location = new System.Drawing.Point(936, 6);
+            this.btnBulkDeselectAllStore.Name = "btnBulkDeselectAllStore";
+            this.btnBulkDeselectAllStore.Size = new System.Drawing.Size(139, 28);
+            this.btnBulkDeselectAllStore.TabIndex = 2;
+            this.btnBulkDeselectAllStore.Text = "Deselect All";
+            this.btnBulkDeselectAllStore.UseVisualStyleBackColor = false;
+            this.btnBulkDeselectAllStore.Click += new System.EventHandler(this.btnBulkDeselectAllStore_Click);
+            // 
             // panelStoreHost
             // 
             this.panelStoreHost.BackColor = System.Drawing.Color.Transparent;
             this.panelStoreHost.Controls.Add(this.panelEmptyStore);
             this.panelStoreHost.Controls.Add(this.panelStore);
             this.panelStoreHost.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelStoreHost.Location = new System.Drawing.Point(0, 60);
+            this.panelStoreHost.Location = new System.Drawing.Point(0, 68);
             this.panelStoreHost.Margin = new System.Windows.Forms.Padding(0);
             this.panelStoreHost.Name = "panelStoreHost";
             this.panelStoreHost.Size = new System.Drawing.Size(1090, 621);
@@ -1268,6 +1401,8 @@
             this.installedLayout.PerformLayout();
             this.flowInstalledFilters.ResumeLayout(false);
             this.flowInstalledFilters.PerformLayout();
+            this.panelBulkActionsInstalled.ResumeLayout(false);
+            this.panelBulkActionsInstalled.PerformLayout();
             this.panelInstalledHost.ResumeLayout(false);
             this.panelEmptyInstalled.ResumeLayout(false);
             this.tabStore.ResumeLayout(false);
@@ -1275,6 +1410,8 @@
             this.storeLayout.PerformLayout();
             this.flowStoreFilters.ResumeLayout(false);
             this.flowStoreFilters.PerformLayout();
+            this.panelBulkActionsStore.ResumeLayout(false);
+            this.panelBulkActionsStore.PerformLayout();
             this.panelStoreHost.ResumeLayout(false);
             this.panelEmptyStore.ResumeLayout(false);
             this.tabSettings.ResumeLayout(false);
@@ -1382,6 +1519,14 @@
         private System.Windows.Forms.TextBox txtStoreSearch;
         private System.Windows.Forms.Label lblStoreCategory;
         private System.Windows.Forms.ComboBox cmbStoreCategory;
+        private System.Windows.Forms.Panel panelBulkActionsInstalled;
+        private System.Windows.Forms.Label lblBulkSelectedCountInstalled;
+        private System.Windows.Forms.Button btnBulkUninstallInstalled;
+        private System.Windows.Forms.Button btnBulkDeselectAllInstalled;
+        private System.Windows.Forms.Panel panelBulkActionsStore;
+        private System.Windows.Forms.Label lblBulkSelectedCountStore;
+        private System.Windows.Forms.Button btnBulkInstallStore;
+        private System.Windows.Forms.Button btnBulkDeselectAllStore;
         private System.Windows.Forms.GroupBox grpAppearance;
         private System.Windows.Forms.TableLayoutPanel appearanceLayout;
         private System.Windows.Forms.Label lblTheme;
