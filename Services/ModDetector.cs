@@ -294,7 +294,7 @@ namespace BeanModManager.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error reading DLL version from {dllPath}: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error reading DLL version from {dllPath}: {ex.Message}");
             }
             return null;
         }

@@ -85,7 +85,7 @@ namespace BeanModManager.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error finding Steam path: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error finding Steam path: {ex.Message}");
             }
 
             var commonPaths = new[]
@@ -170,7 +170,7 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error deleting depot folder: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Error deleting depot folder: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error deleting depot folder: {ex.Message}");
                 return false;
             }
         }
@@ -194,7 +194,7 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error deleting base depot folder: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Error deleting base depot folder: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error deleting base depot folder: {ex.Message}");
                 return false;
             }
         }
@@ -265,7 +265,7 @@ namespace BeanModManager.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error copying to clipboard: {ex.Message}");
+                    //System.Diagnostics.Debug.WriteLine($"Error copying to clipboard: {ex.Message}");
                 }
 
                 OnProgressChanged("Opening Steam console...");
@@ -485,7 +485,7 @@ namespace BeanModManager.Services
                     catch (Exception ex)
                     {
                         OnProgressChanged($"Warning: Could not delete base depot: {ex.Message}");
-                        System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {ex.Message}");
+                        //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {ex.Message}");
                     }
                 }
                 
@@ -513,7 +513,7 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error deleting Innersloth folder: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Error deleting Innersloth folder: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error deleting Innersloth folder: {ex.Message}");
             }
         }
 
@@ -549,7 +549,7 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error backing up Innersloth folder: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Error backing up Innersloth folder: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error backing up Innersloth folder: {ex.Message}");
                 return false;
             }
         }
@@ -579,7 +579,7 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error restoring Innersloth folder: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Error restoring Innersloth folder: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error restoring Innersloth folder: {ex.Message}");
                 return false;
             }
         }
@@ -612,7 +612,7 @@ namespace BeanModManager.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
+                    //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
                 }
             }
 

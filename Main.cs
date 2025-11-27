@@ -42,6 +42,19 @@ namespace BeanModManager
         private Timer _refreshDebounceTimer;
         private bool _isRefreshing = false;
         private bool _isApplyingThemeSelection;
+        
+        // Cache for expensive operations - only refresh when mods are installed/uninstalled
+        private List<InstalledModInfo> _cachedDetectedMods;
+        private HashSet<string> _cachedDetectedModIds;
+        private HashSet<string> _cachedExistingModFolders;
+        private string _cachedModsFolder;
+        private Dictionary<string, bool> _cachedInstallationStatus; // modId -> isInstalled
+        private DateTime _cacheLastUpdated = DateTime.MinValue;
+        private readonly TimeSpan _cacheMaxAge = TimeSpan.FromSeconds(5); // Refresh cache if older than 5 seconds
+        private bool? _cachedIsEpicOrMsStore; // Cache Epic/MS Store check result
+        private int? _cachedPendingUpdatesCount; // Cache pending updates count
+        private Dictionary<string, string> _cachedNormalizedCategories; // Cache normalized category strings
+        private readonly HashSet<string> _explicitlySetMods = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // Track mods that have been explicitly installed/uninstalled
 
         public Main()
         {
@@ -369,6 +382,74 @@ namespace BeanModManager
             }
         }
         
+        private void btnEmptyInstalledBrowseFeatured_Click(object sender, EventArgs e)
+        {
+            // Switch to store tab and set Featured filter
+            if (tabControl != null)
+            {
+                tabControl.SelectedIndex = 1;
+                if (cmbStoreCategory != null)
+                {
+                    _storeCategoryFilter = "Featured";
+                    cmbStoreCategory.SelectedItem = "Featured";
+                    RefreshModCardsDebounced();
+                }
+            }
+        }
+        
+        private void btnEmptyInstalledBrowseStore_Click(object sender, EventArgs e)
+        {
+            // Switch to store tab and clear filters
+            if (tabControl != null)
+            {
+                tabControl.SelectedIndex = 1;
+                
+                // Clear search and category filters
+                _storeSearchText = string.Empty;
+                _storeCategoryFilter = "All";
+                
+                if (txtStoreSearch != null)
+                {
+                    txtStoreSearch.Text = string.Empty;
+                }
+                if (cmbStoreCategory != null)
+                {
+                    cmbStoreCategory.SelectedItem = "All";
+                }
+                
+                RefreshModCardsDebounced();
+            }
+        }
+        
+        private void btnEmptyStoreClearFilters_Click(object sender, EventArgs e)
+        {
+            // Clear search and category filters
+            _storeSearchText = string.Empty;
+            _storeCategoryFilter = "All";
+            
+            if (txtStoreSearch != null)
+            {
+                txtStoreSearch.Text = string.Empty;
+            }
+            if (cmbStoreCategory != null)
+            {
+                cmbStoreCategory.SelectedItem = "All";
+            }
+            
+            RefreshModCardsDebounced();
+        }
+        
+        private void btnEmptyStoreBrowseFeatured_Click(object sender, EventArgs e)
+        {
+            // Set Featured filter
+            _storeCategoryFilter = "Featured";
+            if (cmbStoreCategory != null)
+            {
+                cmbStoreCategory.SelectedItem = "Featured";
+            }
+            RefreshModCardsDebounced();
+        }
+        
         private void UpdateStats()
         {
             if (InvokeRequired)
@@ -386,15 +467,37 @@ namespace BeanModManager
                 return;
             }
             
-            // Count installed mods
-            var installedCount = _availableMods.Count(m => m.IsInstalled);
+            // Count installed mods using cache if available
+            int installedCount;
+            if (_cachedInstallationStatus != null)
+            {
+                installedCount = 0;
+                foreach (var kvp in _cachedInstallationStatus)
+                {
+                    if (kvp.Value) installedCount++;
+                }
+            }
+            else
+            {
+                installedCount = _availableMods.Count(m => m.IsInstalled);
+            }
+            
             if (lblInstalledCount != null)
             {
                 lblInstalledCount.Text = $"Installed: {installedCount} {(installedCount == 1 ? "mod" : "mods")}";
             }
             
-            // Count pending updates
-            var pendingUpdates = GetPendingUpdatesCount();
+            // Count pending updates (use cache if available and fresh)
+            int pendingUpdates;
+            if (_cachedPendingUpdatesCount.HasValue)
+            {
+                pendingUpdates = _cachedPendingUpdatesCount.Value;
+            }
+            else
+            {
+                pendingUpdates = GetPendingUpdatesCount();
+                _cachedPendingUpdatesCount = pendingUpdates;
+            }
             if (lblPendingUpdates != null)
             {
                 lblPendingUpdates.Text = $"Pending Updates: {pendingUpdates}";
@@ -409,28 +512,40 @@ namespace BeanModManager
         {
             if (_availableMods == null)
                 return 0;
-                
-            var installedMods = _availableMods.Where(m => m.IsInstalled).ToList();
-            if (!installedMods.Any())
-                return 0;
             
+            // Use cached installation status for faster lookup
             int count = 0;
-            foreach (var mod in installedMods)
+            foreach (var mod in _availableMods)
             {
+                // Skip if not installed (use cache if available)
+                bool isInstalled = _cachedInstallationStatus != null 
+                    ? (_cachedInstallationStatus.TryGetValue(mod.Id, out bool cached) && cached)
+                    : mod.IsInstalled;
+                if (!isInstalled)
+                    continue;
+                
                 if (mod.InstalledVersion == null)
                     continue;
                 
-                // Always check ALL versions (including betas) to find the actual latest
-                // The beta setting only affects what's displayed, not what's considered the latest
+                // Filter versions based on beta setting (same logic as ModCard.CheckForUpdate)
                 var availableVersions = mod.Versions
-                    .Where(v => !string.IsNullOrEmpty(v.DownloadUrl))
-                    .OrderByDescending(v => v.ReleaseDate)
-                    .ToList();
+                    .Where(v => !string.IsNullOrEmpty(v.DownloadUrl));
                 
-                if (!availableVersions.Any())
+                if (!_config.ShowBetaVersions)
+                {
+                    // If beta is disabled, only check stable versions
+                    availableVersions = availableVersions.Where(v => !v.IsPreRelease);
+                }
+                
+                var versionsList = availableVersions.OrderByDescending(v => v.ReleaseDate).ToList();
+                
+                if (!versionsList.Any())
                     continue;
                 
-                var latestVersion = availableVersions.FirstOrDefault();
+                var latestVersion = versionsList.FirstOrDefault();
+                if (latestVersion == null)
+                    continue;
+                
                 var installedTag = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version;
                 var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
                 
@@ -438,9 +553,11 @@ namespace BeanModManager
                 if (string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase))
                     continue;
                 
-                // Special case: If installed version is a beta and it's the latest beta
+                // Special case: If installed version is a beta and it's the latest beta (regardless of setting),
+                // check if there's a newer stable version. If not, no update.
                 if (mod.InstalledVersion.IsPreRelease)
                 {
+                    // Check if installed beta is the latest beta version
                     var latestBeta = mod.Versions
                         .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && v.IsPreRelease)
                         .OrderByDescending(v => v.ReleaseDate)
@@ -448,8 +565,11 @@ namespace BeanModManager
                     
                     if (latestBeta != null)
                     {
+                        var installedBetaTag = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version;
                         var latestBetaTag = latestBeta.ReleaseTag ?? latestBeta.Version;
-                        if (string.Equals(installedTag, latestBetaTag, StringComparison.OrdinalIgnoreCase))
+                        
+                        // If installed is the latest beta, only show update if there's a newer stable
+                        if (string.Equals(installedBetaTag, latestBetaTag, StringComparison.OrdinalIgnoreCase))
                         {
                             // Check if there's a newer stable version
                             var latestStable = mod.Versions
@@ -729,6 +849,54 @@ namespace BeanModManager
 
             lblEmptyInstalled.ForeColor = palette.MutedTextColor;
             lblEmptyStore.ForeColor = palette.MutedTextColor;
+            
+            // Style empty state panels
+            if (panelEmptyInstalled != null)
+            {
+                panelEmptyInstalled.BackColor = Color.Transparent;
+            }
+            if (panelEmptyStore != null)
+            {
+                panelEmptyStore.BackColor = Color.Transparent;
+            }
+            
+            // Style empty state buttons
+            if (btnEmptyInstalledBrowseFeatured != null)
+            {
+                btnEmptyInstalledBrowseFeatured.BackColor = palette.SuccessButtonColor;
+                btnEmptyInstalledBrowseFeatured.FlatAppearance.MouseOverBackColor = Color.FromArgb(
+                    Math.Max(0, palette.SuccessButtonColor.R - 10),
+                    Math.Max(0, palette.SuccessButtonColor.G - 10),
+                    Math.Max(0, palette.SuccessButtonColor.B - 10));
+                btnEmptyInstalledBrowseFeatured.ForeColor = palette.SuccessButtonTextColor;
+            }
+            if (btnEmptyInstalledBrowseStore != null)
+            {
+                btnEmptyInstalledBrowseStore.BackColor = palette.SecondaryButtonColor;
+                btnEmptyInstalledBrowseStore.FlatAppearance.MouseOverBackColor = Color.FromArgb(
+                    Math.Min(255, palette.SecondaryButtonColor.R + 20),
+                    Math.Min(255, palette.SecondaryButtonColor.G + 20),
+                    Math.Min(255, palette.SecondaryButtonColor.B + 20));
+                btnEmptyInstalledBrowseStore.ForeColor = palette.SecondaryButtonTextColor;
+            }
+            if (btnEmptyStoreClearFilters != null)
+            {
+                btnEmptyStoreClearFilters.BackColor = palette.SuccessButtonColor;
+                btnEmptyStoreClearFilters.FlatAppearance.MouseOverBackColor = Color.FromArgb(
+                    Math.Max(0, palette.SuccessButtonColor.R - 10),
+                    Math.Max(0, palette.SuccessButtonColor.G - 10),
+                    Math.Max(0, palette.SuccessButtonColor.B - 10));
+                btnEmptyStoreClearFilters.ForeColor = palette.SuccessButtonTextColor;
+            }
+            if (btnEmptyStoreBrowseFeatured != null)
+            {
+                btnEmptyStoreBrowseFeatured.BackColor = palette.SecondaryButtonColor;
+                btnEmptyStoreBrowseFeatured.FlatAppearance.MouseOverBackColor = Color.FromArgb(
+                    Math.Min(255, palette.SecondaryButtonColor.R + 20),
+                    Math.Min(255, palette.SecondaryButtonColor.G + 20),
+                    Math.Min(255, palette.SecondaryButtonColor.B + 20));
+                btnEmptyStoreBrowseFeatured.ForeColor = palette.SecondaryButtonTextColor;
+            }
 
             if (panelInstalledHost != null)
             {
@@ -1071,6 +1239,194 @@ namespace BeanModManager
             button.FlatAppearance.MouseDownBackColor = ControlPaint.Dark(backColor);
         }
 
+        private List<SkeletonModCard> _skeletonInstalledCards = new List<SkeletonModCard>();
+        private List<SkeletonModCard> _skeletonStoreCards = new List<SkeletonModCard>();
+        
+        private void ShowSkeletonLoaders(int installedCount, int storeCount)
+        {
+            if (panelInstalled == null || panelStore == null) return;
+            
+            // Clear existing skeletons
+            HideSkeletonLoaders();
+            
+            // Suspend layout and suppress scrollbar invalidations
+            panelInstalled.SuspendLayout();
+            panelStore.SuspendLayout();
+            panelInstalled.SuppressScrollbarInvalidation(true);
+            panelStore.SuppressScrollbarInvalidation(true);
+            
+            try
+            {
+                // Clear existing cards
+                panelInstalled.Controls.Clear();
+                panelStore.Controls.Clear();
+                
+                // Create skeleton cards for installed mods (invisible initially)
+                for (int i = 0; i < installedCount; i++)
+                {
+                    var skeleton = new SkeletonModCard();
+                    skeleton.Visible = false; // Hide until layout is calculated
+                    _skeletonInstalledCards.Add(skeleton);
+                    panelInstalled.Controls.Add(skeleton);
+                }
+                
+                // Create skeleton cards for store mods (invisible initially)
+                for (int i = 0; i < storeCount; i++)
+                {
+                    var skeleton = new SkeletonModCard();
+                    skeleton.Visible = false; // Hide until layout is calculated
+                    _skeletonStoreCards.Add(skeleton);
+                    panelStore.Controls.Add(skeleton);
+                }
+            }
+            finally
+            {
+                // Re-enable scrollbar invalidations
+                panelInstalled.SuppressScrollbarInvalidation(false);
+                panelStore.SuppressScrollbarInvalidation(false);
+                
+                // Resume layout to calculate positions (synchronously)
+                panelInstalled.ResumeLayout(true);
+                panelStore.ResumeLayout(true);
+                
+                // Make skeletons visible AFTER layout is calculated
+                // ResumeLayout(true) performs layout synchronously, so we can make visible immediately
+                foreach (var skeleton in _skeletonInstalledCards)
+                {
+                    if (skeleton != null && !skeleton.IsDisposed)
+                    {
+                        skeleton.Visible = true;
+                    }
+                }
+                
+                foreach (var skeleton in _skeletonStoreCards)
+                {
+                    if (skeleton != null && !skeleton.IsDisposed)
+                    {
+                        skeleton.Visible = true;
+                    }
+                }
+            }
+        }
+        
+        private void HideSkeletonLoaders()
+        {
+            foreach (var skeleton in _skeletonInstalledCards)
+            {
+                skeleton?.Dispose();
+            }
+            _skeletonInstalledCards.Clear();
+            
+            foreach (var skeleton in _skeletonStoreCards)
+            {
+                skeleton?.Dispose();
+            }
+            _skeletonStoreCards.Clear();
+        }
+        
+        private void ReplaceSkeletonsWithCards(List<ModCard> installedCards, List<ModCard> storeCards)
+        {
+            if (panelInstalled == null || panelStore == null) return;
+            
+            // Collect skeletons to dispose (but don't dispose yet)
+            var skeletonsToDispose = new List<SkeletonModCard>();
+            skeletonsToDispose.AddRange(_skeletonInstalledCards);
+            skeletonsToDispose.AddRange(_skeletonStoreCards);
+            _skeletonInstalledCards.Clear();
+            _skeletonStoreCards.Clear();
+            
+            // Suspend layout and suppress scrollbar invalidations BEFORE making any changes
+            panelInstalled.SuspendLayout();
+            panelStore.SuspendLayout();
+            panelInstalled.SuppressScrollbarInvalidation(true);
+            panelStore.SuppressScrollbarInvalidation(true);
+            
+            try
+            {
+                // Step 1: Remove cards from BOTH panels first (in case they're in the wrong panel)
+                // This ensures cards are properly moved between panels when install/uninstall happens
+                foreach (var card in installedCards)
+                {
+                    if (panelStore.Controls.Contains(card))
+                        panelStore.Controls.Remove(card);
+                    if (panelInstalled.Controls.Contains(card))
+                        panelInstalled.Controls.Remove(card);
+                }
+                
+                foreach (var card in storeCards)
+                {
+                    if (panelInstalled.Controls.Contains(card))
+                        panelInstalled.Controls.Remove(card);
+                    if (panelStore.Controls.Contains(card))
+                        panelStore.Controls.Remove(card);
+                }
+                
+                // Step 2: Clear panels completely (removes skeletons and any remaining controls)
+                panelInstalled.Controls.Clear();
+                panelStore.Controls.Clear();
+                
+                // Step 3: Add all cards at once in the correct sorted order (invisible initially to prevent glitchy positioning)
+                // Add all cards first
+                foreach (var card in installedCards)
+                {
+                    card.Visible = false; // Hide until layout is calculated
+                    panelInstalled.Controls.Add(card);
+                }
+                // Then set indices in reverse order to avoid shifting issues
+                // SetChildIndex moves controls, so doing it in reverse (last to first) ensures correct final order
+                for (int i = installedCards.Count - 1; i >= 0; i--)
+                {
+                    panelInstalled.Controls.SetChildIndex(installedCards[i], i);
+                }
+                
+                // Add all cards first
+                foreach (var card in storeCards)
+                {
+                    card.Visible = false; // Hide until layout is calculated
+                    panelStore.Controls.Add(card);
+                }
+                // Then set indices in reverse order to avoid shifting issues
+                for (int i = storeCards.Count - 1; i >= 0; i--)
+                {
+                    panelStore.Controls.SetChildIndex(storeCards[i], i);
+                }
+            }
+            finally
+            {
+                // Re-enable scrollbar invalidations
+                panelInstalled.SuppressScrollbarInvalidation(false);
+                panelStore.SuppressScrollbarInvalidation(false);
+                
+                // Resume layout with performLayout=true to do a single layout calculation (synchronously)
+                panelInstalled.ResumeLayout(true);
+                panelStore.ResumeLayout(true);
+                
+                // Make cards visible AFTER layout is calculated
+                // ResumeLayout(true) performs layout synchronously, so we can make visible immediately
+                foreach (var card in installedCards)
+                {
+                    if (card != null && !card.IsDisposed && panelInstalled.Controls.Contains(card))
+                    {
+                        card.Visible = true;
+                    }
+                }
+                
+                foreach (var card in storeCards)
+                {
+                    if (card != null && !card.IsDisposed && panelStore.Controls.Contains(card))
+                    {
+                        card.Visible = true;
+                    }
+                }
+                
+                // Dispose skeletons AFTER layout is resumed (they're already removed from panels)
+                foreach (var skeleton in skeletonsToDispose)
+                {
+                    skeleton?.Dispose();
+                }
+            }
+        }
+        
         private async void LoadMods()
         {
             UpdateStatus("Checking for updates...");
@@ -1085,9 +1441,8 @@ namespace BeanModManager
                     await CheckForAppUpdatesAsync().ConfigureAwait(false);
                     // If update found, UpdateChecker_UpdateAvailable will notify the user
                 }
-                catch (Exception ex)
+                catch
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error checking for app updates: {ex.Message}");
                     // Continue loading mods even if update check fails
                 }
                 
@@ -1129,6 +1484,13 @@ namespace BeanModManager
                 // Fetch versions prioritizing installed mods
                 _availableMods = await _modStore.GetAvailableModsWithAllVersions(installedModIds).ConfigureAwait(false);
                 
+                // Initialize cache after mods are loaded
+                SafeInvoke(() => 
+                {
+                    RefreshModDetectionCache(force: true);
+                    _cachedCategoryList = null; // Invalidate category cache when mods change
+                });
+                
                 if (_modStore.IsRateLimited())
                 {
                     SafeInvoke(() => MessageBox.Show(
@@ -1141,7 +1503,18 @@ namespace BeanModManager
                 SafeInvoke(() =>
                 {
                     // Force immediate refresh after initial load (don't debounce)
-                    RefreshModCards();
+                    // Use SuspendLayout for better performance
+                    panelInstalled?.SuspendLayout();
+                    panelStore?.SuspendLayout();
+                    try
+                    {
+                        RefreshModCards();
+                    }
+                    finally
+                    {
+                        panelInstalled?.ResumeLayout(true);
+                        panelStore?.ResumeLayout(true);
+                    }
                     UpdateStats();
                     UpdateHeaderInfo();
                     
@@ -1158,15 +1531,15 @@ namespace BeanModManager
                     if (_availableMods != null && _availableMods.Any())
                     {
                         var installedCount = _availableMods.Count(m => m.IsInstalled);
-                        System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Found {installedCount} installed mods in _availableMods");
+                        //System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Found {installedCount} installed mods in _availableMods");
                         if (installedCount > 0)
                         {
                             // Check if panels have fewer cards than installed mods
                             var installedCardsCount = panelInstalled?.Controls.OfType<ModCard>().Count() ?? 0;
-                            System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Panel has {installedCardsCount} cards, expected {installedCount}");
+                            //System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Panel has {installedCardsCount} cards, expected {installedCount}");
                             if (installedCardsCount < installedCount)
                             {
-                                System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Refreshing because cards count ({installedCardsCount}) < installed count ({installedCount})");
+                                //System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Refreshing because cards count ({installedCardsCount}) < installed count ({installedCount})");
                                 RefreshModCards();
                             }
                         }
@@ -1185,8 +1558,11 @@ namespace BeanModManager
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error loading mods: {ex.Message}");
-                SafeInvoke(() => MessageBox.Show($"Error loading mods: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error));
+                SafeInvoke(() =>
+                {
+                    HideSkeletonLoaders();
+                    MessageBox.Show($"Error loading mods: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                });
             }
             finally
             {
@@ -1196,6 +1572,106 @@ namespace BeanModManager
                     UpdateStatus("Ready");
                 });
             }
+        }
+
+        /// <summary>
+        /// Refreshes the mod detection cache. Call this when mods are installed/uninstalled.
+        /// </summary>
+        private void RefreshModDetectionCache(bool force = false)
+        {
+            // Check if cache is still fresh (unless forced)
+            if (!force && _cacheLastUpdated != DateTime.MinValue && 
+                DateTime.Now - _cacheLastUpdated < _cacheMaxAge && 
+                _cachedDetectedMods != null && _cachedModsFolder != null)
+            {
+                return; // Cache is still fresh
+            }
+            
+            // Refresh cache
+            _cachedModsFolder = GetModsFolder();
+            _cachedDetectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, _cachedModsFolder);
+            _cachedDetectedModIds = new HashSet<string>(_cachedDetectedMods.Select(m => m.ModId), StringComparer.OrdinalIgnoreCase);
+            
+            _cachedExistingModFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (Directory.Exists(_cachedModsFolder))
+            {
+                try
+                {
+                    foreach (var modDir in Directory.GetDirectories(_cachedModsFolder))
+                    {
+                        var modId = Path.GetFileName(modDir);
+                        if (!string.IsNullOrEmpty(modId))
+                        {
+                            _cachedExistingModFolders.Add(modId);
+                        }
+                    }
+                }
+                catch { }
+            }
+            
+            // Pre-calculate installation status for all mods
+            // IMPORTANT: If a mod has been explicitly set (installed/uninstalled), trust mod.IsInstalled
+            // Otherwise fall back to filesystem/config checks
+            _cachedInstallationStatus = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            if (_availableMods != null)
+            {
+                foreach (var mod in _availableMods)
+                {
+                    // If mod was explicitly set (installed/uninstalled), trust mod.IsInstalled completely
+                    if (_explicitlySetMods.Contains(mod.Id))
+                    {
+                        _cachedInstallationStatus[mod.Id] = mod.IsInstalled;
+                    }
+                    else if (mod.IsInstalled)
+                    {
+                        // mod.IsInstalled is true but wasn't explicitly set - still trust it
+                        _cachedInstallationStatus[mod.Id] = true;
+                    }
+                    else
+                    {
+                        // Fall back to filesystem/config checks for mods that haven't been recently changed
+                        var modStoragePath = Path.Combine(_cachedModsFolder, mod.Id);
+                        bool modFolderExists = !string.IsNullOrEmpty(_config.AmongUsPath) && Directory.Exists(modStoragePath);
+                        bool isDetected = _cachedDetectedModIds.Contains(mod.Id);
+                        bool isInConfig = _config.IsModInstalled(mod.Id);
+                        bool cached = modFolderExists || isDetected || isInConfig;
+                        _cachedInstallationStatus[mod.Id] = cached;
+                    }
+                }
+            }
+            
+            _cacheLastUpdated = DateTime.Now;
+            
+            // Invalidate Epic/MS Store cache when mods folder changes
+            _cachedIsEpicOrMsStore = null;
+            
+            // Invalidate pending updates count cache
+            _cachedPendingUpdatesCount = null;
+        }
+        
+        /// <summary>
+        /// Gets whether a mod is installed, using cache if available.
+        /// </summary>
+        private bool IsModInstalledCached(string modId)
+        {
+            if (_cachedInstallationStatus != null && _cachedInstallationStatus.TryGetValue(modId, out bool cached))
+            {
+                return cached;
+            }
+            
+            // Fallback to direct check if cache not available
+            var modsFolder = _cachedModsFolder ?? GetModsFolder();
+            var modStoragePath = Path.Combine(modsFolder, modId);
+            bool modFolderExists = !string.IsNullOrEmpty(_config.AmongUsPath) && Directory.Exists(modStoragePath);
+            
+            if (_cachedDetectedModIds == null)
+            {
+                RefreshModDetectionCache();
+            }
+            
+            bool isDetected = _cachedDetectedModIds?.Contains(modId) ?? false;
+            bool isInConfig = _config.IsModInstalled(modId);
+            return modFolderExists || isDetected || isInConfig;
         }
 
         private void RefreshModCards()
@@ -1211,7 +1687,7 @@ namespace BeanModManager
 
             if (_isRefreshing)
             {
-                System.Diagnostics.Debug.WriteLine("RefreshModCards: Already refreshing, skipping");
+                //System.Diagnostics.Debug.WriteLine("RefreshModCards: Already refreshing, skipping");
                 return;
             }
 
@@ -1219,60 +1695,105 @@ namespace BeanModManager
             
             try
             {
-                System.Diagnostics.Debug.WriteLine("RefreshModCards: Starting refresh");
+                //System.Diagnostics.Debug.WriteLine("RefreshModCards: Starting refresh");
                 UpdateCategoryFilters();
                 
-                // Update stats and header after refreshing mod cards
-                UpdateStats();
-                UpdateHeaderInfo();
-
-                lblEmptyStore.Visible = false;
-                lblEmptyInstalled.Visible = false;
+                panelEmptyStore.Visible = false;
+                panelEmptyInstalled.Visible = false;
                 
                 // Get existing cards BEFORE doing anything - we'll reuse them
                 var existingInstalledCards = panelInstalled.Controls.OfType<ModCard>().ToDictionary(c => c.BoundMod?.Id ?? "", c => c, StringComparer.OrdinalIgnoreCase);
                 var existingStoreCards = panelStore.Controls.OfType<ModCard>().ToDictionary(c => c.BoundMod?.Id ?? "", c => c, StringComparer.OrdinalIgnoreCase);
                 
-            var nextCardMap = new Dictionary<string, ModCard>(StringComparer.OrdinalIgnoreCase);
-            var installedCards = new List<ModCard>();
-            var storeCards = new List<ModCard>();
+                var nextCardMap = new Dictionary<string, ModCard>(StringComparer.OrdinalIgnoreCase);
+                var installedCards = new List<ModCard>();
+                var storeCards = new List<ModCard>();
 
                 if (_availableMods == null || !_availableMods.Any())
                 {
+                    HideSkeletonLoaders();
                     if (panelStore.IsHandleCreated)
                         panelStore.RefreshScrollbars();
                     if (panelInstalled.IsHandleCreated)
                         panelInstalled.RefreshScrollbars();
+                    UpdateStats();
+                    UpdateHeaderInfo();
                     return;
                 }
-
-            // Detect installed mods - cache the result to avoid multiple detections
-            var modsFolder = GetModsFolder();
-            var detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, modsFolder);
-            
-            var detectedModIds = detectedMods.Select(m => m.ModId).ToList();
-            
-            // Also check for mod folders that exist but might not be detected
-            // Use the same modsFolder variable (no need to call GetModsFolder again)
-            var existingModFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (Directory.Exists(modsFolder))
-            {
-                try
+                
+                // Use cached detection results instead of detecting every time
+                RefreshModDetectionCache();
+                var modsFolder = _cachedModsFolder;
+                var detectedMods = _cachedDetectedMods;
+                var detectedModIds = _cachedDetectedModIds;
+                var existingModFolders = _cachedExistingModFolders;
+                
+                var expectedInstalledCount = _availableMods.Count(m => 
                 {
-                    foreach (var modDir in Directory.GetDirectories(modsFolder))
+                    // Use cached installation status
+                    bool isInstalled = IsModInstalledCached(m.Id);
+                    
+                    if (!isInstalled) return false;
+                    
+                    // Apply filters
+                    var searchText = _installedSearchText;
+                    var categoryFilter = _installedCategoryFilter;
+                    
+                    if (!string.Equals(categoryFilter, "All", StringComparison.OrdinalIgnoreCase))
                     {
-                        var modId = Path.GetFileName(modDir);
-                        if (!string.IsNullOrEmpty(modId))
+                        if (!NormalizeCategory(m.Category).Equals(categoryFilter, StringComparison.OrdinalIgnoreCase))
+                            return false;
+                    }
+                    
+                    if (!string.IsNullOrWhiteSpace(searchText))
+                    {
+                        if (!ContainsSearchTerm(m, searchText))
+                            return false;
+                    }
+                    
+                    return true;
+                });
+                
+                var expectedStoreCount = _availableMods.Count(m => 
+                {
+                    // Use cached installation status
+                    bool isInstalled = IsModInstalledCached(m.Id);
+                    
+                    if (isInstalled) return false;
+                    
+                    // Apply filters
+                    var searchText = _storeSearchText;
+                    var categoryFilter = _storeCategoryFilter;
+                    
+                    if (!string.Equals(categoryFilter, "All", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (string.Equals(categoryFilter, "Featured", StringComparison.OrdinalIgnoreCase))
                         {
-                            existingModFolders.Add(modId);
+                            if (!m.IsFeatured)
+                                return false;
+                        }
+                        else
+                        {
+                            if (!NormalizeCategory(m.Category).Equals(categoryFilter, StringComparison.OrdinalIgnoreCase))
+                                return false;
                         }
                     }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error reading mod folders: {ex.Message}");
-                }
-            }
+                    
+                    if (!string.IsNullOrWhiteSpace(searchText))
+                    {
+                        if (!ContainsSearchTerm(m, searchText))
+                            return false;
+                    }
+                    
+                    return true;
+                });
+                
+                // Show skeletons immediately based on expected counts
+                ShowSkeletonLoaders(expectedInstalledCount, expectedStoreCount);
+
+            // Detect installed mods - cache the result to avoid multiple detections
+            // Reuse variables already declared above for expected count calculation
+            // detectedModIds is already set from cache above, no need to reassign
             
             var configModIds = _config.InstalledMods.Select(m => m.ModId).Distinct().ToList();
             foreach (var modId in configModIds)
@@ -1287,9 +1808,9 @@ namespace BeanModManager
             // Don't add detected mods here - they'll be added during installation with proper version format
             // This prevents duplicates where detected version differs from installed version format
 
-            System.Diagnostics.Debug.WriteLine($"RefreshModCards: Processing {_availableMods.Count} mods");
-            System.Diagnostics.Debug.WriteLine($"RefreshModCards: Detected {detectedMods.Count} mods from filesystem");
-            System.Diagnostics.Debug.WriteLine($"RefreshModCards: Config has {_config.InstalledMods.Count} installed mods");
+            //System.Diagnostics.Debug.WriteLine($"RefreshModCards: Processing {_availableMods.Count} mods");
+            //System.Diagnostics.Debug.WriteLine($"RefreshModCards: Detected {detectedMods.Count} mods from filesystem");
+            //System.Diagnostics.Debug.WriteLine($"RefreshModCards: Config has {_config.InstalledMods.Count} installed mods");
             
             int processedCount = 0;
             foreach (var mod in _availableMods)
@@ -1297,18 +1818,32 @@ namespace BeanModManager
                 try
                 {
                     bool addedToInstalledList = false;
-                    // Use cached modsFolder instead of calling GetModsFolder() again
-                    var modStoragePath = Path.Combine(modsFolder, mod.Id);
-                    bool modFolderExists = !string.IsNullOrEmpty(_config.AmongUsPath) && Directory.Exists(modStoragePath);
+                    // Use cached installation status, but trust mod.IsInstalled if it was explicitly set
+                    bool cachedIsInstalled = IsModInstalledCached(mod.Id);
+                    bool isInstalled;
                     
-                    var detectedMod = detectedMods.FirstOrDefault(d => string.Equals(d.ModId, mod.Id, StringComparison.OrdinalIgnoreCase));
-                    bool isInstalled = modFolderExists || detectedMod != null || _config.IsModInstalled(mod.Id);
+                    // If mod was explicitly set (installed/uninstalled), trust mod.IsInstalled completely
+                    if (_explicitlySetMods.Contains(mod.Id))
+                    {
+                        isInstalled = mod.IsInstalled;
+                    }
+                    else
+                    {
+                        // Use cache for mods that haven't been explicitly set
+                        isInstalled = cachedIsInstalled;
+                    }
                     
-                    System.Diagnostics.Debug.WriteLine($"Mod {mod.Id}: folderExists={modFolderExists}, detected={detectedMod != null}, configInstalled={_config.IsModInstalled(mod.Id)}, isInstalled={isInstalled}");
+                    var detectedMod = detectedMods?.FirstOrDefault(d => string.Equals(d.ModId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                    
+                    //System.Diagnostics.Debug.WriteLine($"Mod {mod.Id}: folderExists={modFolderExists}, detected={detectedMod != null}, configInstalled={_config.IsModInstalled(mod.Id)}, isInstalled={isInstalled}");
 
                 if (isInstalled)
                 {
-                    mod.IsInstalled = true;
+                    // Only set mod.IsInstalled = true if it wasn't explicitly set to false
+                    if (!_explicitlySetMods.Contains(mod.Id) || mod.IsInstalled)
+                    {
+                        mod.IsInstalled = true;
+                    }
                     
                     // For installed mods, ALWAYS use version from config first (never rely on GitHub API)
                     var configMod = _config.InstalledMods.FirstOrDefault(m => m.ModId == mod.Id);
@@ -1350,9 +1885,8 @@ namespace BeanModManager
                     }
                     else if (configMod != null && !string.IsNullOrEmpty(configMod.Version) && configMod.Version == "Unknown")
                     {
-                        // Config has "Unknown" - try to detect from mod folder
-                        var fallbackModsFolder = GetModsFolder();
-                        var fallbackDetectedMod = ModDetector.DetectInstalledMods(_config.AmongUsPath, fallbackModsFolder).FirstOrDefault(m => m.ModId == mod.Id);
+                        // Config has "Unknown" - try to detect from mod folder (use cached detected mods)
+                        var fallbackDetectedMod = detectedMods?.FirstOrDefault(m => m.ModId == mod.Id);
                         if (fallbackDetectedMod != null && !string.IsNullOrEmpty(fallbackDetectedMod.Version) && fallbackDetectedMod.Version != "Unknown")
                         {
                             // Use detected version and update config
@@ -1381,9 +1915,8 @@ namespace BeanModManager
                     }
                     else
                     {
-                        // Last resort: use detected version even if it's "Unknown" or try to get from folder
-                        var fallbackModsFolder = GetModsFolder();
-                        var fallbackDetectedMod = ModDetector.DetectInstalledMods(_config.AmongUsPath, fallbackModsFolder).FirstOrDefault(m => m.ModId == mod.Id);
+                        // Last resort: use detected version even if it's "Unknown" (use cached detected mods)
+                        var fallbackDetectedMod = detectedMods?.FirstOrDefault(m => m.ModId == mod.Id);
                         if (fallbackDetectedMod != null && !string.IsNullOrEmpty(fallbackDetectedMod.Version))
                         {
                             mod.InstalledVersion = new ModVersion 
@@ -1406,8 +1939,12 @@ namespace BeanModManager
                 }
                 else
                 {
-                    mod.IsInstalled = false;
-                    mod.InstalledVersion = null;
+                    // Only set mod.IsInstalled = false if it wasn't explicitly set to true
+                    if (!_explicitlySetMods.Contains(mod.Id) || !mod.IsInstalled)
+                    {
+                        mod.IsInstalled = false;
+                        mod.InstalledVersion = null;
+                    }
                 }
 
                 if (isInstalled)
@@ -1434,9 +1971,32 @@ namespace BeanModManager
                         }
                     }
                     
-                    // Always create a card for installed mods, even if version info is limited
-                    var installedCard = CreateModCard(mod, mod.InstalledVersion, true);
-                    installedCard.CheckForUpdate();
+                    // Reuse existing card if available, otherwise create new one
+                    // Only reuse cards from the SAME panel - if card moved between panels, create new one
+                    ModCard installedCard;
+                    if (existingInstalledCards.TryGetValue(mod.Id, out var existingInstalledCard))
+                    {
+                        // Reuse existing card from installed panel
+                        installedCard = existingInstalledCard;
+                        // Only check for updates if mod was actually installed/uninstalled (not just filtering)
+                        // Skip CheckForUpdate during filter changes to improve performance
+                    }
+                    else if (existingStoreCards.TryGetValue(mod.Id, out var existingStoreCard))
+                    {
+                        // Card was in store panel but mod is now installed - create NEW card for installed view
+                        // Can't reuse because _isInstalledView is set in constructor and affects UI (featured badge, etc.)
+                        installedCard = CreateModCard(mod, mod.InstalledVersion, true);
+                        installedCard.CheckForUpdate();
+                        // Dispose the old store card since we're creating a new one
+                        existingStoreCard.Dispose();
+                    }
+                    else
+                    {
+                        // Create new card only if it doesn't exist
+                        installedCard = CreateModCard(mod, mod.InstalledVersion, true);
+                        installedCard.CheckForUpdate(); // Only check updates for newly created cards
+                    }
+                    
                     if (installedCard.IsSelectable)
                     {
                         // Restore launch selection state if applicable (for game launching)
@@ -1458,14 +2018,18 @@ namespace BeanModManager
                 }
                 else
                 {
+                    // Cache Epic/MS Store check result
+                    if (_cachedIsEpicOrMsStore == null)
+                    {
+                        _cachedIsEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) && 
+                                                 AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                    }
+                    
                     ModVersion preferredVersion = null;
                     
                     if (mod.Versions != null && mod.Versions.Any())
                     {
-                        bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) && 
-                                              AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
-                        
-                        if (isEpicOrMsStore)
+                        if (_cachedIsEpicOrMsStore.Value)
                         {
                             preferredVersion = mod.Versions.FirstOrDefault(v => v.GameVersion == "Epic/MS Store")
                                 ?? mod.Versions.FirstOrDefault();
@@ -1486,8 +2050,27 @@ namespace BeanModManager
                         };
                     }
                     
-                    var storeCard = CreateModCard(mod, preferredVersion, false);
-                    
+                    // Reuse existing card if available, otherwise create new one
+                    // Only reuse cards from the SAME panel - if card moved between panels, create new one
+                    ModCard storeCard;
+                    if (existingStoreCards.TryGetValue(mod.Id, out var existingStoreCard))
+                    {
+                        // Reuse existing card from store panel
+                        storeCard = existingStoreCard;
+                    }
+                    else if (existingInstalledCards.TryGetValue(mod.Id, out var existingInstalledCard))
+                    {
+                        // Card was in installed panel but mod is now uninstalled - create NEW card for store view
+                        // Can't reuse because _isInstalledView is set in constructor and affects UI (featured badge, etc.)
+                        storeCard = CreateModCard(mod, preferredVersion, false);
+                        // Dispose the old installed card since we're creating a new one
+                        existingInstalledCard.Dispose();
+                    }
+                    else
+                    {
+                        // Create new card only if it doesn't exist
+                        storeCard = CreateModCard(mod, preferredVersion, false);
+                    }
                     
                     storeCards.Add(storeCard);
                 }
@@ -1500,19 +2083,17 @@ namespace BeanModManager
                     
                     processedCount++;
                 }
-                catch (Exception ex)
+                catch
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error processing mod {mod?.Id ?? "unknown"}: {ex.Message}");
-                    System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                     // Continue processing other mods even if one fails
                 }
             }
             
-            System.Diagnostics.Debug.WriteLine($"RefreshModCards: Processed {processedCount} mods successfully");
+            //System.Diagnostics.Debug.WriteLine($"RefreshModCards: Processed {processedCount} mods successfully");
 
             _modCards = nextCardMap;
 
-                System.Diagnostics.Debug.WriteLine($"RefreshModCards: Created {installedCards.Count} installed cards, {storeCards.Count} store cards");
+                //System.Diagnostics.Debug.WriteLine($"RefreshModCards: Created {installedCards.Count} installed cards, {storeCards.Count} store cards");
 
                 // Filter and sort installed cards - ensure correct order
                 var filteredInstalled = installedCards
@@ -1529,35 +2110,33 @@ namespace BeanModManager
                     .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
                     .ToList();
                 
-                System.Diagnostics.Debug.WriteLine($"RefreshModCards: Filtered and sorted - {filteredInstalled.Count} installed, {filteredStore.Count} store");
+                // Check if any installed card has an update available - if so, make all cards the same height
+                bool anyCardHasUpdate = filteredInstalled.Any(card => card.HasUpdateAvailable);
+                int cardHeight = anyCardHasUpdate ? 280 : 250;
+                foreach (var card in filteredInstalled)
+                {
+                    card.SetCardHeight(cardHeight);
+                }
+                
+                //System.Diagnostics.Debug.WriteLine($"RefreshModCards: Filtered and sorted - {filteredInstalled.Count} installed, {filteredStore.Count} store");
 
-                System.Diagnostics.Debug.WriteLine($"RefreshModCards: After filtering - {filteredInstalled.Count} installed cards, {filteredStore.Count} store cards");
+                //System.Diagnostics.Debug.WriteLine($"RefreshModCards: After filtering - {filteredInstalled.Count} installed cards, {filteredStore.Count} store cards");
 
                 // Track which cards we need (for disposal of unused ones)
-                var neededInstalledIds = new HashSet<string>(filteredInstalled.Select(c => c.BoundMod?.Id ?? ""), StringComparer.OrdinalIgnoreCase);
-                var neededStoreIds = new HashSet<string>(filteredStore.Select(c => c.BoundMod?.Id ?? ""), StringComparer.OrdinalIgnoreCase);
-                
-                // Clear panels first to ensure correct order
-                panelInstalled.Controls.Clear();
-                panelStore.Controls.Clear();
-                
-                // Add cards in the EXACT sorted order
-                // filteredInstalled and filteredStore are already in the correct order
+                // Build usedCardIds directly from filtered lists to avoid redundant iteration
+                var usedCardIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var card in filteredInstalled)
                 {
                     var modId = card.BoundMod?.Id ?? "";
-                    panelInstalled.Controls.Add(card);
-                    nextCardMap[modId] = card;
+                    if (!string.IsNullOrEmpty(modId))
+                        usedCardIds.Add(modId);
                 }
-                
                 foreach (var card in filteredStore)
                 {
-                    panelStore.Controls.Add(card);
+                    var modId = card.BoundMod?.Id ?? "";
+                    if (!string.IsNullOrEmpty(modId))
+                        usedCardIds.Add(modId);
                 }
-                
-                // Dispose cards that are no longer needed (filtered out or uninstalled)
-                var usedCardIds = new HashSet<string>(filteredInstalled.Select(c => c.BoundMod?.Id ?? ""), StringComparer.OrdinalIgnoreCase);
-                usedCardIds.UnionWith(filteredStore.Select(c => c.BoundMod?.Id ?? ""));
                 
                 // Dispose existing cards that are no longer needed
                 foreach (var kvp in existingInstalledCards)
@@ -1577,10 +2156,12 @@ namespace BeanModManager
                 }
                 
                 // Dispose newly created cards that weren't used (not in filtered lists)
+                // Only check cards that aren't already in the filtered lists (they're already being used)
+                // Cards in filteredInstalled/filteredStore are reused from existingInstalledCards/existingStoreCards
+                // So we only need to dispose cards that were newly created but filtered out
                 foreach (var card in installedCards)
                 {
-                    var modId = card.BoundMod?.Id ?? "";
-                    if (!usedCardIds.Contains(modId))
+                    if (!filteredInstalled.Contains(card))
                     {
                         card.Dispose();
                     }
@@ -1588,19 +2169,51 @@ namespace BeanModManager
                 
                 foreach (var card in storeCards)
                 {
-                    var modId = card.BoundMod?.Id ?? "";
-                    if (!usedCardIds.Contains(modId))
+                    if (!filteredStore.Contains(card))
                     {
                         card.Dispose();
                     }
                 }
                 
-                System.Diagnostics.Debug.WriteLine($"RefreshModCards: Updated installed panel ({panelInstalled.Controls.Count} cards), store panel ({panelStore.Controls.Count} cards)");
+                // Replace skeletons with real cards (this clears panels and adds cards)
+                ReplaceSkeletonsWithCards(filteredInstalled, filteredStore);
+                
+                // Update nextCardMap for installed cards
+                foreach (var card in filteredInstalled)
+                {
+                    var modId = card.BoundMod?.Id ?? "";
+                    nextCardMap[modId] = card;
+                }
+                
+                //System.Diagnostics.Debug.WriteLine($"RefreshModCards: Updated installed panel ({panelInstalled.Controls.Count} cards), store panel ({panelStore.Controls.Count} cards)");
 
-                var stillInstalled = new HashSet<string>(_availableMods
-                    .Where(m => m.IsInstalled)
-                    .Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
-                var removedSelections = _selectedModIds.Where(id => !stillInstalled.Contains(id)).ToList();
+                // Build stillInstalled set efficiently using cached installation status
+                var stillInstalled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (_cachedInstallationStatus != null)
+                {
+                    foreach (var kvp in _cachedInstallationStatus)
+                    {
+                        if (kvp.Value)
+                            stillInstalled.Add(kvp.Key);
+                    }
+                }
+                else
+                {
+                    // Fallback if cache not available
+                    foreach (var mod in _availableMods)
+                    {
+                        if (mod.IsInstalled)
+                            stillInstalled.Add(mod.Id);
+                    }
+                }
+                
+                // Remove selections for mods that are no longer installed
+                var removedSelections = new List<string>();
+                foreach (var id in _selectedModIds)
+                {
+                    if (!stillInstalled.Contains(id))
+                        removedSelections.Add(id);
+                }
                 foreach (var removed in removedSelections)
                 {
                     _selectedModIds.Remove(removed);
@@ -1612,29 +2225,73 @@ namespace BeanModManager
 
                 if (panelStore.Controls.Count == 0)
                 {
-                    lblEmptyStore.BringToFront();
-                    lblEmptyStore.Visible = true;
+                    // Show contextual message based on whether filters are active
+                    bool hasFilters = !string.IsNullOrWhiteSpace(_storeSearchText) || 
+                                     (!string.IsNullOrEmpty(_storeCategoryFilter) && 
+                                      !string.Equals(_storeCategoryFilter, "All", StringComparison.OrdinalIgnoreCase));
+                    
+                    if (hasFilters)
+                    {
+                        lblEmptyStore.Text = "No mods match your filters";
+                        btnEmptyStoreClearFilters.Visible = true;
+                        btnEmptyStoreBrowseFeatured.Visible = true;
+                    }
+                    else
+                    {
+                        lblEmptyStore.Text = "No mods available";
+                        btnEmptyStoreClearFilters.Visible = false;
+                        btnEmptyStoreBrowseFeatured.Visible = true;
+                    }
+                    
+                    panelEmptyStore.BringToFront();
+                    panelEmptyStore.Visible = true;
                 }
                 else
                 {
-                    lblEmptyStore.Visible = false;
+                    panelEmptyStore.Visible = false;
                 }
 
                 if (panelInstalled.Controls.Count == 0)
                 {
-                    lblEmptyInstalled.BringToFront();
-                    lblEmptyInstalled.Visible = true;
+                    // Check if there are actually installed mods (reuse stillInstalled set built above)
+                    bool hasInstalledMods = stillInstalled.Count > 0;
+                    
+                    // Check if filters are active
+                    bool hasFilters = !string.IsNullOrWhiteSpace(_installedSearchText) || 
+                                     (!string.IsNullOrEmpty(_installedCategoryFilter) && 
+                                      !string.Equals(_installedCategoryFilter, "All", StringComparison.OrdinalIgnoreCase));
+                    
+                    // Show contextual message based on whether filters are active and if mods are actually installed
+                    if (hasInstalledMods && hasFilters)
+                    {
+                        lblEmptyInstalled.Text = "No installed mods match your filters";
+                    }
+                    else
+                    {
+                        // No mods installed at all
+                        lblEmptyInstalled.Text = "No mods installed 😢";
+                    }
+                    
+                    // Show browse buttons to help user find mods
+                    if (btnEmptyInstalledBrowseFeatured != null)
+                        btnEmptyInstalledBrowseFeatured.Visible = true;
+                    if (btnEmptyInstalledBrowseStore != null)
+                        btnEmptyInstalledBrowseStore.Visible = true;
+                    
+                    panelEmptyInstalled.BringToFront();
+                    panelEmptyInstalled.Visible = true;
                 }
                 else
                 {
-                    lblEmptyInstalled.Visible = false;
+                    panelEmptyInstalled.Visible = false;
                 }
 
                 _config.Save();
                 UpdateLaunchButtonsState();
                 
-                // No ResumeLayout needed since we never suspended it
-                // FlowLayoutPanel will layout naturally as controls are added
+                // Update stats and header after cards are loaded
+                UpdateStats();
+                UpdateHeaderInfo();
                 
                 // Refresh scrollbars
                 if (panelStore.IsHandleCreated)
@@ -1693,7 +2350,7 @@ namespace BeanModManager
                     selectedVersion = version;
                 }
                 
-                System.Diagnostics.Debug.WriteLine($"Installing {mod.Name} - Selected version: {selectedVersion.GameVersion}, URL: {selectedVersion.DownloadUrl}");
+                //System.Diagnostics.Debug.WriteLine($"Installing {mod.Name} - Selected version: {selectedVersion.GameVersion}, URL: {selectedVersion.DownloadUrl}");
                 await InstallMod(mod, selectedVersion).ConfigureAwait(false);
             };
             card.UpdateClicked += async (s, e) =>
@@ -1819,7 +2476,7 @@ namespace BeanModManager
                     return;
                 }
                 
-                System.Diagnostics.Debug.WriteLine($"Updating {mod.Name} - Auto-selected version: {updateVersion.Version} ({updateVersion.GameVersion}), URL: {updateVersion.DownloadUrl}");
+                //System.Diagnostics.Debug.WriteLine($"Updating {mod.Name} - Auto-selected version: {updateVersion.Version} ({updateVersion.GameVersion}), URL: {updateVersion.DownloadUrl}");
                 await InstallMod(mod, updateVersion).ConfigureAwait(false);
             };
             card.UninstallClicked += (s, e) => UninstallMod(mod, version);
@@ -2045,11 +2702,20 @@ namespace BeanModManager
             return true;
         }
 
+        private static Dictionary<string, string> _normalizedCategoryCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        
         private static string NormalizeCategory(string category)
         {
             if (string.IsNullOrWhiteSpace(category))
                 return "Other";
-            return category.Trim();
+            
+            // Cache normalized categories to avoid redundant string operations
+            if (_normalizedCategoryCache.TryGetValue(category, out string cached))
+                return cached;
+            
+            var normalized = category.Trim();
+            _normalizedCategoryCache[category] = normalized;
+            return normalized;
         }
 
         private static int GetCategorySortOrder(string category)
@@ -2080,17 +2746,29 @@ namespace BeanModManager
                    (!string.IsNullOrEmpty(mod.Author) && mod.Author.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
+        private List<string> _cachedCategoryList; // Cache category list
+        
         private void UpdateCategoryFilters()
         {
             if (_availableMods == null || cmbInstalledCategory == null || cmbStoreCategory == null)
                 return;
 
-            var categories = _availableMods
-                .Select(m => NormalizeCategory(m.Category))
-                .Where(c => !string.IsNullOrEmpty(c))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            // Reuse cached category list if available (only rebuild if mods changed)
+            if (_cachedCategoryList == null)
+            {
+                var categorySet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var mod in _availableMods)
+                {
+                    var normalized = NormalizeCategory(mod.Category);
+                    if (!string.IsNullOrEmpty(normalized))
+                        categorySet.Add(normalized);
+                }
+                
+                _cachedCategoryList = new List<string>(categorySet);
+                _cachedCategoryList.Sort(StringComparer.OrdinalIgnoreCase);
+            }
+            
+            var categories = _cachedCategoryList;
 
             if (!categories.Any() || !categories[0].Equals("All", StringComparison.OrdinalIgnoreCase))
             {
@@ -2353,13 +3031,13 @@ namespace BeanModManager
                             var normalizedVersion = NormalizeVersion(versionStr);
                             if (VersionSatisfiesRequirement(normalizedVersion, requiredVersion))
                             {
-                                System.Diagnostics.Debug.WriteLine($"Found version {versionStr} that satisfies requirement {requiredVersion} for {mod.Name}");
+                                //System.Diagnostics.Debug.WriteLine($"Found version {versionStr} that satisfies requirement {requiredVersion} for {mod.Name}");
                                 return version;
                             }
                         }
                     }
                     
-                    System.Diagnostics.Debug.WriteLine($"Warning: No version found for {mod.Name} that satisfies requirement {requiredVersion}, using latest instead");
+                    //System.Diagnostics.Debug.WriteLine($"Warning: No version found for {mod.Name} that satisfies requirement {requiredVersion}, using latest instead");
                 }
                 else
                 {
@@ -2381,7 +3059,7 @@ namespace BeanModManager
                         return exactMatch;
 
                     // If exact match not found, log warning but continue with latest
-                    System.Diagnostics.Debug.WriteLine($"Warning: Required version {requiredVersion} not found for {mod.Name}, using latest instead");
+                    //System.Diagnostics.Debug.WriteLine($"Warning: Required version {requiredVersion} not found for {mod.Name}, using latest instead");
                 }
             }
 
@@ -2476,20 +3154,20 @@ namespace BeanModManager
                             if (satisfies)
                             {
                                 // Installed version satisfies the requirement - use it as-is
-                                System.Diagnostics.Debug.WriteLine($"Dependency {depMod.Name} is already installed ({installedVersionStr}) and satisfies requirement ({requiredVersion}), skipping installation");
+                                //System.Diagnostics.Debug.WriteLine($"Dependency {depMod.Name} is already installed ({installedVersionStr}) and satisfies requirement ({requiredVersion}), skipping installation");
                                 continue;
                             }
                             else
                             {
                                 // Installed version doesn't satisfy the requirement - need to update
-                                System.Diagnostics.Debug.WriteLine($"Dependency {depMod.Name} is installed ({installedVersionStr}) but doesn't satisfy requirement ({requiredVersion}), will update");
+                                //System.Diagnostics.Debug.WriteLine($"Dependency {depMod.Name} is installed ({installedVersionStr}) but doesn't satisfy requirement ({requiredVersion}), will update");
                                 // Continue to installation logic below
                             }
                         }
                         else
                         {
                             // Can't verify version - skip to avoid breaking existing installation
-                            System.Diagnostics.Debug.WriteLine($"Dependency {depMod.Name} is already installed but version info unavailable, skipping installation");
+                            //System.Diagnostics.Debug.WriteLine($"Dependency {depMod.Name} is already installed but version info unavailable, skipping installation");
                             continue;
                         }
                     }
@@ -2522,7 +3200,7 @@ namespace BeanModManager
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Warning: Could not delete dependency folder {depStoragePath}: {ex.Message}");
+                            //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete dependency folder {depStoragePath}: {ex.Message}");
                         }
                     }
 
@@ -2679,26 +3357,26 @@ namespace BeanModManager
                         try
                         {
                             Directory.Delete(modStoragePath, true);
-                            System.Diagnostics.Debug.WriteLine($"Deleted existing mod folder: {modStoragePath}");
+                            //System.Diagnostics.Debug.WriteLine($"Deleted existing mod folder: {modStoragePath}");
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Warning: Could not delete existing folder: {ex.Message}");
+                            //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete existing folder: {ex.Message}");
                         }
                     }
 
                     Directory.CreateDirectory(modStoragePath);
 
-                    System.Diagnostics.Debug.WriteLine($"Downloading and extracting to: {modStoragePath}");
-                    System.Diagnostics.Debug.WriteLine($"Download URL: {version.DownloadUrl}");
+                    //System.Diagnostics.Debug.WriteLine($"Downloading and extracting to: {modStoragePath}");
+                    //System.Diagnostics.Debug.WriteLine($"Download URL: {version.DownloadUrl}");
 
                     var dependencies = _modStore.GetDependencies(mod.Id);
-                    System.Diagnostics.Debug.WriteLine($"Retrieved {dependencies?.Count ?? 0} dependencies for {mod.Id}");
+                    //System.Diagnostics.Debug.WriteLine($"Retrieved {dependencies?.Count ?? 0} dependencies for {mod.Id}");
                     if (dependencies != null && dependencies.Any())
                     {
                         foreach (var dep in dependencies)
                         {
-                            System.Diagnostics.Debug.WriteLine($"  Dependency: {dep.name}, GitHub: {dep.githubOwner}/{dep.githubRepo}, URL: {dep.downloadUrl}, ModId: {dep.modId}");
+                            //System.Diagnostics.Debug.WriteLine($"  Dependency: {dep.name}, GitHub: {dep.githubOwner}/{dep.githubRepo}, URL: {dep.downloadUrl}, ModId: {dep.modId}");
                         }
                     }
 
@@ -2721,6 +3399,8 @@ namespace BeanModManager
                         return;
                     }
 
+                    // Update mod state BEFORE saving to config
+                    _explicitlySetMods.Add(mod.Id);
                     mod.IsInstalled = true;
                     mod.InstalledVersion = version;
                     
@@ -2738,10 +3418,10 @@ namespace BeanModManager
                         versionToSave = $"{versionToSave} ({version.GameVersion})";
                     }
                     
-                    System.Diagnostics.Debug.WriteLine($"Saving mod to config: {mod.Id} = {versionToSave}");
-                    System.Diagnostics.Debug.WriteLine($"  Version.ReleaseTag = {version.ReleaseTag}");
-                    System.Diagnostics.Debug.WriteLine($"  Version.Version = {version.Version}");
-                    System.Diagnostics.Debug.WriteLine($"  Version.GameVersion = {version.GameVersion}");
+                    //System.Diagnostics.Debug.WriteLine($"Saving mod to config: {mod.Id} = {versionToSave}");
+                    //System.Diagnostics.Debug.WriteLine($"  Version.ReleaseTag = {version.ReleaseTag}");
+                    //System.Diagnostics.Debug.WriteLine($"  Version.Version = {version.Version}");
+                    //System.Diagnostics.Debug.WriteLine($"  Version.GameVersion = {version.GameVersion}");
                     
                     _config.AddInstalledMod(mod.Id, versionToSave);
                     await _config.SaveAsync().ConfigureAwait(false);
@@ -2749,25 +3429,35 @@ namespace BeanModManager
                     // Verify it was saved
                     if (!_config.IsModInstalled(mod.Id))
                     {
-                        System.Diagnostics.Debug.WriteLine($"ERROR: Failed to save {mod.Id} to config after installation!");
+                        //System.Diagnostics.Debug.WriteLine($"ERROR: Failed to save {mod.Id} to config after installation!");
                         // Try again
                         _config.AddInstalledMod(mod.Id, versionToSave);
                         await _config.SaveAsync().ConfigureAwait(false);
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine($"Successfully saved {mod.Id} to config");
+                        //System.Diagnostics.Debug.WriteLine($"Successfully saved {mod.Id} to config");
                     }
                     
                     SafeInvoke(() =>
                     {
                         UpdateStatus($"{mod.Name} installed successfully!");
-                        RefreshModCardsDebounced();
+                        
+                        // CRITICAL: Mark as explicitly set and set mod state BEFORE cache refresh so cache respects it
+                        _explicitlySetMods.Add(mod.Id);
+                        mod.IsInstalled = true;
+                        mod.InstalledVersion = version;
+                        
+                        // Force cache refresh (will use mod.IsInstalled as source of truth)
+                        RefreshModDetectionCache(force: true);
+                        _cachedPendingUpdatesCount = null; // Invalidate pending updates cache
+                        
+                        RefreshModCards(); // Immediate refresh for install/uninstall
                     });
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error installing mod: {ex.Message}");
+                    //System.Diagnostics.Debug.WriteLine($"Error installing mod: {ex.Message}");
                     SafeInvoke(() => MessageBox.Show($"Error installing mod: {ex.Message}", "Error",
                         MessageBoxButtons.OK, MessageBoxIcon.Error));
                 }
@@ -2824,16 +3514,28 @@ namespace BeanModManager
                 
                 if (uninstalled)
                 {
+                    // CRITICAL: Mark as explicitly set and update mod state AND config BEFORE refresh
+                    _explicitlySetMods.Add(mod.Id);
                     mod.IsInstalled = false;
                     mod.InstalledVersion = null;
                     
                     _config.RemoveInstalledMod(mod.Id, version.Version);
-                    _ = _config.SaveAsync();
+                    // Wait for config save to complete so cache refresh sees the updated config
+                    await _config.SaveAsync().ConfigureAwait(false);
                     
                     SafeInvoke(() =>
                     {
                         UpdateStatus($"{mod.Name} uninstalled!");
-                        RefreshModCardsDebounced();
+                        
+                        // Ensure mod state is false (config is already saved)
+                        mod.IsInstalled = false;
+                        mod.InstalledVersion = null;
+                        
+                        // Force cache refresh (will use mod.IsInstalled as source of truth, and config is now updated)
+                        RefreshModDetectionCache(force: true);
+                        _cachedPendingUpdatesCount = null; // Invalidate pending updates cache
+                        
+                        RefreshModCards(); // Immediate refresh for install/uninstall
                     });
                 }
                 else
@@ -2844,7 +3546,7 @@ namespace BeanModManager
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error uninstalling mod: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error uninstalling mod: {ex.Message}");
                 SafeInvoke(() => MessageBox.Show($"Error uninstalling mod: {ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error));
             }
@@ -2963,7 +3665,7 @@ namespace BeanModManager
         {
             if (!Directory.Exists(sourceDir))
             {
-                System.Diagnostics.Debug.WriteLine($"Source directory does not exist: {sourceDir}");
+                //System.Diagnostics.Debug.WriteLine($"Source directory does not exist: {sourceDir}");
                 return;
             }
 
@@ -2984,11 +3686,11 @@ namespace BeanModManager
                         File.Delete(destFile);
                     }
                     File.Copy(file, destFile, overwrite);
-                    System.Diagnostics.Debug.WriteLine($"Copied: {fileName} -> {destFile}");
+                    //System.Diagnostics.Debug.WriteLine($"Copied: {fileName} -> {destFile}");
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
+                    //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
                 }
             }
 
@@ -2996,7 +3698,7 @@ namespace BeanModManager
             {
                 var dirName = Path.GetFileName(dir);
                 var destSubDir = Path.Combine(destDir, dirName);
-                System.Diagnostics.Debug.WriteLine($"Copying directory: {dir} -> {destSubDir}");
+                //System.Diagnostics.Debug.WriteLine($"Copying directory: {dir} -> {destSubDir}");
                 CopyDirectoryContents(dir, destSubDir, overwrite);
             }
         }
@@ -3047,7 +3749,7 @@ namespace BeanModManager
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error restoring: {ex.Message}");
+                        //System.Diagnostics.Debug.WriteLine($"Error restoring: {ex.Message}");
                     }
                 };
             }
@@ -3076,13 +3778,13 @@ namespace BeanModManager
         {
             var graph = new Dictionary<string, List<DependencyRequirement>>(StringComparer.OrdinalIgnoreCase);
 
-            System.Diagnostics.Debug.WriteLine("BuildDependencyGraph: Building dependency graph for mods:");
+            //System.Diagnostics.Debug.WriteLine("BuildDependencyGraph: Building dependency graph for mods:");
             foreach (var mod in mods)
             {
                 if (mod == null || string.IsNullOrEmpty(mod.Id))
                     continue;
 
-                System.Diagnostics.Debug.WriteLine($"  Processing {mod.Name} (ID: {mod.Id})");
+                //System.Diagnostics.Debug.WriteLine($"  Processing {mod.Name} (ID: {mod.Id})");
 
                 // Get the installed version of this mod
                 string modVersion = null;
@@ -3091,32 +3793,32 @@ namespace BeanModManager
                     modVersion = !string.IsNullOrEmpty(mod.InstalledVersion.ReleaseTag) 
                         ? mod.InstalledVersion.ReleaseTag 
                         : mod.InstalledVersion.Version;
-                    System.Diagnostics.Debug.WriteLine($"    Installed version: {modVersion}");
+                    //System.Diagnostics.Debug.WriteLine($"    Installed version: {modVersion}");
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine($"    No installed version - will use default dependencies");
+                    //System.Diagnostics.Debug.WriteLine($"    No installed version - will use default dependencies");
                 }
 
                 // First, check for per-version dependencies
                 List<VersionDependency> versionDeps = null;
                 if (!string.IsNullOrEmpty(modVersion))
                 {
-                    System.Diagnostics.Debug.WriteLine($"    Looking up per-version dependencies for version '{modVersion}'");
+                    //System.Diagnostics.Debug.WriteLine($"    Looking up per-version dependencies for version '{modVersion}'");
                     versionDeps = _modStore.GetVersionDependencies(mod.Id, modVersion);
-                    System.Diagnostics.Debug.WriteLine($"    Found {versionDeps?.Count ?? 0} per-version dependencies");
+                    //System.Diagnostics.Debug.WriteLine($"    Found {versionDeps?.Count ?? 0} per-version dependencies");
                 }
 
                 // Use per-version dependencies if available, otherwise fall back to default dependencies
                 if (versionDeps != null && versionDeps.Any())
                 {
-                    System.Diagnostics.Debug.WriteLine($"    Using per-version dependencies:");
+                    //System.Diagnostics.Debug.WriteLine($"    Using per-version dependencies:");
                     foreach (var versionDep in versionDeps)
                     {
                         if (string.IsNullOrEmpty(versionDep.modId))
                             continue;
 
-                        System.Diagnostics.Debug.WriteLine($"      {versionDep.modId}: {versionDep.requiredVersion}");
+                        //System.Diagnostics.Debug.WriteLine($"      {versionDep.modId}: {versionDep.requiredVersion}");
 
                         if (!graph.ContainsKey(versionDep.modId))
                         {
@@ -3135,18 +3837,18 @@ namespace BeanModManager
                 else
                 {
                     // Fall back to default dependencies
-                    System.Diagnostics.Debug.WriteLine($"    Using default dependencies");
+                    //System.Diagnostics.Debug.WriteLine($"    Using default dependencies");
                     var dependencies = _modStore.GetDependencies(mod.Id);
                     if (dependencies != null)
                     {
-                        System.Diagnostics.Debug.WriteLine($"    Found {dependencies.Count} default dependencies");
+                        //System.Diagnostics.Debug.WriteLine($"    Found {dependencies.Count} default dependencies");
                         foreach (var dependency in dependencies)
                         {
                             if (string.IsNullOrEmpty(dependency.modId))
                                 continue;
 
                             var requiredVersion = dependency.GetRequiredVersion();
-                            System.Diagnostics.Debug.WriteLine($"      {dependency.modId}: {requiredVersion ?? "null"}");
+                            //System.Diagnostics.Debug.WriteLine($"      {dependency.modId}: {requiredVersion ?? "null"}");
                             
                             if (!graph.ContainsKey(dependency.modId))
                             {
@@ -3164,18 +3866,18 @@ namespace BeanModManager
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine($"    No dependencies found for {mod.Name}");
+                        //System.Diagnostics.Debug.WriteLine($"    No dependencies found for {mod.Name}");
                     }
                 }
             }
 
-            System.Diagnostics.Debug.WriteLine("BuildDependencyGraph: Final graph:");
+            //System.Diagnostics.Debug.WriteLine("BuildDependencyGraph: Final graph:");
             foreach (var kvp in graph)
             {
-                System.Diagnostics.Debug.WriteLine($"  {kvp.Key}: {kvp.Value.Count} requirement(s)");
+                //System.Diagnostics.Debug.WriteLine($"  {kvp.Key}: {kvp.Value.Count} requirement(s)");
                 foreach (var req in kvp.Value)
                 {
-                    System.Diagnostics.Debug.WriteLine($"    {req.ModName} needs {req.RequiredVersion ?? "null"}");
+                    //System.Diagnostics.Debug.WriteLine($"    {req.ModName} needs {req.RequiredVersion ?? "null"}");
                 }
             }
 
@@ -3217,25 +3919,25 @@ namespace BeanModManager
 
                 if (allRequirementStrings.Count == 0)
                 {
-                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: No requirements specified, skipping");
+                    //System.Diagnostics.Debug.WriteLine($"  {dependencyId}: No requirements specified, skipping");
                     continue;
                 }
 
                 // If we have multiple unique requirements, check if they're compatible
                 if (allRequirementStrings.Count > 1)
                 {
-                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Found {allRequirementStrings.Count} different requirements: {string.Join(", ", allRequirementStrings)}");
+                    //System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Found {allRequirementStrings.Count} different requirements: {string.Join(", ", allRequirementStrings)}");
 
                     // Check if requirements are compatible with each other
                     // Two requirements are compatible if there exists a version that satisfies both
                     bool requirementsAreCompatible = AreVersionRequirementsCompatible(allRequirementStrings);
                     
-                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Requirements compatible? {requirementsAreCompatible}");
+                    //System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Requirements compatible? {requirementsAreCompatible}");
 
                     // If requirements are incompatible, it's a conflict regardless of installed version
                     if (!requirementsAreCompatible)
                     {
-                        System.Diagnostics.Debug.WriteLine($"  {dependencyId}: CONFLICT DETECTED - requirements are incompatible");
+                        //System.Diagnostics.Debug.WriteLine($"  {dependencyId}: CONFLICT DETECTED - requirements are incompatible");
                         conflicts.Add(new VersionConflict
                         {
                             DependencyId = dependencyId,
@@ -3247,13 +3949,13 @@ namespace BeanModManager
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Single requirement: {allRequirementStrings[0]}");
+                    //System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Single requirement: {allRequirementStrings[0]}");
                 }
 
                 // Check if installed version satisfies all requirements (whether single or multiple)
                 if (!string.IsNullOrEmpty(installedVersion))
                 {
-                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Checking if installed version '{installedVersion}' satisfies all requirements");
+                    //System.Diagnostics.Debug.WriteLine($"  {dependencyId}: Checking if installed version '{installedVersion}' satisfies all requirements");
                     var allSatisfied = true;
                     var unsatisfiedReqs = new List<DependencyRequirement>();
 
@@ -3263,7 +3965,7 @@ namespace BeanModManager
                             continue;
 
                         var satisfies = VersionSatisfiesRequirement(installedVersion, req.RequiredVersion);
-                        System.Diagnostics.Debug.WriteLine($"    {req.ModName} needs {req.RequiredVersion}: {satisfies}");
+                        //System.Diagnostics.Debug.WriteLine($"    {req.ModName} needs {req.RequiredVersion}: {satisfies}");
                         
                         if (!satisfies)
                         {
@@ -3275,8 +3977,8 @@ namespace BeanModManager
                     // If installed version doesn't satisfy all requirements, it's a conflict
                     if (!allSatisfied)
                     {
-                        System.Diagnostics.Debug.WriteLine($"  {dependencyId}: CONFLICT DETECTED - installed version {installedVersion} doesn't satisfy all requirements");
-                        System.Diagnostics.Debug.WriteLine($"    Unsatisfied requirements: {string.Join(", ", unsatisfiedReqs.Select(r => $"{r.ModName} needs {r.RequiredVersion}"))}");
+                        //System.Diagnostics.Debug.WriteLine($"  {dependencyId}: CONFLICT DETECTED - installed version {installedVersion} doesn't satisfy all requirements");
+                        //System.Diagnostics.Debug.WriteLine($"    Unsatisfied requirements: {string.Join(", ", unsatisfiedReqs.Select(r => $"{r.ModName} needs {r.RequiredVersion}"))}");
                         conflicts.Add(new VersionConflict
                         {
                             DependencyId = dependencyId,
@@ -3286,14 +3988,14 @@ namespace BeanModManager
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine($"  {dependencyId}: No conflict - installed version {installedVersion} satisfies all requirements");
+                        //System.Diagnostics.Debug.WriteLine($"  {dependencyId}: No conflict - installed version {installedVersion} satisfies all requirements");
                     }
                 }
                 else
                 {
                     // No installed version - if requirements are compatible, no conflict
                     // (we already checked above, so this shouldn't happen, but just in case)
-                    System.Diagnostics.Debug.WriteLine($"  {dependencyId}: No installed version, requirements are compatible - no conflict");
+                    //System.Diagnostics.Debug.WriteLine($"  {dependencyId}: No installed version, requirements are compatible - no conflict");
                 }
             }
 
@@ -3308,14 +4010,14 @@ namespace BeanModManager
             var normalizedVersion = NormalizeVersion(version);
             var normalizedReq = requirement.Trim();
 
-            System.Diagnostics.Debug.WriteLine($"      VersionSatisfiesRequirement: checking if '{normalizedVersion}' satisfies '{normalizedReq}'");
+            //System.Diagnostics.Debug.WriteLine($"      VersionSatisfiesRequirement: checking if '{normalizedVersion}' satisfies '{normalizedReq}'");
 
             // Handle version ranges - check longer prefixes first (>= before >)
             if (normalizedReq.StartsWith(">=", StringComparison.OrdinalIgnoreCase))
             {
                 var minVersion = NormalizeVersion(normalizedReq.Substring(2).Trim());
                 var result = CompareVersions(normalizedVersion, minVersion) >= 0;
-                System.Diagnostics.Debug.WriteLine($"        >= check: CompareVersions('{normalizedVersion}', '{minVersion}') = {result}");
+                //System.Diagnostics.Debug.WriteLine($"        >= check: CompareVersions('{normalizedVersion}', '{minVersion}') = {result}");
                 return result;
             }
             else if (normalizedReq.StartsWith("<=", StringComparison.OrdinalIgnoreCase))
@@ -3345,7 +4047,7 @@ namespace BeanModManager
             if (requirements.Count <= 1)
                 return true;
 
-            System.Diagnostics.Debug.WriteLine($"    AreVersionRequirementsCompatible: checking {string.Join(", ", requirements)}");
+            //System.Diagnostics.Debug.WriteLine($"    AreVersionRequirementsCompatible: checking {string.Join(", ", requirements)}");
 
             // Two requirements are compatible if there exists a version that satisfies both
             // Try to find a version that satisfies all requirements
@@ -3359,7 +4061,7 @@ namespace BeanModManager
                 var distinctVersions = exactVersions.Select(NormalizeVersion).Distinct().ToList();
                 if (distinctVersions.Count > 1)
                 {
-                    System.Diagnostics.Debug.WriteLine($"      Multiple exact versions found: {string.Join(", ", distinctVersions)} - INCOMPATIBLE");
+                    //System.Diagnostics.Debug.WriteLine($"      Multiple exact versions found: {string.Join(", ", distinctVersions)} - INCOMPATIBLE");
                     return false;
                 }
             }
@@ -3374,12 +4076,12 @@ namespace BeanModManager
                 {
                     if (!VersionSatisfiesRequirement(exactVersion, range))
                     {
-                        System.Diagnostics.Debug.WriteLine($"      Exact version {exactVersion} does not satisfy range {range} - INCOMPATIBLE");
+                        //System.Diagnostics.Debug.WriteLine($"      Exact version {exactVersion} does not satisfy range {range} - INCOMPATIBLE");
                         return false;
                     }
                 }
                 
-                System.Diagnostics.Debug.WriteLine($"      Exact version {exactVersion} satisfies all ranges - COMPATIBLE");
+                //System.Diagnostics.Debug.WriteLine($"      Exact version {exactVersion} satisfies all ranges - COMPATIBLE");
                 return true;
             }
 
@@ -3422,7 +4124,7 @@ namespace BeanModManager
                 if (maxMin != null && minMax != null)
                 {
                     var compatible = CompareVersions(maxMin, minMax) <= 0;
-                    System.Diagnostics.Debug.WriteLine($"      Range overlap check: maxMin={maxMin}, minMax={minMax}, compatible={compatible}");
+                    //System.Diagnostics.Debug.WriteLine($"      Range overlap check: maxMin={maxMin}, minMax={minMax}, compatible={compatible}");
                     return compatible;
                 }
             }
@@ -3430,18 +4132,18 @@ namespace BeanModManager
             // If we only have minimums, they're compatible (use the highest minimum)
             if (minVersions.Any() && !maxVersions.Any())
             {
-                System.Diagnostics.Debug.WriteLine($"      Only minimums found - COMPATIBLE (use highest: {minVersions.OrderByDescending(v => v, new VersionComparer()).First()})");
+                //System.Diagnostics.Debug.WriteLine($"      Only minimums found - COMPATIBLE (use highest: {minVersions.OrderByDescending(v => v, new VersionComparer()).First()})");
                 return true;
             }
 
             // If we only have maximums, they're compatible (use the lowest maximum)
             if (maxVersions.Any() && !minVersions.Any())
             {
-                System.Diagnostics.Debug.WriteLine($"      Only maximums found - COMPATIBLE (use lowest: {maxVersions.OrderBy(v => v, new VersionComparer()).First()})");
+                //System.Diagnostics.Debug.WriteLine($"      Only maximums found - COMPATIBLE (use lowest: {maxVersions.OrderBy(v => v, new VersionComparer()).First()})");
                 return true;
             }
 
-            System.Diagnostics.Debug.WriteLine($"      Could not determine compatibility - assuming INCOMPATIBLE");
+            //System.Diagnostics.Debug.WriteLine($"      Could not determine compatibility - assuming INCOMPATIBLE");
             return false;
         }
 
@@ -3562,10 +4264,10 @@ namespace BeanModManager
 
             foreach (var conflict in conflicts)
             {
-                System.Diagnostics.Debug.WriteLine($"Processing conflict for {conflict.DependencyName}:");
+                //System.Diagnostics.Debug.WriteLine($"Processing conflict for {conflict.DependencyName}:");
                 foreach (var req in conflict.ConflictingRequirements)
                 {
-                    System.Diagnostics.Debug.WriteLine($"  {req.ModName} needs {req.RequiredVersion}");
+                    //System.Diagnostics.Debug.WriteLine($"  {req.ModName} needs {req.RequiredVersion}");
                 }
 
                 // Group mods by their required version
@@ -3575,7 +4277,7 @@ namespace BeanModManager
 
                 if (versionGroups.Count < 2)
                 {
-                    System.Diagnostics.Debug.WriteLine($"  Only {versionGroups.Count} version group(s), skipping");
+                    //System.Diagnostics.Debug.WriteLine($"  Only {versionGroups.Count} version group(s), skipping");
                     continue;
                 }
 
@@ -3596,15 +4298,15 @@ namespace BeanModManager
                 }
                 
                 var targetDepVersion = targetGroup.Key;
-                System.Diagnostics.Debug.WriteLine($"  Target dependency version: {targetDepVersion} (needed by {targetGroup.Count()} mod(s))");
+                //System.Diagnostics.Debug.WriteLine($"  Target dependency version: {targetDepVersion} (needed by {targetGroup.Count()} mod(s))");
                 
                 // Get ALL mods that need a different version (not just from second group)
                 var allModIds = conflict.ConflictingRequirements.Select(r => r.ModId).Distinct().ToList();
                 var modsNeedingTargetVersion = targetGroup.Select(r => r.ModId).Distinct().ToList();
                 var modsNeedingOtherVersions = allModIds.Where(id => !modsNeedingTargetVersion.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
                 
-                System.Diagnostics.Debug.WriteLine($"  Mods needing target version ({targetDepVersion}): {string.Join(", ", modsNeedingTargetVersion)}");
-                System.Diagnostics.Debug.WriteLine($"  Mods needing other versions: {string.Join(", ", modsNeedingOtherVersions)}");
+                //System.Diagnostics.Debug.WriteLine($"  Mods needing target version ({targetDepVersion}): {string.Join(", ", modsNeedingTargetVersion)}");
+                //System.Diagnostics.Debug.WriteLine($"  Mods needing other versions: {string.Join(", ", modsNeedingOtherVersions)}");
 
                 // For each mod that needs a different version, try to find a compatible mod version
                 foreach (var modId in modsNeedingOtherVersions)
@@ -3616,19 +4318,19 @@ namespace BeanModManager
                         continue;
 
                     // Fetch all versions if not already fetched
-                    System.Diagnostics.Debug.WriteLine($"  Mod {mod.Name} has {mod.Versions.Count} versions");
+                    //System.Diagnostics.Debug.WriteLine($"  Mod {mod.Name} has {mod.Versions.Count} versions");
                     if (mod.Versions.Count <= 1)
                     {
-                        System.Diagnostics.Debug.WriteLine($"  Fetching all versions for {mod.Name}...");
+                        //System.Diagnostics.Debug.WriteLine($"  Fetching all versions for {mod.Name}...");
                         var installedModIds = new HashSet<string> { modId };
                         await _modStore.GetAvailableModsWithAllVersions(installedModIds);
-                        System.Diagnostics.Debug.WriteLine($"  Now has {mod.Versions.Count} versions");
+                        //System.Diagnostics.Debug.WriteLine($"  Now has {mod.Versions.Count} versions");
                     }
 
                     // Check each version of this mod to find one compatible with target dependency version
                     ModVersion compatibleVersion = null;
-                    System.Diagnostics.Debug.WriteLine($"Searching for compatible version of {mod.Name} that works with {conflict.DependencyName} {targetDepVersion}");
-                    System.Diagnostics.Debug.WriteLine($"  Available versions: {string.Join(", ", mod.Versions.Select(v => v.ReleaseTag ?? v.Version))}");
+                    //System.Diagnostics.Debug.WriteLine($"Searching for compatible version of {mod.Name} that works with {conflict.DependencyName} {targetDepVersion}");
+                    //System.Diagnostics.Debug.WriteLine($"  Available versions: {string.Join(", ", mod.Versions.Select(v => v.ReleaseTag ?? v.Version))}");
                     
                     foreach (var version in mod.Versions.OrderByDescending(v => v.ReleaseDate))
                     {
@@ -3639,17 +4341,17 @@ namespace BeanModManager
                         if (string.IsNullOrEmpty(versionTag))
                             continue;
 
-                        System.Diagnostics.Debug.WriteLine($"  Checking {mod.Name} version {versionTag}...");
+                        //System.Diagnostics.Debug.WriteLine($"  Checking {mod.Name} version {versionTag}...");
 
                         // Get per-version dependencies for this mod version
-                        System.Diagnostics.Debug.WriteLine($"    Looking up version dependencies for tag: '{versionTag}'");
+                        //System.Diagnostics.Debug.WriteLine($"    Looking up version dependencies for tag: '{versionTag}'");
                         var versionDeps = _modStore.GetVersionDependencies(mod.Id, versionTag);
-                        System.Diagnostics.Debug.WriteLine($"    Per-version deps found: {versionDeps?.Count ?? 0}");
+                        //System.Diagnostics.Debug.WriteLine($"    Per-version deps found: {versionDeps?.Count ?? 0}");
                         if (versionDeps != null && versionDeps.Any())
                         {
                             foreach (var vdep in versionDeps)
                             {
-                                System.Diagnostics.Debug.WriteLine($"      - {vdep.modId}: {vdep.requiredVersion}");
+                                //System.Diagnostics.Debug.WriteLine($"      - {vdep.modId}: {vdep.requiredVersion}");
                             }
                         }
                         
@@ -3659,22 +4361,22 @@ namespace BeanModManager
                         
                         if (reactorDep != null)
                         {
-                            System.Diagnostics.Debug.WriteLine($"    Found per-version dependency: {conflict.DependencyName} {reactorDep.requiredVersion}");
+                            //System.Diagnostics.Debug.WriteLine($"    Found per-version dependency: {conflict.DependencyName} {reactorDep.requiredVersion}");
                             // Check if target dependency version satisfies this mod version's requirement
                             // e.g., if mod needs ">=2.3.1" and we have 2.4.0, that works
                             // VersionSatisfiesRequirement checks if the first version satisfies the second requirement
                             var isCompatible = VersionSatisfiesRequirement(targetDepVersion, reactorDep.requiredVersion);
-                            System.Diagnostics.Debug.WriteLine($"    Checking compatibility: VersionSatisfiesRequirement('{targetDepVersion}', '{reactorDep.requiredVersion}') = {isCompatible}");
+                            //System.Diagnostics.Debug.WriteLine($"    Checking compatibility: VersionSatisfiesRequirement('{targetDepVersion}', '{reactorDep.requiredVersion}') = {isCompatible}");
                             
                             if (isCompatible)
                             {
-                                System.Diagnostics.Debug.WriteLine($"    COMPATIBLE FOUND: {mod.Name} {versionTag} works with {conflict.DependencyName} {targetDepVersion}");
+                                //System.Diagnostics.Debug.WriteLine($"    COMPATIBLE FOUND: {mod.Name} {versionTag} works with {conflict.DependencyName} {targetDepVersion}");
                                 compatibleVersion = version;
                                 break;
                             }
                             else
                             {
-                                System.Diagnostics.Debug.WriteLine($"    Not compatible: {targetDepVersion} does not satisfy {reactorDep.requiredVersion}");
+                                //System.Diagnostics.Debug.WriteLine($"    Not compatible: {targetDepVersion} does not satisfy {reactorDep.requiredVersion}");
                             }
                         }
                         else
@@ -3687,26 +4389,26 @@ namespace BeanModManager
                             if (defaultReactorDep != null)
                             {
                                 var reqVersion = defaultReactorDep.GetRequiredVersion();
-                                System.Diagnostics.Debug.WriteLine($"    Using default dependency: {conflict.DependencyName} {reqVersion}");
+                                //System.Diagnostics.Debug.WriteLine($"    Using default dependency: {conflict.DependencyName} {reqVersion}");
                                 // Check if target dependency version satisfies this mod version's requirement
                                 var isCompatible = VersionSatisfiesRequirement(targetDepVersion, reqVersion);
-                                System.Diagnostics.Debug.WriteLine($"    Checking compatibility: VersionSatisfiesRequirement('{targetDepVersion}', '{reqVersion}') = {isCompatible}");
+                                //System.Diagnostics.Debug.WriteLine($"    Checking compatibility: VersionSatisfiesRequirement('{targetDepVersion}', '{reqVersion}') = {isCompatible}");
                                 
                                 if (isCompatible)
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"    COMPATIBLE FOUND: {mod.Name} {versionTag} works with {conflict.DependencyName} {targetDepVersion}");
+                                    //System.Diagnostics.Debug.WriteLine($"    COMPATIBLE FOUND: {mod.Name} {versionTag} works with {conflict.DependencyName} {targetDepVersion}");
                                     compatibleVersion = version;
                                     break;
                                 }
                                 else
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"    Not compatible: {targetDepVersion} does not satisfy {reqVersion}");
+                                    //System.Diagnostics.Debug.WriteLine($"    Not compatible: {targetDepVersion} does not satisfy {reqVersion}");
                                 }
                             }
                             else
                             {
                                 // No dependency requirement for this mod version - it's compatible
-                                System.Diagnostics.Debug.WriteLine($"    No dependency requirement - assuming compatible");
+                                //System.Diagnostics.Debug.WriteLine($"    No dependency requirement - assuming compatible");
                                 compatibleVersion = version;
                                 break;
                             }
@@ -3736,13 +4438,13 @@ namespace BeanModManager
                         
                         if (isAlreadyInstalled)
                         {
-                            System.Diagnostics.Debug.WriteLine($"  {mod.Name} {versionTag} is already installed, skipping");
+                            //System.Diagnostics.Debug.WriteLine($"  {mod.Name} {versionTag} is already installed, skipping");
                             compatibleSolutions.Add(
                                 $"{mod.Name} {versionTag} is already installed and compatible");
                         }
                         else
                         {
-                            System.Diagnostics.Debug.WriteLine($"  FOUND COMPATIBLE: {mod.Name} {versionTag} works with {conflict.DependencyName} {targetDepVersion}");
+                            //System.Diagnostics.Debug.WriteLine($"  FOUND COMPATIBLE: {mod.Name} {versionTag} works with {conflict.DependencyName} {targetDepVersion}");
                             compatibleSolutions.Add(
                                 $"{mod.Name} {versionTag} is compatible with {conflict.DependencyName} {targetDepVersion}");
                             
@@ -3751,20 +4453,20 @@ namespace BeanModManager
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine($"  NO COMPATIBLE VERSION FOUND for {mod.Name}");
+                        //System.Diagnostics.Debug.WriteLine($"  NO COMPATIBLE VERSION FOUND for {mod.Name}");
                         compatibleSolutions.Add(
                             $"Could not find compatible version of {mod.Name} for {conflict.DependencyName} {targetDepVersion}");
                     }
                 }
             }
 
-            System.Diagnostics.Debug.WriteLine($"Compatible version search complete:");
-            System.Diagnostics.Debug.WriteLine($"  Solutions found: {compatibleSolutions.Count}");
-            System.Diagnostics.Debug.WriteLine($"  Mods to update: {modsToUpdate.Count}");
+            //System.Diagnostics.Debug.WriteLine($"Compatible version search complete:");
+            //System.Diagnostics.Debug.WriteLine($"  Solutions found: {compatibleSolutions.Count}");
+            //System.Diagnostics.Debug.WriteLine($"  Mods to update: {modsToUpdate.Count}");
             
             // Also track which dependency versions need to be installed
             var dependencyVersionsToInstall = new Dictionary<string, string>();
-            System.Diagnostics.Debug.WriteLine($"  Checking dependency versions to install...");
+            //System.Diagnostics.Debug.WriteLine($"  Checking dependency versions to install...");
             
             foreach (var conflict in conflicts)
             {
@@ -3786,7 +4488,7 @@ namespace BeanModManager
                 {
                     // Single requirement - use it as the target
                     targetDepVersion = versionGroups[0].Key;
-                    System.Diagnostics.Debug.WriteLine($"  Single requirement: {targetDepVersion}");
+                    //System.Diagnostics.Debug.WriteLine($"  Single requirement: {targetDepVersion}");
                 }
                 else
                 {
@@ -3827,24 +4529,24 @@ namespace BeanModManager
                         {
                             // Need to install/update the dependency to the target version
                             dependencyVersionsToInstall[conflict.DependencyId] = targetDepVersion;
-                            System.Diagnostics.Debug.WriteLine($"  Will install/update {conflict.DependencyName} from {installedVersionStr} to {targetDepVersion}");
+                            //System.Diagnostics.Debug.WriteLine($"  Will install/update {conflict.DependencyName} from {installedVersionStr} to {targetDepVersion}");
                         }
                         else
                         {
-                            System.Diagnostics.Debug.WriteLine($"  {conflict.DependencyName} is already at compatible version {installedVersionStr} (satisfies {targetDepVersion})");
+                            //System.Diagnostics.Debug.WriteLine($"  {conflict.DependencyName} is already at compatible version {installedVersionStr} (satisfies {targetDepVersion})");
                         }
                     }
                     else
                     {
                         // No installed version, need to install
                         dependencyVersionsToInstall[conflict.DependencyId] = targetDepVersion;
-                        System.Diagnostics.Debug.WriteLine($"  Will install {conflict.DependencyName} version {targetDepVersion}");
+                        //System.Diagnostics.Debug.WriteLine($"  Will install {conflict.DependencyName} version {targetDepVersion}");
                     }
                 }
             }
             
-            System.Diagnostics.Debug.WriteLine($"  Dependency versions to install: {dependencyVersionsToInstall.Count}");
-            System.Diagnostics.Debug.WriteLine($"  Condition check: compatibleSolutions.Any()={compatibleSolutions.Any()}, modsToUpdate.Any()={modsToUpdate.Any()}, dependencyVersionsToInstall.Any()={dependencyVersionsToInstall.Any()}");
+            //System.Diagnostics.Debug.WriteLine($"  Dependency versions to install: {dependencyVersionsToInstall.Count}");
+            //System.Diagnostics.Debug.WriteLine($"  Condition check: compatibleSolutions.Any()={compatibleSolutions.Any()}, modsToUpdate.Any()={modsToUpdate.Any()}, dependencyVersionsToInstall.Any()={dependencyVersionsToInstall.Any()}");
             
             // If we only need to update dependencies (no mod versions to change), add a solution message
             if (!compatibleSolutions.Any() && dependencyVersionsToInstall.Any())
@@ -3864,7 +4566,7 @@ namespace BeanModManager
             // Check if we have any solutions (compatible mods found) and either mods to update or dependencies to install
             if (compatibleSolutions.Any() && (modsToUpdate.Any() || dependencyVersionsToInstall.Any()))
             {
-                System.Diagnostics.Debug.WriteLine($"  Found {modsToUpdate.Count} mod(s) to update and {dependencyVersionsToInstall.Count} dependency(ies) to install!");
+                //System.Diagnostics.Debug.WriteLine($"  Found {modsToUpdate.Count} mod(s) to update and {dependencyVersionsToInstall.Count} dependency(ies) to install!");
                 
                 // Build solution message - only show mods that need to be updated
                 var compatibleList = compatibleSolutions.Where(s => s.Contains("is compatible") && !s.Contains("already installed")).ToList();
@@ -3961,7 +4663,7 @@ namespace BeanModManager
                                     }
                                     catch (Exception ex)
                                     {
-                                        System.Diagnostics.Debug.WriteLine($"Warning: Could not delete dependency folder {depStoragePath}: {ex.Message}");
+                                        //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete dependency folder {depStoragePath}: {ex.Message}");
                                     }
                                 }
                                 depMod.IsInstalled = false;
@@ -3999,7 +4701,7 @@ namespace BeanModManager
                             }
                             catch (Exception ex)
                             {
-                                System.Diagnostics.Debug.WriteLine($"Error installing {depMod.Name}: {ex.Message}");
+                                //System.Diagnostics.Debug.WriteLine($"Error installing {depMod.Name}: {ex.Message}");
                             }
                         }
                     }
@@ -4034,9 +4736,10 @@ namespace BeanModManager
                                 }
                                 catch (Exception ex)
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"Warning: Could not delete mod folder {modStoragePath}: {ex.Message}");
+                                    //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete mod folder {modStoragePath}: {ex.Message}");
                                 }
                             }
+                            _explicitlySetMods.Add(mod.Id);
                             mod.IsInstalled = false;
                             mod.InstalledVersion = null;
                         }
@@ -4100,6 +4803,7 @@ namespace BeanModManager
                             
                             if (downloaded)
                             {
+                                _explicitlySetMods.Add(mod.Id);
                                 mod.IsInstalled = true;
                                 mod.InstalledVersion = versionToInstall;
                                 
@@ -4122,7 +4826,7 @@ namespace BeanModManager
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Error installing {mod.Name}: {ex.Message}");
+                            //System.Diagnostics.Debug.WriteLine($"Error installing {mod.Name}: {ex.Message}");
                             SafeInvoke(() => MessageBox.Show(
                                 $"Error installing {mod.Name}: {ex.Message}",
                                 "Installation Error",
@@ -4331,7 +5035,7 @@ namespace BeanModManager
                                     string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
                                 if (dep != null && dep.optional)
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - marked as optional dependency for {otherMod.Name}");
+                                    //System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - marked as optional dependency for {otherMod.Name}");
                                     isOptional = true;
                                     break;
                                 }
@@ -4356,7 +5060,7 @@ namespace BeanModManager
                                             string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
                                         if (defaultDep != null && defaultDep.optional)
                                         {
-                                            System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - marked as optional dependency for {otherMod.Name}");
+                                            //System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - marked as optional dependency for {otherMod.Name}");
                                             isOptional = true;
                                             break;
                                         }
@@ -4367,7 +5071,7 @@ namespace BeanModManager
                         
                         if (isOptional)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - optional dependency, not copying");
+                            //System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - optional dependency, not copying");
                             continue;
                         }
                         
@@ -4391,7 +5095,7 @@ namespace BeanModManager
                                     
                                     if (File.Exists(checkPath) || File.Exists(bepInExCheckPath))
                                     {
-                                        System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - {fileName} already exists in {otherMod.Name}");
+                                        //System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - {fileName} already exists in {otherMod.Name}");
                                         alreadyExists = true;
                                         break;
                                     }
@@ -4404,7 +5108,7 @@ namespace BeanModManager
                         
                         if (alreadyExists)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - files already exist in another mod");
+                            //System.Diagnostics.Debug.WriteLine($"Skipping {mod.Name} - files already exist in another mod");
                             continue;
                         }
                     }
@@ -4499,7 +5203,7 @@ namespace BeanModManager
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error reading error log: {ex.Message}");
+                    //System.Diagnostics.Debug.WriteLine($"Error reading error log: {ex.Message}");
                     return;
                 }
 
@@ -4576,7 +5280,7 @@ namespace BeanModManager
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error checking error log: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error checking error log: {ex.Message}");
             }
         }
 
@@ -4607,11 +5311,11 @@ namespace BeanModManager
                             File.Delete(destPath);
                         }
                         File.Copy(dllFile, destPath, true);
-                        System.Diagnostics.Debug.WriteLine($"Copied DLL: {fileName} -> {destPath}");
+                        //System.Diagnostics.Debug.WriteLine($"Copied DLL: {fileName} -> {destPath}");
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
+                        //System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
                     }
                 }
             }
@@ -4742,7 +5446,7 @@ namespace BeanModManager
                                 catch (Exception deleteEx)
                                 {
                                     UpdateStatus($"Warning: Could not delete base depot: {deleteEx.Message}");
-                                    System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {deleteEx.Message}");
+                                    //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {deleteEx.Message}");
                                 }
                             }
                             else
@@ -4753,7 +5457,7 @@ namespace BeanModManager
                         catch (Exception ex)
                         {
                             UpdateStatus($"Error copying depot: {ex.Message}");
-                            System.Diagnostics.Debug.WriteLine($"Error copying depot: {ex.Message}");
+                            //System.Diagnostics.Debug.WriteLine($"Error copying depot: {ex.Message}");
                         }
                     }
                     else
@@ -4795,7 +5499,7 @@ namespace BeanModManager
                                 catch (Exception deleteEx)
                                 {
                                     UpdateStatus($"Warning: Could not delete base depot: {deleteEx.Message}");
-                                    System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {deleteEx.Message}");
+                                    //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {deleteEx.Message}");
                                 }
                             }
                             else
@@ -4806,7 +5510,7 @@ namespace BeanModManager
                         catch (Exception ex)
                         {
                             UpdateStatus($"Error copying depot: {ex.Message}");
-                            System.Diagnostics.Debug.WriteLine($"Error copying depot: {ex.Message}");
+                            //System.Diagnostics.Debug.WriteLine($"Error copying depot: {ex.Message}");
                         }
                     }
                     
@@ -4850,7 +5554,7 @@ namespace BeanModManager
                 catch (Exception deleteEx)
                 {
                     UpdateStatus($"Warning: Could not delete base depot: {deleteEx.Message}");
-                    System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {deleteEx.Message}");
+                    //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {deleteEx.Message}");
                 }
 
                 // Copy non-depot mods to BepInEx/plugins in the depot folder
@@ -4891,7 +5595,7 @@ namespace BeanModManager
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
+                            //System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
                         }
                     }
                 }
@@ -4921,7 +5625,7 @@ namespace BeanModManager
                             }
                             catch (Exception ex)
                             {
-                                System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
+                                //System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
                             }
                         }
                     }
@@ -5007,7 +5711,7 @@ namespace BeanModManager
                         
                         if (isOptional)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Skipping {supporting.Name} - marked as optional dependency");
+                            //System.Diagnostics.Debug.WriteLine($"Skipping {supporting.Name} - marked as optional dependency");
                             continue;
                         }
                     }
@@ -5037,7 +5741,7 @@ namespace BeanModManager
                             }
                             catch (Exception ex)
                             {
-                                System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
+                                //System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
                             }
                         }
                     }
@@ -5068,7 +5772,7 @@ namespace BeanModManager
                                 }
                                 catch (Exception ex)
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
+                                    //System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
                                 }
                             }
                         }
@@ -5704,11 +6408,26 @@ namespace BeanModManager
             _config.ShowBetaVersions = chkShowBetaVersions.Checked;
             _ = _config.SaveAsync(); // Fire and forget
 
-            // Refresh mod cards to show/hide beta versions
-            SafeInvoke(RefreshModCards);
+            // Invalidate pending updates cache since it depends on beta setting
+            _cachedPendingUpdatesCount = null;
             
-            // Update stats to reflect correct pending updates count
-            SafeInvoke(UpdateStats);
+            // Update all existing mod cards to refresh version dropdowns and update indicators
+            SafeInvoke(() =>
+            {
+                // Update all existing cards' UI to reflect beta setting change
+                foreach (var card in panelInstalled.Controls.OfType<ModCard>())
+                {
+                    card.UpdateUI();
+                }
+                
+                foreach (var card in panelStore.Controls.OfType<ModCard>())
+                {
+                    card.UpdateUI();
+                }
+                
+                // Update stats to reflect correct pending updates count
+                UpdateStats();
+            });
         }
 
         private async Task CheckForAppUpdatesAsync()
@@ -5722,7 +6441,7 @@ namespace BeanModManager
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error checking for app updates: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error checking for app updates: {ex.Message}");
                 // Don't show error to user - update check failure shouldn't block app usage
             }
         }
@@ -5758,7 +6477,7 @@ namespace BeanModManager
                             "Error",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Warning);
-                        System.Diagnostics.Debug.WriteLine($"Failed to open release URL: {ex.Message}");
+                        //System.Diagnostics.Debug.WriteLine($"Failed to open release URL: {ex.Message}");
                     }
                 }
             });
@@ -6102,7 +6821,7 @@ return; // User cancelled
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error checking for updates: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error checking for updates: {ex.Message}");
             }
         }
 
@@ -6177,7 +6896,7 @@ return; // User cancelled
                     catch (Exception ex)
                     {
                         UpdateStatus($"Error updating {mod.Name}: {ex.Message}");
-                        System.Diagnostics.Debug.WriteLine($"Error updating {mod.Name}: {ex.Message}");
+                        //System.Diagnostics.Debug.WriteLine($"Error updating {mod.Name}: {ex.Message}");
                     }
                 }
 

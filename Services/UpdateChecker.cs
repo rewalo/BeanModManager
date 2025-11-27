@@ -69,7 +69,7 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error checking for updates: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Update check failed: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Update check failed: {ex.Message}");
                 return false;
             }
         }
@@ -137,7 +137,7 @@ namespace BeanModManager.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to fetch latest release: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Failed to fetch latest release: {ex.Message}");
                 return null;
             }
         }

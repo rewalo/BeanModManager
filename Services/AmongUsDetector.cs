@@ -29,7 +29,7 @@ namespace BeanModManager.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error detecting Among Us: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error detecting Among Us: {ex.Message}");
             }
 
             var commonPaths = new[]

@@ -41,7 +41,7 @@ namespace BeanModManager.Helpers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error reading cache for {cacheKey}: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error reading cache for {cacheKey}: {ex.Message}");
             }
 
             return null;
@@ -70,7 +70,7 @@ namespace BeanModManager.Helpers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error saving cache for {cacheKey}: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error saving cache for {cacheKey}: {ex.Message}");
             }
         }
 
@@ -91,7 +91,7 @@ namespace BeanModManager.Helpers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error updating cache timestamp for {cacheKey}: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error updating cache timestamp for {cacheKey}: {ex.Message}");
             }
         }
 
@@ -129,7 +129,7 @@ namespace BeanModManager.Helpers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error clearing cache: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error clearing cache: {ex.Message}");
             }
         }
     }

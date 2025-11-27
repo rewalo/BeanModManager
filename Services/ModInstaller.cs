@@ -102,7 +102,7 @@ namespace BeanModManager.Services
                     // Skip directories in dontInclude list
                     if (dontInclude.Any(item => string.Equals(item, dirName, StringComparison.OrdinalIgnoreCase)))
                     {
-                        System.Diagnostics.Debug.WriteLine($"Skipping directory {dirName} (in dontInclude list)");
+                        //System.Diagnostics.Debug.WriteLine($"Skipping directory {dirName} (in dontInclude list)");
                         continue;
                     }
                     
@@ -121,7 +121,7 @@ namespace BeanModManager.Services
                     // Skip files in dontInclude list
                     if (dontInclude.Any(item => string.Equals(item, fileName, StringComparison.OrdinalIgnoreCase)))
                     {
-                        System.Diagnostics.Debug.WriteLine($"Skipping file {fileName} (in dontInclude list)");
+                        //System.Diagnostics.Debug.WriteLine($"Skipping file {fileName} (in dontInclude list)");
                         continue;
                     }
                     
@@ -133,7 +133,7 @@ namespace BeanModManager.Services
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Warning: Could not copy file {fileName}: {ex.Message}");
+                        //System.Diagnostics.Debug.WriteLine($"Warning: Could not copy file {fileName}: {ex.Message}");
                         OnProgressChanged($"Warning: Could not copy {fileName}");
                     }
                 }
@@ -180,13 +180,13 @@ namespace BeanModManager.Services
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error removing folder {folder}: {ex.Message}");
+                        //System.Diagnostics.Debug.WriteLine($"Error removing folder {folder}: {ex.Message}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error cleaning up packaging folders: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error cleaning up packaging folders: {ex.Message}");
             }
         }
 
@@ -247,7 +247,7 @@ namespace BeanModManager.Services
                 // Skip files in dontInclude list
                 if (dontInclude.Any(item => string.Equals(item, fileName, StringComparison.OrdinalIgnoreCase)))
                 {
-                    System.Diagnostics.Debug.WriteLine($"Skipping file {fileName} (in dontInclude list)");
+                    //System.Diagnostics.Debug.WriteLine($"Skipping file {fileName} (in dontInclude list)");
                     continue;
                 }
                 
@@ -276,12 +276,12 @@ namespace BeanModManager.Services
                         }
                         else
                         {
-                            System.Diagnostics.Debug.WriteLine($"Error copying {file} after retries");
+                            //System.Diagnostics.Debug.WriteLine($"Error copying {file} after retries");
                         }
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
+                        //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
                         break;
                     }
                 }
@@ -298,7 +298,7 @@ namespace BeanModManager.Services
                 // Skip directories in dontInclude list
                 if (dontInclude.Any(item => string.Equals(item, dirName, StringComparison.OrdinalIgnoreCase)))
                 {
-                    System.Diagnostics.Debug.WriteLine($"Skipping directory {dirName} (in dontInclude list)");
+                    //System.Diagnostics.Debug.WriteLine($"Skipping directory {dirName} (in dontInclude list)");
                     continue;
                 }
                 
@@ -353,12 +353,12 @@ namespace BeanModManager.Services
                         }
                         else
                         {
-                            System.Diagnostics.Debug.WriteLine($"Error copying {file} after retries");
+                            //System.Diagnostics.Debug.WriteLine($"Error copying {file} after retries");
                         }
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
+                        //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
                         break;
                     }
                 }
@@ -428,7 +428,7 @@ namespace BeanModManager.Services
                     {
                         var fileName = Path.GetFileName(dllFile);
                         modFiles.Add(fileName);
-                        System.Diagnostics.Debug.WriteLine($"Found mod DLL in storage: {fileName}");
+                        //System.Diagnostics.Debug.WriteLine($"Found mod DLL in storage: {fileName}");
                     }
                     
                     // Get all folders from mod storage (for plugins subfolders)
@@ -486,7 +486,7 @@ namespace BeanModManager.Services
                                     File.Delete(dll);
                                     removedAny = true;
                                     OnProgressChanged($"Removed {fileName}");
-                                    System.Diagnostics.Debug.WriteLine($"Deleted DLL: {dll}");
+                                    //System.Diagnostics.Debug.WriteLine($"Deleted DLL: {dll}");
                                     break;
                                 }
                                 catch (IOException)
@@ -501,7 +501,7 @@ namespace BeanModManager.Services
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Error deleting {dll}: {ex.Message}");
+                            //System.Diagnostics.Debug.WriteLine($"Error deleting {dll}: {ex.Message}");
                         }
                     }
                 }
@@ -520,7 +520,7 @@ namespace BeanModManager.Services
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Error deleting folder {pluginFolder}: {ex.Message}");
+                            //System.Diagnostics.Debug.WriteLine($"Error deleting folder {pluginFolder}: {ex.Message}");
                         }
                     }
                 }
@@ -560,7 +560,7 @@ namespace BeanModManager.Services
                         }
                         catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine($"Error deleting special folder {specialFolderPath}: {ex.Message}");
+                            //System.Diagnostics.Debug.WriteLine($"Error deleting special folder {specialFolderPath}: {ex.Message}");
                         }
                     }
                 }
@@ -606,7 +606,7 @@ namespace BeanModManager.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
+                    //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
                 }
             }
 

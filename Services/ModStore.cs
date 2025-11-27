@@ -46,12 +46,12 @@ namespace BeanModManager.Services
                     {
                         _cacheEntries[entry.Key] = entry.Value;
                     }
-                    System.Diagnostics.Debug.WriteLine($"Loaded cache for {_cacheEntries.Count} mods");
+                    //System.Diagnostics.Debug.WriteLine($"Loaded cache for {_cacheEntries.Count} mods");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to load mod cache from {_cacheUrl}: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Failed to load mod cache from {_cacheUrl}: {ex.Message}");
                 // Cache is optional, so we continue without it
             }
         }
@@ -85,13 +85,13 @@ namespace BeanModManager.Services
                         _availableMods.Add(mod);
                     }
 
-                    System.Diagnostics.Debug.WriteLine($"Loaded {_availableMods.Count} mods from registry");
+                    //System.Diagnostics.Debug.WriteLine($"Loaded {_availableMods.Count} mods from registry");
                     return;
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to load mod registry from {_registryUrl}: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Failed to load mod registry from {_registryUrl}: {ex.Message}");
             }
             MessageBox.Show("Failed to load mod registry from the internet.\n\n" + "Please check your internet connection and try again.", "Mod Registry Load Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             Process.GetCurrentProcess().Kill();
@@ -125,7 +125,7 @@ namespace BeanModManager.Services
                     _availableMods.Add(mod);
                 }
             }
-            System.Diagnostics.Debug.WriteLine($"Loaded {_availableMods.Count} hardcoded mods (fallback)");
+            //System.Diagnostics.Debug.WriteLine($"Loaded {_availableMods.Count} hardcoded mods (fallback)");
         }
 
         public async Task<List<Mod>> GetAvailableMods()
@@ -268,14 +268,14 @@ namespace BeanModManager.Services
             // Try exact match first
             if (entry.versionDependencies.ContainsKey(modVersion))
             {
-                System.Diagnostics.Debug.WriteLine($"Found exact version match for {modId} version {modVersion}");
+                //System.Diagnostics.Debug.WriteLine($"Found exact version match for {modId} version {modVersion}");
                 return entry.versionDependencies[modVersion];
             }
 
             // Try normalized version
             if (entry.versionDependencies.ContainsKey(normalizedVersion))
             {
-                System.Diagnostics.Debug.WriteLine($"Found normalized version match for {modId} version {normalizedVersion}");
+                //System.Diagnostics.Debug.WriteLine($"Found normalized version match for {modId} version {normalizedVersion}");
                 return entry.versionDependencies[normalizedVersion];
             }
 
@@ -285,7 +285,7 @@ namespace BeanModManager.Services
                 if (string.Equals(kvp.Key, modVersion, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(kvp.Key, normalizedVersion, StringComparison.OrdinalIgnoreCase))
                 {
-                    System.Diagnostics.Debug.WriteLine($"Found case-insensitive version match for {modId}: {kvp.Key}");
+                    //System.Diagnostics.Debug.WriteLine($"Found case-insensitive version match for {modId}: {kvp.Key}");
                     return kvp.Value;
                 }
             }
@@ -297,12 +297,12 @@ namespace BeanModManager.Services
                 if (normalizedVersion.Equals(normalizedKey, StringComparison.OrdinalIgnoreCase) ||
                     normalizedVersion.Contains(normalizedKey) || normalizedKey.Contains(normalizedVersion))
                 {
-                    System.Diagnostics.Debug.WriteLine($"Found partial version match for {modId}: {kvp.Key} (searching for {modVersion})");
+                    //System.Diagnostics.Debug.WriteLine($"Found partial version match for {modId}: {kvp.Key} (searching for {modVersion})");
                     return kvp.Value;
                 }
             }
 
-            System.Diagnostics.Debug.WriteLine($"No version dependency match found for {modId} version {modVersion}");
+            //System.Diagnostics.Debug.WriteLine($"No version dependency match found for {modId} version {modVersion}");
             return new List<VersionDependency>();
         }
 
@@ -438,7 +438,7 @@ namespace BeanModManager.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error fetching dependency DLL for {githubOwner}/{githubRepo}: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error fetching dependency DLL for {githubOwner}/{githubRepo}: {ex.Message}");
             }
 
             return null;
@@ -611,7 +611,7 @@ namespace BeanModManager.Services
                     {
                         // Fallback to cache file even if it's old
                         json = fallbackCacheEntry.cachedReleaseData;
-                        System.Diagnostics.Debug.WriteLine($"Using cache file for {mod.Name} (fallback)");
+                        //System.Diagnostics.Debug.WriteLine($"Using cache file for {mod.Name} (fallback)");
                     }
                     else
                     {
@@ -641,7 +641,7 @@ namespace BeanModManager.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error fetching versions for {mod.Name}: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error fetching versions for {mod.Name}: {ex.Message}");
 
                 if (!mod.Versions.Any())
                 {
@@ -866,7 +866,7 @@ namespace BeanModManager.Services
                 else
                 {
                     // No releases found, fall back to latest release only
-                    System.Diagnostics.Debug.WriteLine($"No releases found for {mod.Name}, falling back to latest release");
+                    //System.Diagnostics.Debug.WriteLine($"No releases found for {mod.Name}, falling back to latest release");
                     if (!mod.Versions.Any())
                     {
                         await FetchModVersions(mod);
@@ -880,7 +880,7 @@ namespace BeanModManager.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error fetching all versions for {mod.Name}: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error fetching all versions for {mod.Name}: {ex.Message}");
 
                 if (!mod.Versions.Any())
                 {

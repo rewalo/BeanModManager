@@ -60,7 +60,10 @@
             this.lblInstalledCategory = new System.Windows.Forms.Label();
             this.cmbInstalledCategory = new System.Windows.Forms.ComboBox();
             this.panelInstalledHost = new System.Windows.Forms.Panel();
+            this.panelEmptyInstalled = new System.Windows.Forms.Panel();
             this.lblEmptyInstalled = new System.Windows.Forms.Label();
+            this.btnEmptyInstalledBrowseFeatured = new System.Windows.Forms.Button();
+            this.btnEmptyInstalledBrowseStore = new System.Windows.Forms.Button();
             this.panelInstalled = new BeanModManager.Controls.ThemedFlowLayoutPanel();
             this.btnLaunchSelected = new System.Windows.Forms.Button();
             this.tabStore = new System.Windows.Forms.TabPage();
@@ -72,7 +75,10 @@
             this.lblStoreCategory = new System.Windows.Forms.Label();
             this.cmbStoreCategory = new System.Windows.Forms.ComboBox();
             this.panelStoreHost = new System.Windows.Forms.Panel();
+            this.panelEmptyStore = new System.Windows.Forms.Panel();
             this.lblEmptyStore = new System.Windows.Forms.Label();
+            this.btnEmptyStoreClearFilters = new System.Windows.Forms.Button();
+            this.btnEmptyStoreBrowseFeatured = new System.Windows.Forms.Button();
             this.panelStore = new BeanModManager.Controls.ThemedFlowLayoutPanel();
             this.tabSettings = new System.Windows.Forms.TabPage();
             this.settingsLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -117,10 +123,12 @@
             this.installedLayout.SuspendLayout();
             this.flowInstalledFilters.SuspendLayout();
             this.panelInstalledHost.SuspendLayout();
+            this.panelEmptyInstalled.SuspendLayout();
             this.tabStore.SuspendLayout();
             this.storeLayout.SuspendLayout();
             this.flowStoreFilters.SuspendLayout();
             this.panelStoreHost.SuspendLayout();
+            this.panelEmptyStore.SuspendLayout();
             this.tabSettings.SuspendLayout();
             this.settingsLayout.SuspendLayout();
             this.grpPath.SuspendLayout();
@@ -500,7 +508,7 @@
             // panelInstalledHost
             // 
             this.panelInstalledHost.BackColor = System.Drawing.Color.Transparent;
-            this.panelInstalledHost.Controls.Add(this.lblEmptyInstalled);
+            this.panelInstalledHost.Controls.Add(this.panelEmptyInstalled);
             this.panelInstalledHost.Controls.Add(this.panelInstalled);
             this.panelInstalledHost.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelInstalledHost.Location = new System.Drawing.Point(0, 60);
@@ -509,18 +517,63 @@
             this.panelInstalledHost.Size = new System.Drawing.Size(1087, 571);
             this.panelInstalledHost.TabIndex = 3;
             // 
+            // panelEmptyInstalled
+            // 
+            this.panelEmptyInstalled.Controls.Add(this.lblEmptyInstalled);
+            this.panelEmptyInstalled.Controls.Add(this.btnEmptyInstalledBrowseFeatured);
+            this.panelEmptyInstalled.Controls.Add(this.btnEmptyInstalledBrowseStore);
+            this.panelEmptyInstalled.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panelEmptyInstalled.Location = new System.Drawing.Point(0, 0);
+            this.panelEmptyInstalled.Name = "panelEmptyInstalled";
+            this.panelEmptyInstalled.Size = new System.Drawing.Size(1087, 571);
+            this.panelEmptyInstalled.TabIndex = 2;
+            this.panelEmptyInstalled.Visible = false;
+            // 
             // lblEmptyInstalled
             // 
-            this.lblEmptyInstalled.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblEmptyInstalled.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblEmptyInstalled.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.lblEmptyInstalled.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblEmptyInstalled.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(150)))));
-            this.lblEmptyInstalled.Location = new System.Drawing.Point(0, 0);
+            this.lblEmptyInstalled.Location = new System.Drawing.Point(0, 200);
             this.lblEmptyInstalled.Name = "lblEmptyInstalled";
-            this.lblEmptyInstalled.Size = new System.Drawing.Size(1087, 571);
-            this.lblEmptyInstalled.TabIndex = 2;
-            this.lblEmptyInstalled.Text = "😢 No mods installed";
+            this.lblEmptyInstalled.Size = new System.Drawing.Size(1087, 30);
+            this.lblEmptyInstalled.TabIndex = 0;
+            this.lblEmptyInstalled.Text = "No mods installed";
             this.lblEmptyInstalled.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lblEmptyInstalled.Visible = false;
+            // 
+            // btnEmptyInstalledBrowseFeatured
+            // 
+            this.btnEmptyInstalledBrowseFeatured.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.btnEmptyInstalledBrowseFeatured.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(34)))), ((int)(((byte)(155)))), ((int)(((byte)(105)))));
+            this.btnEmptyInstalledBrowseFeatured.FlatAppearance.BorderSize = 0;
+            this.btnEmptyInstalledBrowseFeatured.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(134)))), ((int)(((byte)(91)))));
+            this.btnEmptyInstalledBrowseFeatured.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnEmptyInstalledBrowseFeatured.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnEmptyInstalledBrowseFeatured.ForeColor = System.Drawing.Color.White;
+            this.btnEmptyInstalledBrowseFeatured.Location = new System.Drawing.Point(443, 250);
+            this.btnEmptyInstalledBrowseFeatured.Name = "btnEmptyInstalledBrowseFeatured";
+            this.btnEmptyInstalledBrowseFeatured.Size = new System.Drawing.Size(200, 36);
+            this.btnEmptyInstalledBrowseFeatured.TabIndex = 1;
+            this.btnEmptyInstalledBrowseFeatured.Text = "Browse Featured Mods";
+            this.btnEmptyInstalledBrowseFeatured.UseVisualStyleBackColor = false;
+            this.btnEmptyInstalledBrowseFeatured.Click += new System.EventHandler(this.btnEmptyInstalledBrowseFeatured_Click);
+            // 
+            // btnEmptyInstalledBrowseStore
+            // 
+            this.btnEmptyInstalledBrowseStore.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.btnEmptyInstalledBrowseStore.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(80)))));
+            this.btnEmptyInstalledBrowseStore.FlatAppearance.BorderSize = 0;
+            this.btnEmptyInstalledBrowseStore.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(100)))));
+            this.btnEmptyInstalledBrowseStore.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnEmptyInstalledBrowseStore.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnEmptyInstalledBrowseStore.ForeColor = System.Drawing.Color.White;
+            this.btnEmptyInstalledBrowseStore.Location = new System.Drawing.Point(443, 296);
+            this.btnEmptyInstalledBrowseStore.Name = "btnEmptyInstalledBrowseStore";
+            this.btnEmptyInstalledBrowseStore.Size = new System.Drawing.Size(200, 36);
+            this.btnEmptyInstalledBrowseStore.TabIndex = 2;
+            this.btnEmptyInstalledBrowseStore.Text = "Browse All Mods";
+            this.btnEmptyInstalledBrowseStore.UseVisualStyleBackColor = false;
+            this.btnEmptyInstalledBrowseStore.Click += new System.EventHandler(this.btnEmptyInstalledBrowseStore_Click);
             // 
             // panelInstalled
             // 
@@ -662,7 +715,7 @@
             // panelStoreHost
             // 
             this.panelStoreHost.BackColor = System.Drawing.Color.Transparent;
-            this.panelStoreHost.Controls.Add(this.lblEmptyStore);
+            this.panelStoreHost.Controls.Add(this.panelEmptyStore);
             this.panelStoreHost.Controls.Add(this.panelStore);
             this.panelStoreHost.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelStoreHost.Location = new System.Drawing.Point(0, 60);
@@ -671,18 +724,63 @@
             this.panelStoreHost.Size = new System.Drawing.Size(1090, 621);
             this.panelStoreHost.TabIndex = 2;
             // 
+            // panelEmptyStore
+            // 
+            this.panelEmptyStore.Controls.Add(this.lblEmptyStore);
+            this.panelEmptyStore.Controls.Add(this.btnEmptyStoreClearFilters);
+            this.panelEmptyStore.Controls.Add(this.btnEmptyStoreBrowseFeatured);
+            this.panelEmptyStore.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panelEmptyStore.Location = new System.Drawing.Point(0, 0);
+            this.panelEmptyStore.Name = "panelEmptyStore";
+            this.panelEmptyStore.Size = new System.Drawing.Size(1090, 621);
+            this.panelEmptyStore.TabIndex = 5;
+            this.panelEmptyStore.Visible = false;
+            // 
             // lblEmptyStore
             // 
-            this.lblEmptyStore.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblEmptyStore.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblEmptyStore.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.lblEmptyStore.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblEmptyStore.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(150)))));
-            this.lblEmptyStore.Location = new System.Drawing.Point(0, 0);
+            this.lblEmptyStore.Location = new System.Drawing.Point(0, 200);
             this.lblEmptyStore.Name = "lblEmptyStore";
-            this.lblEmptyStore.Size = new System.Drawing.Size(1090, 621);
-            this.lblEmptyStore.TabIndex = 5;
-            this.lblEmptyStore.Text = "😢 No more mods to install";
+            this.lblEmptyStore.Size = new System.Drawing.Size(1090, 30);
+            this.lblEmptyStore.TabIndex = 0;
+            this.lblEmptyStore.Text = "No mods match your filters";
             this.lblEmptyStore.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lblEmptyStore.Visible = false;
+            // 
+            // btnEmptyStoreClearFilters
+            // 
+            this.btnEmptyStoreClearFilters.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.btnEmptyStoreClearFilters.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(34)))), ((int)(((byte)(155)))), ((int)(((byte)(105)))));
+            this.btnEmptyStoreClearFilters.FlatAppearance.BorderSize = 0;
+            this.btnEmptyStoreClearFilters.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(29)))), ((int)(((byte)(134)))), ((int)(((byte)(91)))));
+            this.btnEmptyStoreClearFilters.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnEmptyStoreClearFilters.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnEmptyStoreClearFilters.ForeColor = System.Drawing.Color.White;
+            this.btnEmptyStoreClearFilters.Location = new System.Drawing.Point(445, 250);
+            this.btnEmptyStoreClearFilters.Name = "btnEmptyStoreClearFilters";
+            this.btnEmptyStoreClearFilters.Size = new System.Drawing.Size(200, 36);
+            this.btnEmptyStoreClearFilters.TabIndex = 1;
+            this.btnEmptyStoreClearFilters.Text = "Clear Filters";
+            this.btnEmptyStoreClearFilters.UseVisualStyleBackColor = false;
+            this.btnEmptyStoreClearFilters.Click += new System.EventHandler(this.btnEmptyStoreClearFilters_Click);
+            // 
+            // btnEmptyStoreBrowseFeatured
+            // 
+            this.btnEmptyStoreBrowseFeatured.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.btnEmptyStoreBrowseFeatured.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(80)))));
+            this.btnEmptyStoreBrowseFeatured.FlatAppearance.BorderSize = 0;
+            this.btnEmptyStoreBrowseFeatured.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(100)))));
+            this.btnEmptyStoreBrowseFeatured.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnEmptyStoreBrowseFeatured.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnEmptyStoreBrowseFeatured.ForeColor = System.Drawing.Color.White;
+            this.btnEmptyStoreBrowseFeatured.Location = new System.Drawing.Point(445, 296);
+            this.btnEmptyStoreBrowseFeatured.Name = "btnEmptyStoreBrowseFeatured";
+            this.btnEmptyStoreBrowseFeatured.Size = new System.Drawing.Size(200, 36);
+            this.btnEmptyStoreBrowseFeatured.TabIndex = 2;
+            this.btnEmptyStoreBrowseFeatured.Text = "Browse Featured Mods";
+            this.btnEmptyStoreBrowseFeatured.UseVisualStyleBackColor = false;
+            this.btnEmptyStoreBrowseFeatured.Click += new System.EventHandler(this.btnEmptyStoreBrowseFeatured_Click);
             // 
             // panelStore
             // 
@@ -1157,12 +1255,14 @@
             this.flowInstalledFilters.ResumeLayout(false);
             this.flowInstalledFilters.PerformLayout();
             this.panelInstalledHost.ResumeLayout(false);
+            this.panelEmptyInstalled.ResumeLayout(false);
             this.tabStore.ResumeLayout(false);
             this.storeLayout.ResumeLayout(false);
             this.storeLayout.PerformLayout();
             this.flowStoreFilters.ResumeLayout(false);
             this.flowStoreFilters.PerformLayout();
             this.panelStoreHost.ResumeLayout(false);
+            this.panelEmptyStore.ResumeLayout(false);
             this.tabSettings.ResumeLayout(false);
             this.settingsLayout.ResumeLayout(false);
             this.settingsLayout.PerformLayout();
@@ -1241,8 +1341,14 @@
         private System.Windows.Forms.StatusStrip statusStrip;
         private System.Windows.Forms.ToolStripStatusLabel lblStatus;
         private System.Windows.Forms.ToolStripProgressBar progressBar;
-        private System.Windows.Forms.Label lblEmptyStore;
+        private System.Windows.Forms.Panel panelEmptyInstalled;
         private System.Windows.Forms.Label lblEmptyInstalled;
+        private System.Windows.Forms.Button btnEmptyInstalledBrowseFeatured;
+        private System.Windows.Forms.Button btnEmptyInstalledBrowseStore;
+        private System.Windows.Forms.Panel panelEmptyStore;
+        private System.Windows.Forms.Label lblEmptyStore;
+        private System.Windows.Forms.Button btnEmptyStoreClearFilters;
+        private System.Windows.Forms.Button btnEmptyStoreBrowseFeatured;
         private System.Windows.Forms.CheckBox chkAutoUpdateMods;
         private System.Windows.Forms.CheckBox chkShowBetaVersions;
         private System.Windows.Forms.Button btnUpdateAllMods;

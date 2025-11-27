@@ -17,7 +17,7 @@ namespace BeanModManager.Helpers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"JSON deserialization error: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"JSON deserialization error: {ex.Message}");
                 throw;
             }
         }
@@ -30,7 +30,7 @@ namespace BeanModManager.Helpers
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"JSON serialization error: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"JSON serialization error: {ex.Message}");
                 throw;
             }
         }

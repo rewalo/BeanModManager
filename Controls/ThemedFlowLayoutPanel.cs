@@ -89,16 +89,29 @@ namespace BeanModManager.Controls
             InvalidateScrollbars();
         }
 
+        private bool _suppressScrollbarInvalidation = false;
+
+        public void SuppressScrollbarInvalidation(bool suppress)
+        {
+            _suppressScrollbarInvalidation = suppress;
+        }
+
         protected override void OnControlAdded(ControlEventArgs e)
         {
             base.OnControlAdded(e);
-            InvalidateScrollbars();
+            if (!_suppressScrollbarInvalidation)
+            {
+                InvalidateScrollbars();
+            }
         }
 
         protected override void OnControlRemoved(ControlEventArgs e)
         {
             base.OnControlRemoved(e);
-            InvalidateScrollbars();
+            if (!_suppressScrollbarInvalidation)
+            {
+                InvalidateScrollbars();
+            }
         }
 
         protected override void OnPaint(PaintEventArgs e)

@@ -87,6 +87,12 @@
     <Compile Include="Controls\ModCard.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Controls\SkeletonModCard.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\VirtualizedModPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="PopulateRegistryCache.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -55,6 +55,15 @@ namespace BeanModManager
             }
         }
 
+        public void SetCardHeight(int height)
+        {
+            if (this.Height != height)
+            {
+                this.Height = height;
+                LayoutFooterPanel();
+            }
+        }
+
         public void SetSelected(bool isSelected, bool suppressEvent = false)
         {
             if (_chkSelected == null)
@@ -534,11 +543,11 @@ namespace BeanModManager
             if (_cmbVersion.SelectedItem != null)
             {
                 _version = (ModVersion)_cmbVersion.SelectedItem;
-                System.Diagnostics.Debug.WriteLine($"Version changed to: {_version.GameVersion} - {_version.DownloadUrl}");
+                //System.Diagnostics.Debug.WriteLine($"Version changed to: {_version.GameVersion} - {_version.DownloadUrl}");
             }
         }
 
-        private void UpdateUI()
+        public void UpdateUI()
         {
             if (_isUpdatingUI)
                 return;
@@ -589,8 +598,6 @@ namespace BeanModManager
                         _btnOpenFolder.Location = new Point(110, 146);
                         _btnUpdate.Location = new Point(210, 146);
                         _btnUninstall.Location = new Point(10, 186);
-                        // Increase card height to accommodate second row of buttons
-                        this.Height = 280;
                     }
                     else
                     {
@@ -598,10 +605,9 @@ namespace BeanModManager
                         _btnPlay.Location = new Point(10, 146);
                         _btnOpenFolder.Location = new Point(110, 146);
                         _btnUninstall.Location = new Point(210, 146);
-                        // Reset card height when no update
-                        this.Height = 250;
                     }
                     
+                    // Note: Height is set externally to ensure all cards match
                     // Reposition footer panel after height change
                     LayoutFooterPanel();
                 }

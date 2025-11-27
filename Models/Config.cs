@@ -57,7 +57,7 @@ namespace BeanModManager.Models
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error loading config: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error loading config: {ex.Message}");
             }
 
             return new Config();
@@ -116,7 +116,7 @@ namespace BeanModManager.Models
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error saving config: {ex.Message}");
+                //System.Diagnostics.Debug.WriteLine($"Error saving config: {ex.Message}");
             }
             finally
             {

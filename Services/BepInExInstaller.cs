@@ -64,7 +64,7 @@ namespace BeanModManager.Services
                                 }
                                 catch (Exception ex)
                                 {
-                                    System.Diagnostics.Debug.WriteLine($"Warning: Could not delete existing file {destinationPath}: {ex.Message}");
+                                    //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete existing file {destinationPath}: {ex.Message}");
                                     // Try to overwrite anyway
                                 }
                             }
