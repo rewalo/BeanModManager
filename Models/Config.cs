@@ -17,6 +17,11 @@ namespace BeanModManager.Models
         public bool ShowBetaVersions { get; set; }
         public List<string> SelectedMods { get; set; }
         public string ThemePreference { get; set; }
+        public bool FirstLaunchWizardCompleted { get; set; }
+        public bool WizardDetectedAmongUs { get; set; }
+        public bool WizardSelectedChannel { get; set; }
+        public bool WizardInstalledBepInEx { get; set; }
+        public string GameChannel { get; set; } // "Steam/Itch.io" or "Epic/MS Store" - stored from onboarding
 
         private static string ConfigPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -32,7 +37,7 @@ namespace BeanModManager.Models
             DataPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "BeanModManager");
-            ThemePreference = "Light";
+            ThemePreference = "Dark";
         }
 
         public static Config Load()
@@ -51,6 +56,8 @@ namespace BeanModManager.Models
                             config.SelectedMods = new List<string>();
                         if (string.IsNullOrWhiteSpace(config.ThemePreference))
                             config.ThemePreference = "Dark";
+                        // Don't auto-complete wizard - user must go through onboarding
+                        // Only set FirstLaunchWizardCompleted if it was explicitly set before
                         return config;
                     }
                 }
@@ -67,6 +74,59 @@ namespace BeanModManager.Models
         {
             // Fire and forget async save to avoid blocking
             _ = SaveAsync();
+        }
+
+        public void SaveSync()
+        {
+            // Synchronous save for cases where we need to ensure the save completes
+            _saveLock.Wait();
+            try
+            {
+                var directory = Path.GetDirectoryName(ConfigPath);
+                if (!Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                var json = JsonHelper.Serialize(this);
+                
+                // Write to temp file first, then rename (atomic operation)
+                const int MaxSaveRetries = 5;
+                const int InitialRetryDelayMs = 100;
+                var tempPath = ConfigPath + ".tmp";
+                int retries = MaxSaveRetries;
+                int delay = InitialRetryDelayMs;
+                
+                while (retries > 0)
+                {
+                    try
+                    {
+                        File.WriteAllText(tempPath, json);
+                        
+                        // Delete existing file if it exists, then move temp file
+                        if (File.Exists(ConfigPath))
+                        {
+                            File.Delete(ConfigPath);
+                        }
+                        File.Move(tempPath, ConfigPath);
+                        break;
+                    }
+                    catch (IOException) when (retries > 1)
+                    {
+                        retries--;
+                        Thread.Sleep(delay);
+                        delay *= 2; // Exponential backoff
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                //System.Diagnostics.Debug.WriteLine($"Error saving config: {ex.Message}");
+            }
+            finally
+            {
+                _saveLock.Release();
+            }
         }
 
         public async Task SaveAsync()

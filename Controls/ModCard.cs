@@ -674,9 +674,8 @@ namespace BeanModManager
                 }
                 else
                 {
-                    // Auto-detect game type and select appropriate version
-                    bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) && 
-                                          BeanModManager.Services.AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                    // Check game type and select appropriate version (respects onboarding channel selection)
+                    bool isEpicOrMsStore = BeanModManager.Services.AmongUsDetector.IsEpicOrMsStoreVersion(_config);
                     
                     ModVersion preferredVersion = null;
                     

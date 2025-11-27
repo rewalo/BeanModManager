@@ -81,6 +81,27 @@ namespace BeanModManager.Services
             
             return false;
         }
+
+        /// <summary>
+        /// Determines if the game is Epic/MS Store version, respecting the user's channel selection from onboarding.
+        /// Falls back to path-based detection if no channel preference is stored.
+        /// </summary>
+        public static bool IsEpicOrMsStoreVersion(Models.Config config)
+        {
+            // First, check if user selected a channel during onboarding
+            if (!string.IsNullOrEmpty(config?.GameChannel))
+            {
+                return config.GameChannel == "Epic/MS Store";
+            }
+            
+            // Fall back to path-based detection if no preference is stored
+            if (!string.IsNullOrEmpty(config?.AmongUsPath))
+            {
+                return IsEpicOrMsStoreVersion(config.AmongUsPath);
+            }
+            
+            return false;
+        }
     }
 }
 

@@ -15,6 +15,7 @@ using Microsoft.WindowsAPICodePack.Dialogs;
 using System.Reflection;
 using BeanModManager.Themes;
 using BeanModManager.Controls;
+using BeanModManager.Wizard;
 
 namespace BeanModManager
 {
@@ -69,6 +70,13 @@ namespace BeanModManager
             InitializeUiPerformanceTweaks();
             _config = Config.Load();
             
+            // Hide form initially if onboarding is needed to prevent flash
+            if (!_config.FirstLaunchWizardCompleted)
+            {
+                this.ShowInTaskbar = false;
+                this.Visible = false;
+            }
+            
             // Initialize dark mode support
             DarkModeHelper.InitializeDarkMode();
             
@@ -116,7 +124,12 @@ namespace BeanModManager
             LoadSettings();
             
             // Load mods (which will check for updates first before loading mods)
-            LoadMods();
+            // Only load mods if wizard has been completed
+            // Note: We don't await here since constructor can't be async - it will run in background
+            if (_config.FirstLaunchWizardCompleted)
+            {
+                _ = LoadMods(); // Fire and forget - form isn't shown yet so no UI lag
+            }
             
             // Initialize search debounce timers
             _installedSearchDebounceTimer = new Timer { Interval = 300 };
@@ -223,17 +236,69 @@ namespace BeanModManager
                 sidebarBorder.BringToFront();
             }
 
-            if (!firstLaunch) return;
-
-            firstLaunch = false;
-            tabControl.SelectedIndex = 1;
-            ThemeManager_ThemeChanged(null, null);
-            tabControl.SelectedIndex = 0;
-            
-            // Ensure border stays on top after tab changes
-            if (sidebarBorder != null && leftSidebar != null && leftSidebar.Controls.Contains(sidebarBorder))
+            // Check if first launch wizard needs to be shown
+            // IMPORTANT: FirstLaunchWizardCompleted must be true to use the app
+            if (!_config.FirstLaunchWizardCompleted)
             {
-                leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
+                // Use Shown event to show wizard immediately without showing main window
+                this.Shown += async (s, args) =>
+                {
+                    try
+                    {
+                        // Ensure form is hidden (should already be hidden from constructor)
+                        this.Hide();
+                        this.ShowInTaskbar = false;
+                        
+                        var wizardManager = new WizardManager(_config);
+                        var wizardCompleted = wizardManager.RunWizardAsync(this);
+
+                        if (wizardCompleted && _config.FirstLaunchWizardCompleted)
+                        {
+                            // Reload config to get updated path
+                            var updatedConfig = Config.Load();
+                            _config.AmongUsPath = updatedConfig.AmongUsPath;
+                            _config.FirstLaunchWizardCompleted = updatedConfig.FirstLaunchWizardCompleted;
+                            
+                            // Show main form after mods are loaded
+                            this.WindowState = FormWindowState.Normal;
+                            this.ShowInTaskbar = true;
+                            this.Visible = true;
+                            this.Show();
+                            if (firstLaunch)
+                            {
+                                firstLaunch = false;
+                                tabControl.SelectedIndex = 1;
+                                ThemeManager_ThemeChanged(null, null);
+                                tabControl.SelectedIndex = 0;
+                            }
+                            LoadSettings();
+                            await Task.Delay(500);
+                            await LoadMods();
+                        }
+                        else
+                        {
+                            // Wizard was cancelled or not completed - close the application
+                            // User must complete onboarding to use the app
+                            Application.Exit();
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error showing wizard: {ex.Message}\n\n{ex.GetType().Name}", 
+                            "Wizard Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        Application.Exit();
+                    }
+                };
+                return;
+            }
+
+            if (firstLaunch)
+            {
+                firstLaunch = false;
+                tabControl.SelectedIndex = 1;
+                ThemeManager_ThemeChanged(null, null);
+                tabControl.SelectedIndex = 0;
             }
         }
 
@@ -1481,7 +1546,7 @@ namespace BeanModManager
             }
         }
         
-        private async void LoadMods()
+        private async Task LoadMods()
         {
             UpdateStatus("Checking for updates...");
             SafeInvoke(() => progressBar.Visible = true);
@@ -2083,11 +2148,10 @@ namespace BeanModManager
                 }
                 else
                 {
-                    // Cache Epic/MS Store check result
+                    // Cache Epic/MS Store check result (respects onboarding channel selection)
                     if (_cachedIsEpicOrMsStore == null)
                     {
-                        _cachedIsEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) && 
-                                                 AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                        _cachedIsEpicOrMsStore = AmongUsDetector.IsEpicOrMsStoreVersion(_config);
                     }
                     
                     ModVersion preferredVersion = null;
@@ -2162,7 +2226,7 @@ namespace BeanModManager
             
             //System.Diagnostics.Debug.WriteLine($"RefreshModCards: Processed {processedCount} mods successfully");
 
-            _modCards = nextCardMap;
+            // Don't set _modCards here - it will be set after filtering to include all installed cards
 
                 //System.Diagnostics.Debug.WriteLine($"RefreshModCards: Created {installedCards.Count} installed cards, {storeCards.Count} store cards");
 
@@ -2227,16 +2291,11 @@ namespace BeanModManager
                 }
                 
                 // Dispose newly created cards that weren't used (not in filtered lists)
-                // Only check cards that aren't already in the filtered lists (they're already being used)
+                // IMPORTANT: Don't dispose installed cards that are filtered out - we need them for dependency lookup
+                // Only dispose store cards that are filtered out
                 // Cards in filteredInstalled/filteredStore are reused from existingInstalledCards/existingStoreCards
                 // So we only need to dispose cards that were newly created but filtered out
-                foreach (var card in installedCards)
-                {
-                    if (!filteredInstalled.Contains(card))
-                    {
-                        card.Dispose();
-                    }
-                }
+                // NOTE: Installed cards are kept alive even if filtered out, so they can be found in _modCards for dependency selection
                 
                 foreach (var card in storeCards)
                 {
@@ -2249,12 +2308,21 @@ namespace BeanModManager
                 // Replace skeletons with real cards (this clears panels and adds cards)
                 ReplaceSkeletonsWithCards(filteredInstalled, filteredStore);
                 
-                // Update nextCardMap for installed cards
-                foreach (var card in filteredInstalled)
+                // Update nextCardMap and _modCards for installed cards
+                // We need ALL installed cards in _modCards (even if filtered out) for dependency lookup
+                // First, ensure all installed cards are in nextCardMap (they were added at line 2082, but some may have been removed)
+                foreach (var card in installedCards)
                 {
                     var modId = card.BoundMod?.Id ?? "";
-                    nextCardMap[modId] = card;
+                    if (!string.IsNullOrEmpty(modId))
+                    {
+                        nextCardMap[modId] = card;
+                    }
                 }
+                
+                // Now update _modCards with the complete map (all installed cards, filtered or not)
+                // This allows AutoSelectDependencies to find dependency cards even if they're filtered out
+                _modCards = nextCardMap;
                 
                 //System.Diagnostics.Debug.WriteLine($"RefreshModCards: Updated installed panel ({panelInstalled.Controls.Count} cards), store panel ({panelStore.Controls.Count} cards)");
 
@@ -2526,9 +2594,8 @@ namespace BeanModManager
                     
                     if (versionsList.Any())
                     {
-                        // Auto-detect game type
-                        bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) && 
-                                              AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                        // Check game type (respects onboarding channel selection)
+                        bool isEpicOrMsStore = AmongUsDetector.IsEpicOrMsStoreVersion(_config);
                         
                         // Get latest version matching game type
                         if (isEpicOrMsStore)
@@ -2682,31 +2749,10 @@ namespace BeanModManager
                 {
                     bulkSelection.Add(mod.Id);
                 }
-                
-                // For installed mods, also sync with launch selection if applicable
-                if (isInstalledView)
-                {
-                    bool isLaunchSelection = !string.Equals(mod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ||
-                                             string.Equals(mod.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase);
-                    if (isLaunchSelection && !_selectedModIds.Contains(mod.Id))
-                    {
-                        _selectedModIds.Add(mod.Id);
-                        PersistSelectedMods();
-                    }
-                }
             }
             else
             {
                 bulkSelection.Remove(mod.Id);
-                
-                // For installed mods, also remove from launch selection
-                if (isInstalledView)
-                {
-                    if (_selectedModIds.Remove(mod.Id))
-                    {
-                        PersistSelectedMods();
-                    }
-                }
             }
 
             UpdateBulkActionToolbar(isInstalledView);
@@ -2801,11 +2847,47 @@ namespace BeanModManager
 
         private void AutoSelectDependencies(Mod mod)
         {
-            var dependencies = _modStore.GetDependencies(mod.Id);
-            if (dependencies == null)
+            if (mod == null)
                 return;
 
-            foreach (var dependency in dependencies.Where(d => !string.IsNullOrEmpty(d.modId)))
+            // Get the installed version of this mod
+            string modVersion = null;
+            if (mod.InstalledVersion != null)
+            {
+                modVersion = !string.IsNullOrEmpty(mod.InstalledVersion.ReleaseTag) 
+                    ? mod.InstalledVersion.ReleaseTag 
+                    : mod.InstalledVersion.Version;
+            }
+
+            // First, check for per-version dependencies
+            List<VersionDependency> versionDeps = null;
+            if (!string.IsNullOrEmpty(modVersion))
+            {
+                versionDeps = _modStore.GetVersionDependencies(mod.Id, modVersion);
+            }
+
+            // Use per-version dependencies if available, otherwise fall back to default dependencies
+            List<Dependency> dependenciesToProcess = new List<Dependency>();
+            
+            if (versionDeps != null && versionDeps.Any())
+            {
+                // Convert VersionDependency to Dependency format for processing
+                foreach (var versionDep in versionDeps.Where(d => !string.IsNullOrEmpty(d.modId)))
+                {
+                    dependenciesToProcess.Add(new Dependency { modId = versionDep.modId });
+                }
+            }
+            else
+            {
+                // Use default dependencies
+                var defaultDeps = _modStore.GetDependencies(mod.Id);
+                if (defaultDeps != null)
+                {
+                    dependenciesToProcess.AddRange(defaultDeps);
+                }
+            }
+
+            foreach (var dependency in dependenciesToProcess.Where(d => !string.IsNullOrEmpty(d.modId)))
             {
                 if (_selectedModIds.Contains(dependency.modId))
                     continue;
@@ -2814,14 +2896,21 @@ namespace BeanModManager
                 if (depMod == null || !depMod.IsInstalled)
                     continue;
 
-                if (_modCards.TryGetValue(depMod.Id, out var card) && card.IsSelectable)
+                // Get the card if it exists
+                ModCard card = null;
+                if (_modCards.TryGetValue(depMod.Id, out var foundCard) && foundCard.IsSelectable)
+                {
+                    card = foundCard;
+                }
+
+                // Call HandleModSelectionChanged directly to properly validate and select the dependency
+                // This will also recursively select any dependencies of this dependency
+                HandleModSelectionChanged(depMod, card, true, false);
+                
+                // Update the card visually if it exists and isn't already selected
+                if (card != null && !card.IsSelected)
                 {
                     card.SetSelected(true, true);
-                    HandleModSelectionChanged(depMod, card, true, false);
-                }
-                else
-                {
-                    HandleModSelectionChanged(depMod, null, true, false);
                 }
             }
         }
@@ -6195,9 +6284,8 @@ namespace BeanModManager
                 // Fallback: if no card or no selected version, try to find a suitable version
                 if (version == null || string.IsNullOrEmpty(version.DownloadUrl))
                 {
-                    // Try to find a suitable version based on game type
-                    bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) &&
-                                          AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                    // Try to find a suitable version based on game type (respects onboarding channel selection)
+                    bool isEpicOrMsStore = AmongUsDetector.IsEpicOrMsStoreVersion(_config);
                     
                     if (isEpicOrMsStore)
                     {
@@ -6237,9 +6325,8 @@ namespace BeanModManager
                     }
                     else
                     {
-                        // Fallback if somehow not collected
-                        bool isEpicOrMsStore = !string.IsNullOrEmpty(_config.AmongUsPath) &&
-                                              AmongUsDetector.IsEpicOrMsStoreVersion(_config.AmongUsPath);
+                        // Fallback if somehow not collected (respects onboarding channel selection)
+                        bool isEpicOrMsStore = AmongUsDetector.IsEpicOrMsStoreVersion(_config);
                         
                         if (isEpicOrMsStore)
                         {
