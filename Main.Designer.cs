@@ -98,6 +98,7 @@
             this.btnOpenModsFolder = new System.Windows.Forms.Button();
             this.btnOpenAmongUsFolder = new System.Windows.Forms.Button();
             this.btnOpenDataFolder = new System.Windows.Forms.Button();
+            this.btnClearCache = new System.Windows.Forms.Button();
             this.grpAppearance = new System.Windows.Forms.GroupBox();
             this.appearanceLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblTheme = new System.Windows.Forms.Label();
@@ -228,7 +229,7 @@
             this.btnSidebarLaunchVanilla.FlatAppearance.BorderSize = 0;
             this.btnSidebarLaunchVanilla.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
             this.btnSidebarLaunchVanilla.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSidebarLaunchVanilla.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSidebarLaunchVanilla.Font = new System.Drawing.Font("Segoe UI", 9.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSidebarLaunchVanilla.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(41)))), ((int)(((byte)(122)))), ((int)(((byte)(189)))));
             this.btnSidebarLaunchVanilla.Location = new System.Drawing.Point(8, 132);
             this.btnSidebarLaunchVanilla.Margin = new System.Windows.Forms.Padding(0);
@@ -985,7 +986,7 @@
             this.grpFolders.Size = new System.Drawing.Size(536, 170);
             this.grpFolders.TabIndex = 2;
             this.grpFolders.TabStop = false;
-            this.grpFolders.Text = "Quick Folders";
+            this.grpFolders.Text = "Quick Actions";
             // 
             // flowFolders
             // 
@@ -994,6 +995,7 @@
             this.flowFolders.Controls.Add(this.btnOpenModsFolder);
             this.flowFolders.Controls.Add(this.btnOpenAmongUsFolder);
             this.flowFolders.Controls.Add(this.btnOpenDataFolder);
+            this.flowFolders.Controls.Add(this.btnClearCache);
             this.flowFolders.Dock = System.Windows.Forms.DockStyle.Fill;
             this.flowFolders.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
             this.flowFolders.Location = new System.Drawing.Point(12, 28);
@@ -1031,13 +1033,25 @@
             // 
             this.btnOpenDataFolder.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnOpenDataFolder.Location = new System.Drawing.Point(0, 90);
-            this.btnOpenDataFolder.Margin = new System.Windows.Forms.Padding(0);
+            this.btnOpenDataFolder.Margin = new System.Windows.Forms.Padding(0, 0, 0, 10);
             this.btnOpenDataFolder.Name = "btnOpenDataFolder";
             this.btnOpenDataFolder.Size = new System.Drawing.Size(230, 35);
             this.btnOpenDataFolder.TabIndex = 1;
             this.btnOpenDataFolder.Text = "Open Data Folder";
             this.btnOpenDataFolder.UseVisualStyleBackColor = true;
             this.btnOpenDataFolder.Click += new System.EventHandler(this.btnOpenDataFolder_Click);
+            // 
+            // btnClearCache
+            // 
+            this.btnClearCache.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnClearCache.Location = new System.Drawing.Point(0, 135);
+            this.btnClearCache.Margin = new System.Windows.Forms.Padding(0);
+            this.btnClearCache.Name = "btnClearCache";
+            this.btnClearCache.Size = new System.Drawing.Size(230, 35);
+            this.btnClearCache.TabIndex = 3;
+            this.btnClearCache.Text = "Clear Cache";
+            this.btnClearCache.UseVisualStyleBackColor = true;
+            this.btnClearCache.Click += new System.EventHandler(this.btnClearCache_Click);
             // 
             // grpAppearance
             // 
@@ -1336,6 +1350,7 @@
         private System.Windows.Forms.Button btnOpenModsFolder;
         private System.Windows.Forms.Button btnOpenDataFolder;
         private System.Windows.Forms.Button btnOpenAmongUsFolder;
+        private System.Windows.Forms.Button btnClearCache;
         private System.Windows.Forms.GroupBox grpMods;
         private System.Windows.Forms.FlowLayoutPanel flowMods;
         private System.Windows.Forms.StatusStrip statusStrip;

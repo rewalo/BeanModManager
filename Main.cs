@@ -355,6 +355,10 @@ namespace BeanModManager
             {
                 var palette2 = ThemeManager.Current;
                 btnSidebarLaunchVanilla.ForeColor = palette2.PrimaryButtonColor;
+                btnSidebarLaunchVanilla.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+                btnSidebarLaunchVanilla.BackColor = Color.Transparent;
+                // Set hover color to match other sidebar buttons
+                btnSidebarLaunchVanilla.FlatAppearance.MouseOverBackColor = selectedBgColor;
             }
         }
         
@@ -1001,6 +1005,7 @@ namespace BeanModManager
                 btnOpenModsFolder,
                 btnOpenAmongUsFolder,
                 btnOpenDataFolder,
+                btnClearCache,
                 btnBackupAmongUsData,
                 btnRestoreAmongUsData
             };
@@ -6393,6 +6398,32 @@ namespace BeanModManager
             catch (Exception ex)
             {
                 MessageBox.Show($"Error opening folder: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnClearCache_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var result = MessageBox.Show(
+                    "This will clear all GitHub API cache data. This may cause the app to make more API requests.\n\nContinue?",
+                    "Clear Cache",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.Yes)
+                {
+                    GitHubCacheHelper.ClearCache();
+                    MessageBox.Show("Cache cleared successfully.",
+                        "Cache Cleared",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error clearing cache: {ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
