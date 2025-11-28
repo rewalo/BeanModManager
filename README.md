@@ -26,7 +26,7 @@ A comprehensive mod manager for the popular game Among Us built with Windows For
 ## How to install?
 
 1. Download the latest release from the [releases page](https://github.com/rewalo/BeanModManager/releases)
-2. Run the `BeanModManager_Setup.msi` installer
+2. Run the `BeanModManager-[Version]-Installer.msi` installer
    - The installer will guide you through the setup process
    - You can choose to create desktop and start menu shortcuts
    - Installation requires administrator privileges
