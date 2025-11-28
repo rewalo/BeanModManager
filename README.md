@@ -143,3 +143,7 @@ Thanks to all the mod creators whose work makes this manager possible. You can a
 ## License
 
 This software is distributed under the GNU GPLv3 License. See the [LICENSE](LICENSE) file for details.
+
+## Disclaimer
+
+This application is not affiliated with Among Us or Innersloth LLC, and the content contained therein is not endorsed or otherwise sponsored by Innersloth LLC.
