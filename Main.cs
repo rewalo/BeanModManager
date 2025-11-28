@@ -2715,6 +2715,12 @@ namespace BeanModManager
                             "Dependency Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                     card?.SetSelected(true, true);
+                    // Ensure bulk selection is updated when dependency is rechecked programmatically
+                    if (!_bulkSelectedModIds.Contains(mod.Id))
+                    {
+                        _bulkSelectedModIds.Add(mod.Id);
+                    }
+                    UpdateBulkActionToolbar(true);
                     return;
                 }
 
