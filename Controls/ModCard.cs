@@ -47,6 +47,15 @@ namespace BeanModManager
         public bool IsSelected => _chkSelected?.Checked ?? false;
         public Mod BoundMod => _mod;
 
+        public void UpdateVersion(ModVersion newVersion)
+        {
+            if (newVersion != null && _version != newVersion)
+            {
+                _version = newVersion;
+                UpdateUI();
+            }
+        }
+
         public void SetInstallButtonEnabled(bool enabled)
         {
             if (_btnInstall != null)
@@ -725,11 +734,18 @@ namespace BeanModManager
                 _lblVersion.Visible = true;
             }
 
-            string versionText = $"Version: {_version.Version}";
-            if (_version.IsPreRelease)
+            // For installed mods, prefer mod.InstalledVersion over _version to ensure we show the correct version after updates
+            ModVersion versionToDisplay = _version;
+            if ((isInstalled || _isInstalledView) && _mod.InstalledVersion != null)
+            {
+                versionToDisplay = _mod.InstalledVersion;
+            }
+            
+            string versionText = $"Version: {versionToDisplay.Version}";
+            if (versionToDisplay.IsPreRelease)
                 versionText += " (Beta)";
-            if (!string.IsNullOrEmpty(_version.GameVersion))
-                versionText += $" ({_version.GameVersion})";
+            if (!string.IsNullOrEmpty(versionToDisplay.GameVersion))
+                versionText += $" ({versionToDisplay.GameVersion})";
 
             var versionColor = _palette.SecondaryTextColor;
 

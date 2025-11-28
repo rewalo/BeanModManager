@@ -92,6 +92,10 @@ namespace BeanModManager
                 tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
             }
             
+            // Add keyboard shortcut for Select All (Ctrl+A)
+            this.KeyPreview = true;
+            this.KeyDown += Main_KeyDown;
+            
             // Initialize sidebar and header
             UpdateSidebarSelection();
             UpdateStats();
@@ -375,6 +379,137 @@ namespace BeanModManager
             if (sidebarBorder != null && leftSidebar != null && leftSidebar.Controls.Contains(sidebarBorder))
             {
                 leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
+            }
+        }
+
+        private void Main_KeyDown(object sender, KeyEventArgs e)
+        {
+            // Handle Ctrl+A to select all mods in current tab
+            // Only handle if not in a text input control
+            if (e.Control && e.KeyCode == Keys.A)
+            {
+                var focusedControl = this.ActiveControl;
+                bool isTextInput = focusedControl is TextBox || 
+                                  focusedControl is RichTextBox || 
+                                  focusedControl is ComboBox;
+                
+                // Only handle Ctrl+A if not in a text input control
+                if (!isTextInput)
+                {
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    SelectAllModsInCurrentTab();
+                }
+            }
+            // Handle ESCAPE to deselect all mods in current tab
+            else if (e.KeyCode == Keys.Escape)
+            {
+                var focusedControl = this.ActiveControl;
+                bool isTextInput = focusedControl is TextBox || 
+                                  focusedControl is RichTextBox || 
+                                  focusedControl is ComboBox;
+                
+                // Only handle ESCAPE if not in a text input control (let ESCAPE close dialogs, clear text, etc.)
+                if (!isTextInput)
+                {
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    DeselectAllModsInCurrentTab();
+                }
+            }
+        }
+
+        private void SelectAllModsInCurrentTab()
+        {
+            if (tabControl == null)
+                return;
+
+            bool isInstalledView = tabControl.SelectedIndex == 0; // 0 = Installed, 1 = Store
+            
+            // Get the appropriate panel and selection collection
+            Panel targetPanel = isInstalledView ? panelInstalled : panelStore;
+            var bulkSelection = isInstalledView ? _bulkSelectedModIds : _bulkSelectedStoreModIds;
+            
+            if (targetPanel == null)
+                return;
+
+            // Get all selectable mod cards in the current tab
+            var selectableCards = targetPanel.Controls.OfType<ModCard>()
+                .Where(card => card.IsSelectable && card.BoundMod != null)
+                .ToList();
+
+            if (selectableCards.Count == 0)
+                return;
+
+            // Select all cards
+            foreach (var card in selectableCards)
+            {
+                var mod = card.BoundMod;
+                if (mod == null)
+                    continue;
+
+                // Add to bulk selection collection
+                if (!bulkSelection.Contains(mod.Id))
+                {
+                    bulkSelection.Add(mod.Id);
+                }
+
+                // Update card UI (suppress event to avoid individual handling)
+                card.SetSelected(true, true);
+            }
+
+            // Update UI
+            UpdateBulkActionToolbar(isInstalledView);
+            if (isInstalledView)
+            {
+                UpdateLaunchButtonsState();
+            }
+        }
+
+        private void DeselectAllModsInCurrentTab()
+        {
+            if (tabControl == null)
+                return;
+
+            bool isInstalledView = tabControl.SelectedIndex == 0; // 0 = Installed, 1 = Store
+            
+            // Get the appropriate panel and selection collections
+            Panel targetPanel = isInstalledView ? panelInstalled : panelStore;
+            var bulkSelection = isInstalledView ? _bulkSelectedModIds : _bulkSelectedStoreModIds;
+            
+            if (targetPanel == null)
+                return;
+
+            // Get all selected mod cards in the current tab
+            var selectedCards = targetPanel.Controls.OfType<ModCard>()
+                .Where(card => card.IsSelectable && card.IsSelected && card.BoundMod != null)
+                .ToList();
+
+            // Deselect all cards
+            foreach (var card in selectedCards)
+            {
+                card.SetSelected(false, true);
+            }
+
+            // Clear selection collections
+            if (isInstalledView)
+            {
+                // For installed tab, clear both bulk and launch selections
+                _bulkSelectedModIds.Clear();
+                _selectedModIds.Clear();
+                PersistSelectedMods();
+            }
+            else
+            {
+                // For store tab, only clear bulk selection
+                _bulkSelectedStoreModIds.Clear();
+            }
+
+            // Update UI
+            UpdateBulkActionToolbar(isInstalledView);
+            if (isInstalledView)
+            {
+                UpdateLaunchButtonsState();
             }
         }
         
@@ -2097,6 +2232,12 @@ namespace BeanModManager
                     {
                         // Reuse existing card from installed panel
                         installedCard = existingInstalledCard;
+                        // Update the card's version if it has changed (e.g., after an update)
+                        if (mod.InstalledVersion != null && installedCard.SelectedVersion != mod.InstalledVersion)
+                        {
+                            installedCard.UpdateVersion(mod.InstalledVersion);
+                            installedCard.CheckForUpdate();
+                        }
                         // Only check for updates if mod was actually installed/uninstalled (not just filtering)
                         // Skip CheckForUpdate during filter changes to improve performance
                     }
@@ -5113,8 +5254,16 @@ namespace BeanModManager
                     
                     UpdateStatus("Compatible versions installed. You can now launch the mods.");
                     
+                    // Invalidate pending updates cache since mods were updated/downgraded
+                    _cachedPendingUpdatesCount = null;
+                    
                     // Refresh the UI to show updated mod versions
-                    SafeInvoke(RefreshModCardsDebounced);
+                    SafeInvoke(() =>
+                    {
+                        RefreshModDetectionCache(force: true);
+                        RefreshModCardsDebounced();
+                        UpdateStats(); // Explicitly update stats to refresh pending updates count
+                    });
                     
                     return true;
                 }
@@ -6663,58 +6812,12 @@ namespace BeanModManager
 
         private void btnBulkDeselectAllInstalled_Click(object sender, EventArgs e)
         {
-            // Clear both bulk and launch selections for installed tab
-            var modsToDeselect = _bulkSelectedModIds.Union(_selectedModIds).ToList();
-            
-            foreach (var modId in modsToDeselect)
-            {
-                if (_modCards.TryGetValue(modId, out var card) && card.IsSelectable)
-                {
-                    card.SetSelected(false, true);
-                }
-                else
-                {
-                    // Also check panel controls if not in dictionary
-                    var cardInInstalled = panelInstalled.Controls.OfType<ModCard>()
-                        .FirstOrDefault(c => c.BoundMod != null && 
-                            string.Equals(c.BoundMod.Id, modId, StringComparison.OrdinalIgnoreCase));
-                    if (cardInInstalled != null && cardInInstalled.IsSelectable)
-                    {
-                        cardInInstalled.SetSelected(false, true);
-                    }
-                }
-            }
-            
-            _bulkSelectedModIds.Clear();
-            _selectedModIds.Clear();
-            PersistSelectedMods();
-            
-            UpdateBulkActionToolbar(true);
-            UpdateLaunchButtonsState();
+            DeselectAllModsInCurrentTab();
         }
 
         private void btnBulkDeselectAllStore_Click(object sender, EventArgs e)
         {
-            foreach (var modId in _bulkSelectedStoreModIds.ToList())
-            {
-                if (_modCards.TryGetValue(modId, out var card) && card.IsSelectable)
-                {
-                    card.SetSelected(false, true);
-                }
-                else
-                {
-                    // Also check panel controls if not in dictionary
-                    var cardInStore = panelStore.Controls.OfType<ModCard>()
-                        .FirstOrDefault(c => c.BoundMod != null && 
-                            string.Equals(c.BoundMod.Id, modId, StringComparison.OrdinalIgnoreCase));
-                    if (cardInStore != null && cardInStore.IsSelectable)
-                    {
-                        cardInStore.SetSelected(false, true);
-                    }
-                }
-            }
-            _bulkSelectedStoreModIds.Clear();
-            UpdateBulkActionToolbar(false);
+            DeselectAllModsInCurrentTab();
         }
 
         private void btnSidebarLaunchVanilla_Click(object sender, EventArgs e)
@@ -7709,7 +7812,15 @@ return; // User cancelled
                     }
                 }
 
-                SafeInvoke(RefreshModCards);
+                // Invalidate pending updates cache since mods were updated
+                _cachedPendingUpdatesCount = null;
+                
+                SafeInvoke(() =>
+                {
+                    RefreshModDetectionCache(force: true);
+                    RefreshModCards();
+                    UpdateStats(); // Explicitly update stats to refresh pending updates count
+                });
 
                 UpdateStatus("Updates completed!");
             }
