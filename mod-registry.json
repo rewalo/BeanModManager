@@ -603,8 +603,8 @@
       "category": "Utility",
       "assetFilters": {
         "default": {
-          "patterns": ["Impostor-Server", "win-x64.zip"],
-          "exclude": ["source"]
+          "patterns": ["Impostor-Server", "win-x64", ".zip"],
+          "exclude": ["source", "linux", "osx", "darwin"]
         }
       },
       "requiresDepot": false,
