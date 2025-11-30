@@ -65,6 +65,7 @@ A comprehensive mod manager for the popular game Among Us built with Windows For
 - **yanplaRoles** - A mod that introduces new roles and modifiers
 - **NewMod** - A mod for Among Us that introduces a variety of new roles, unique abilities, and custom game modes
 - **Cursed Among Us** - A mod for Among Us that introduces challenging modifications to gameplay
+- **CrowdedMod** - Unlocks the possibility for more than 15 players to join in an Among Us lobby
 
 ### Host Mods
 - **Project Lotus: Continued** - Unique, beautiful, and customizable host mod. Adds cosmetics, commands and hotkeys, and various options
@@ -74,6 +75,7 @@ A comprehensive mod manager for the popular game Among Us built with Windows For
 - **PropHunt** - A mod for Among Us which extends Hide and Seek into a new mode, Prop Hunt!
 - **Level Imposter** - Custom Among Us Mapping Studio
 - **AUnlocker** - A mod that unlocks additional content and features in Among Us
+- **Impostor** - Custom Among Us server utility
 
 **Note:** Epic/MS Store versions are automatically detected - mod dropdowns will prefer the right version for your game. Some mods require Steam depot downloads for specific game versions, which are handled automatically.
 

@@ -575,6 +575,40 @@
         }
       ],
       "incompatibilities": []
+    },
+    {
+      "id": "CrowdedMod",
+      "name": "CrowdedMod",
+      "author": "CrowdedMods",
+      "description": "CrowdedMod unlocks the possibility for more than 15 players to join in an Among Us lobby.",
+      "githubOwner": "CrowdedMods",
+      "githubRepo": "CrowdedMod",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "Impostor",
+      "name": "Impostor",
+      "author": "Impostor",
+      "description": "Custom Among Us server utility",
+      "githubOwner": "Impostor",
+      "githubRepo": "Impostor",
+      "category": "Utility",
+      "assetFilters": {
+        "default": {
+          "patterns": ["Impostor-Server", "win-x64.zip"],
+          "exclude": ["source"]
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
     }
   ]
 }

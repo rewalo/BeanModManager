@@ -11,7 +11,7 @@ namespace BeanModManager.Services
     {
         public event EventHandler<string> ProgressChanged;
 
-        private const string BEPINEX_URL = "https://builds.bepinex.dev/projects/bepinex_be/752/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.752%2Bdd0655f.zip";
+        private const string BEPINEX_URL = "https://builds.bepinex.dev/projects/bepinex_be/733/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.733%2B995f049.zip";
 
         public async Task<bool> InstallBepInEx(string amongUsPath)
         {
