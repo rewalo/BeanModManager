@@ -25,6 +25,7 @@ namespace BeanModManager
         private ModStore _modStore;
         private ModDownloader _modDownloader;
         private ModInstaller _modInstaller;
+        private ModImporter _modImporter;
         private BepInExInstaller _bepInExInstaller;
         private SteamDepotService _steamDepotService;
         private UpdateChecker _updateChecker;
@@ -33,8 +34,8 @@ namespace BeanModManager
         private bool _isInstalling = false;
         private readonly object _installLock = new object();
         private readonly HashSet<string> _selectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<string> _bulkSelectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // For bulk operations in installed tab
-        private readonly HashSet<string> _bulkSelectedStoreModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // For bulk operations in store tab
+        private readonly HashSet<string> _bulkSelectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _bulkSelectedStoreModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private string _installedSearchText = string.Empty;
         private string _storeSearchText = string.Empty;
         private string _installedCategoryFilter = "All";
@@ -45,63 +46,51 @@ namespace BeanModManager
         private Timer _refreshDebounceTimer;
         private bool _isRefreshing = false;
         private bool _isApplyingThemeSelection;
-        
-        // Cache for expensive operations - only refresh when mods are installed/uninstalled
         private List<InstalledModInfo> _cachedDetectedMods;
         private HashSet<string> _cachedDetectedModIds;
         private HashSet<string> _cachedExistingModFolders;
         private string _cachedModsFolder;
-        private Dictionary<string, bool> _cachedInstallationStatus; // modId -> isInstalled
+        private Dictionary<string, bool> _cachedInstallationStatus;
         private DateTime _cacheLastUpdated = DateTime.MinValue;
-        private readonly TimeSpan _cacheMaxAge = TimeSpan.FromSeconds(5); // Refresh cache if older than 5 seconds
-        private bool? _cachedIsEpicOrMsStore; // Cache Epic/MS Store check result
-        private int? _cachedPendingUpdatesCount; // Cache pending updates count
-        private Dictionary<string, string> _cachedNormalizedCategories; // Cache normalized category strings
-        private readonly HashSet<string> _explicitlySetMods = new HashSet<string>(StringComparer.OrdinalIgnoreCase); // Track mods that have been explicitly installed/uninstalled
+        private readonly TimeSpan _cacheMaxAge = TimeSpan.FromSeconds(5);
+        private bool? _cachedIsEpicOrMsStore;
+        private int? _cachedPendingUpdatesCount;
+        private readonly HashSet<string> _explicitlySetMods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public Main()
         {
             InitializeComponent();
             
-            // Set window title with version
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             this.Text = $"Bean Mod Manager v{version.Major}.{version.Minor}.{version.Build}";
             
             InitializeUiPerformanceTweaks();
             _config = Config.Load();
             
-            // Hide form initially if onboarding is needed to prevent flash
             if (!_config.FirstLaunchWizardCompleted)
             {
                 this.ShowInTaskbar = false;
                 this.Visible = false;
             }
             
-            // Initialize dark mode support
             DarkModeHelper.InitializeDarkMode();
-            
-            // Apply dark mode after handle is created
             this.HandleCreated += Main_HandleCreated;
             this.Load += Main_Load;
             
             InitializeThemeSystem();
             
-            // Handle tab selection changes to refresh scrollbars and sync sidebar
             if (tabControl != null)
             {
                 tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
             }
             
-            // Add keyboard shortcut for Select All (Ctrl+A)
             this.KeyPreview = true;
             this.KeyDown += Main_KeyDown;
             
-            // Initialize sidebar and header
             UpdateSidebarSelection();
             UpdateStats();
             UpdateHeaderInfo();
             
-            // Ensure border panel is always on top after initialization
             if (sidebarBorder != null && leftSidebar != null && leftSidebar.Controls.Contains(sidebarBorder))
             {
                 leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
@@ -110,6 +99,7 @@ namespace BeanModManager
             _modStore = new ModStore();
             _modDownloader = new ModDownloader();
             _modInstaller = new ModInstaller();
+            _modImporter = new ModImporter();
             _bepInExInstaller = new BepInExInstaller();
             _updateChecker = new UpdateChecker();
             _modCards = new Dictionary<string, ModCard>();
@@ -119,6 +109,7 @@ namespace BeanModManager
 
             _modDownloader.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _modInstaller.ProgressChanged += (s, msg) => UpdateStatus(msg);
+            _modImporter.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _bepInExInstaller.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _steamDepotService = new SteamDepotService();
             _steamDepotService.ProgressChanged += (s, msg) => UpdateStatus(msg);
@@ -127,15 +118,11 @@ namespace BeanModManager
 
             LoadSettings();
             
-            // Load mods (which will check for updates first before loading mods)
-            // Only load mods if wizard has been completed
-            // Note: We don't await here since constructor can't be async - it will run in background
             if (_config.FirstLaunchWizardCompleted)
             {
-                _ = LoadMods(); // Fire and forget - form isn't shown yet so no UI lag
+                _ = LoadMods();
             }
             
-            // Initialize search debounce timers
             _installedSearchDebounceTimer = new Timer { Interval = 300 };
             _installedSearchDebounceTimer.Tick += (s, e) =>
             {
@@ -150,7 +137,6 @@ namespace BeanModManager
                 RefreshModCardsDebounced();
             };
             
-            // Debounce refresh calls to prevent excessive refreshes during install/uninstall
             _refreshDebounceTimer = new Timer { Interval = 150 };
             _refreshDebounceTimer.Tick += (s, e) =>
             {
@@ -200,14 +186,11 @@ namespace BeanModManager
             }
 
             UpdateBepInExButtonState();
-
-            // Update check is now done in constructor before LoadMods()
         }
 
         private void Main_HandleCreated(object sender, EventArgs e)
         {
             ApplyDarkMode();
-            // Ensure form background is set immediately
             var palette = ThemeManager.Current;
             this.BackColor = palette.WindowBackColor;
             this.Invalidate(true);
@@ -215,7 +198,6 @@ namespace BeanModManager
 
         private void Main_Load(object sender, EventArgs e)
         {
-            // Ensure form is fully painted with theme colors
             var palette = ThemeManager.Current;
             this.BackColor = palette.WindowBackColor;
             this.ForeColor = palette.PrimaryTextColor;
@@ -226,7 +208,6 @@ namespace BeanModManager
                 tabControl.Invalidate();
             }
             
-            // Ensure sidebar border is on top after load
             if (sidebarBorder != null && leftSidebar != null && leftSidebar.Controls.Contains(sidebarBorder))
             {
                 leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
@@ -234,22 +215,17 @@ namespace BeanModManager
 
             ThemeManager_ThemeChanged(null, null);
             
-            // Ensure sidebar border is always on top
             if (sidebarBorder != null)
             {
                 sidebarBorder.BringToFront();
             }
 
-            // Check if first launch wizard needs to be shown
-            // IMPORTANT: FirstLaunchWizardCompleted must be true to use the app
             if (!_config.FirstLaunchWizardCompleted)
             {
-                // Use Shown event to show wizard immediately without showing main window
                 this.Shown += async (s, args) =>
                 {
                     try
                     {
-                        // Ensure form is hidden (should already be hidden from constructor)
                         this.Hide();
                         this.ShowInTaskbar = false;
                         
@@ -258,12 +234,10 @@ namespace BeanModManager
 
                         if (wizardCompleted && _config.FirstLaunchWizardCompleted)
                         {
-                            // Reload config to get updated path
                             var updatedConfig = Config.Load();
                             _config.AmongUsPath = updatedConfig.AmongUsPath;
                             _config.FirstLaunchWizardCompleted = updatedConfig.FirstLaunchWizardCompleted;
                             
-                            // Show main form after mods are loaded
                             this.WindowState = FormWindowState.Normal;
                             this.ShowInTaskbar = true;
                             this.Visible = true;
@@ -281,8 +255,6 @@ namespace BeanModManager
                         }
                         else
                         {
-                            // Wizard was cancelled or not completed - close the application
-                            // User must complete onboarding to use the app
                             Application.Exit();
                             return;
                         }
@@ -337,27 +309,20 @@ namespace BeanModManager
 
         private void TabControl_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // Refresh scrollbars when switching tabs, especially for initially hidden tabs
             if (tabControl == null) return;
             
-            // Sync sidebar button selection with tab control
             UpdateSidebarSelection();
-            
-            // Update header info when switching tabs (in case rate limit status changed)
             UpdateHeaderInfo();
             
-            // Update bulk action toolbar visibility based on current tab
-            if (tabControl.SelectedIndex == 0) // Installed tab
+            if (tabControl.SelectedIndex == 0)
             {
                 UpdateBulkActionToolbar(true);
             }
-            else if (tabControl.SelectedIndex == 1) // Store tab
+            else if (tabControl.SelectedIndex == 1)
             {
                 UpdateBulkActionToolbar(false);
             }
             
-            // Refresh scrollbars when switching tabs to ensure they're properly displayed
-            // This also triggers a layout update which makes cards visible
             if (IsHandleCreated)
             {
                 BeginInvoke(new Action(() =>
@@ -375,7 +340,6 @@ namespace BeanModManager
                 }));
             }
             
-            // Ensure border stays on top
             if (sidebarBorder != null && leftSidebar != null && leftSidebar.Controls.Contains(sidebarBorder))
             {
                 leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
@@ -384,8 +348,6 @@ namespace BeanModManager
 
         private void Main_KeyDown(object sender, KeyEventArgs e)
         {
-            // Handle Ctrl+A to select all mods in current tab
-            // Only handle if not in a text input control
             if (e.Control && e.KeyCode == Keys.A)
             {
                 var focusedControl = this.ActiveControl;
@@ -393,7 +355,6 @@ namespace BeanModManager
                                   focusedControl is RichTextBox || 
                                   focusedControl is ComboBox;
                 
-                // Only handle Ctrl+A if not in a text input control
                 if (!isTextInput)
                 {
                     e.Handled = true;
@@ -401,7 +362,6 @@ namespace BeanModManager
                     SelectAllModsInCurrentTab();
                 }
             }
-            // Handle ESCAPE to deselect all mods in current tab
             else if (e.KeyCode == Keys.Escape)
             {
                 var focusedControl = this.ActiveControl;
@@ -409,7 +369,6 @@ namespace BeanModManager
                                   focusedControl is RichTextBox || 
                                   focusedControl is ComboBox;
                 
-                // Only handle ESCAPE if not in a text input control (let ESCAPE close dialogs, clear text, etc.)
                 if (!isTextInput)
                 {
                     e.Handled = true;
@@ -424,16 +383,14 @@ namespace BeanModManager
             if (tabControl == null)
                 return;
 
-            bool isInstalledView = tabControl.SelectedIndex == 0; // 0 = Installed, 1 = Store
+            bool isInstalledView = tabControl.SelectedIndex == 0;
             
-            // Get the appropriate panel and selection collection
             Panel targetPanel = isInstalledView ? panelInstalled : panelStore;
             var bulkSelection = isInstalledView ? _bulkSelectedModIds : _bulkSelectedStoreModIds;
             
             if (targetPanel == null)
                 return;
 
-            // Get all selectable mod cards in the current tab
             var selectableCards = targetPanel.Controls.OfType<ModCard>()
                 .Where(card => card.IsSelectable && card.BoundMod != null)
                 .ToList();
@@ -441,24 +398,20 @@ namespace BeanModManager
             if (selectableCards.Count == 0)
                 return;
 
-            // Select all cards
             foreach (var card in selectableCards)
             {
                 var mod = card.BoundMod;
                 if (mod == null)
                     continue;
 
-                // Add to bulk selection collection
                 if (!bulkSelection.Contains(mod.Id))
                 {
                     bulkSelection.Add(mod.Id);
                 }
 
-                // Update card UI (suppress event to avoid individual handling)
                 card.SetSelected(true, true);
             }
 
-            // Update UI
             UpdateBulkActionToolbar(isInstalledView);
             if (isInstalledView)
             {
@@ -473,39 +426,32 @@ namespace BeanModManager
 
             bool isInstalledView = tabControl.SelectedIndex == 0; // 0 = Installed, 1 = Store
             
-            // Get the appropriate panel and selection collections
             Panel targetPanel = isInstalledView ? panelInstalled : panelStore;
             var bulkSelection = isInstalledView ? _bulkSelectedModIds : _bulkSelectedStoreModIds;
             
             if (targetPanel == null)
                 return;
 
-            // Get all selected mod cards in the current tab
             var selectedCards = targetPanel.Controls.OfType<ModCard>()
                 .Where(card => card.IsSelectable && card.IsSelected && card.BoundMod != null)
                 .ToList();
 
-            // Deselect all cards
             foreach (var card in selectedCards)
             {
                 card.SetSelected(false, true);
             }
 
-            // Clear selection collections
             if (isInstalledView)
             {
-                // For installed tab, clear both bulk and launch selections
                 _bulkSelectedModIds.Clear();
                 _selectedModIds.Clear();
                 PersistSelectedMods();
             }
             else
             {
-                // For store tab, only clear bulk selection
                 _bulkSelectedStoreModIds.Clear();
             }
 
-            // Update UI
             UpdateBulkActionToolbar(isInstalledView);
             if (isInstalledView)
             {
@@ -519,7 +465,6 @@ namespace BeanModManager
             
             var selectedIndex = tabControl.SelectedIndex;
             
-            // Update button styles based on selection
             var palette = ThemeManager.Current;
             
             var selectedBgColor = ThemeManager.CurrentVariant == ThemeVariant.Dark 
@@ -562,14 +507,12 @@ namespace BeanModManager
                     : palette.SecondaryTextColor;
             }
             
-            // Update Launch Vanilla button styling (always visible, not a tab)
             if (btnSidebarLaunchVanilla != null)
             {
                 var palette2 = ThemeManager.Current;
                 btnSidebarLaunchVanilla.ForeColor = palette2.PrimaryButtonColor;
                 btnSidebarLaunchVanilla.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
                 btnSidebarLaunchVanilla.BackColor = Color.Transparent;
-                // Set hover color to match other sidebar buttons
                 btnSidebarLaunchVanilla.FlatAppearance.MouseOverBackColor = selectedBgColor;
             }
         }
@@ -600,7 +543,6 @@ namespace BeanModManager
         
         private void btnEmptyInstalledBrowseFeatured_Click(object sender, EventArgs e)
         {
-            // Switch to store tab and set Featured filter
             if (tabControl != null)
             {
                 tabControl.SelectedIndex = 1;
@@ -615,12 +557,10 @@ namespace BeanModManager
         
         private void btnEmptyInstalledBrowseStore_Click(object sender, EventArgs e)
         {
-            // Switch to store tab and clear filters
             if (tabControl != null)
             {
                 tabControl.SelectedIndex = 1;
                 
-                // Clear search and category filters
                 _storeSearchText = string.Empty;
                 _storeCategoryFilter = "All";
                 
@@ -639,7 +579,6 @@ namespace BeanModManager
         
         private void btnEmptyStoreClearFilters_Click(object sender, EventArgs e)
         {
-            // Clear search and category filters
             _storeSearchText = string.Empty;
             _storeCategoryFilter = "All";
             
@@ -657,7 +596,6 @@ namespace BeanModManager
         
         private void btnEmptyStoreBrowseFeatured_Click(object sender, EventArgs e)
         {
-            // Set Featured filter
             _storeCategoryFilter = "Featured";
             if (cmbStoreCategory != null)
             {
@@ -683,7 +621,6 @@ namespace BeanModManager
                 return;
             }
             
-            // Count installed mods using cache if available
             int installedCount;
             if (_cachedInstallationStatus != null)
             {
@@ -703,7 +640,6 @@ namespace BeanModManager
                 lblInstalledCount.Text = $"Installed: {installedCount} {(installedCount == 1 ? "mod" : "mods")}";
             }
             
-            // Count pending updates (use cache if available and fresh)
             int pendingUpdates;
             if (_cachedPendingUpdatesCount.HasValue)
             {
@@ -729,11 +665,9 @@ namespace BeanModManager
             if (_availableMods == null)
                 return 0;
             
-            // Use cached installation status for faster lookup
             int count = 0;
             foreach (var mod in _availableMods)
             {
-                // Skip if not installed (use cache if available)
                 bool isInstalled = _cachedInstallationStatus != null 
                     ? (_cachedInstallationStatus.TryGetValue(mod.Id, out bool cached) && cached)
                     : mod.IsInstalled;
@@ -743,13 +677,11 @@ namespace BeanModManager
                 if (mod.InstalledVersion == null)
                     continue;
                 
-                // Filter versions based on beta setting (same logic as ModCard.CheckForUpdate)
                 var availableVersions = mod.Versions
                     .Where(v => !string.IsNullOrEmpty(v.DownloadUrl));
                 
                 if (!_config.ShowBetaVersions)
                 {
-                    // If beta is disabled, only check stable versions
                     availableVersions = availableVersions.Where(v => !v.IsPreRelease);
                 }
                 
@@ -765,15 +697,11 @@ namespace BeanModManager
                 var installedTag = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version;
                 var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
                 
-                // If installed version is the latest version (same tag), no update available
                 if (string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase))
                     continue;
                 
-                // Special case: If installed version is a beta and it's the latest beta (regardless of setting),
-                // check if there's a newer stable version. If not, no update.
                 if (mod.InstalledVersion.IsPreRelease)
                 {
-                    // Check if installed beta is the latest beta version
                     var latestBeta = mod.Versions
                         .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && v.IsPreRelease)
                         .OrderByDescending(v => v.ReleaseDate)
@@ -784,10 +712,8 @@ namespace BeanModManager
                         var installedBetaTag = mod.InstalledVersion.ReleaseTag ?? mod.InstalledVersion.Version;
                         var latestBetaTag = latestBeta.ReleaseTag ?? latestBeta.Version;
                         
-                        // If installed is the latest beta, only show update if there's a newer stable
                         if (string.Equals(installedBetaTag, latestBetaTag, StringComparison.OrdinalIgnoreCase))
                         {
-                            // Check if there's a newer stable version
                             var latestStable = mod.Versions
                                 .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && !v.IsPreRelease)
                                 .OrderByDescending(v => v.ReleaseDate)
@@ -795,7 +721,6 @@ namespace BeanModManager
                             
                             if (latestStable == null || latestStable.ReleaseDate <= mod.InstalledVersion.ReleaseDate)
                             {
-                                // No newer stable version, so no update
                                 continue;
                             }
                         }
@@ -821,7 +746,6 @@ namespace BeanModManager
             
             var parts = new List<string>();
             
-            // Among Us path status
             var amongUsPath = _config?.AmongUsPath;
             if (string.IsNullOrEmpty(amongUsPath))
             {
@@ -833,11 +757,9 @@ namespace BeanModManager
                 parts.Add($"Among Us: {(exists ? "✓" : "✗")} {amongUsPath}");
             }
             
-            // GitHub rate limit status
             var isRateLimited = _modStore?.IsRateLimited() ?? false;
             parts.Add($"GitHub: {(isRateLimited ? "Rate Limited" : "OK")}");
             
-            // Last sync time
             var lastSync = GetLastSyncTime();
             if (lastSync.HasValue)
             {
@@ -868,7 +790,6 @@ namespace BeanModManager
             
             DateTime? latestSync = null;
             
-            // Check cache timestamps for all mods
             foreach (var mod in _availableMods)
             {
                 var cacheKey = $"mod_{mod.Id}_all";
@@ -908,7 +829,6 @@ namespace BeanModManager
             var palette = ThemeManager.Current;
             using (var pen = new Pen(palette.CardBorderColor, 1))
             {
-                // Draw header bottom border
                 if (headerStrip != null && headerStrip.Visible)
                 {
                     var headerRect = headerStrip.Bounds;
@@ -926,14 +846,12 @@ namespace BeanModManager
             var rect = panel.ClientRectangle;
             using (var pen = new Pen(palette.CardBorderColor, 1))
             {
-                // Draw bottom border
                 e.Graphics.DrawLine(pen, 0, rect.Height - 1, rect.Width, rect.Height - 1);
             }
         }
         
         private void Sidebar_Paint(object sender, PaintEventArgs e)
         {
-            // Border is now handled by sidebarBorder panel
         }
 
         protected override void OnResize(EventArgs e)
@@ -982,13 +900,10 @@ namespace BeanModManager
                 leftSidebar.BackColor = palette.WindowBackColor;
                 leftSidebar.Paint -= Sidebar_Paint;
                 leftSidebar.Paint += Sidebar_Paint;
-                // Ensure border is always on top by setting its z-order explicitly
                 if (sidebarBorder != null && leftSidebar.Controls.Contains(sidebarBorder))
                 {
-                    // Set border to highest z-order (last index = drawn last = on top)
                     leftSidebar.Controls.SetChildIndex(sidebarBorder, leftSidebar.Controls.Count - 1);
                 }
-                // Ensure the sidebar redraws to show the border
                 leftSidebar.Invalidate();
             }
             if (sidebarHeader != null)
@@ -1015,10 +930,6 @@ namespace BeanModManager
             {
                 lblInstalledCount.ForeColor = palette.HeadingTextColor;
             }
-            // Note: lblPendingUpdates color is set by UpdateStats() based on pending updates count
-            // Don't override it here - UpdateStats() will be called after theme is applied
-            
-            // Apply theme to sidebar buttons
             var sidebarButtons = new[] { btnSidebarInstalled, btnSidebarStore, btnSidebarSettings };
             foreach (var btn in sidebarButtons)
             {
@@ -1064,7 +975,6 @@ namespace BeanModManager
             lblEmptyInstalled.ForeColor = palette.MutedTextColor;
             lblEmptyStore.ForeColor = palette.MutedTextColor;
             
-            // Style empty state panels
             if (panelEmptyInstalled != null)
             {
                 panelEmptyInstalled.BackColor = Color.Transparent;
@@ -1074,7 +984,6 @@ namespace BeanModManager
                 panelEmptyStore.BackColor = Color.Transparent;
             }
             
-            // Style empty state buttons
             if (btnEmptyInstalledBrowseFeatured != null)
             {
                 btnEmptyInstalledBrowseFeatured.BackColor = palette.SuccessButtonColor;
@@ -1165,7 +1074,6 @@ namespace BeanModManager
                 panelStore.BackColor = palette.SurfaceColor;
             }
 
-            // Ensure all layout panels have correct backgrounds
             if (installedLayout != null)
             {
                 installedLayout.BackColor = palette.WindowBackColor;
@@ -1224,7 +1132,6 @@ namespace BeanModManager
             ApplyComboTheme(cmbStoreCategory, palette);
             ApplyComboTheme(cmbTheme, palette);
             
-            // Force repaint of combo boxes to ensure backgrounds are updated
             if (cmbTheme != null)
             {
                 cmbTheme.Invalidate();
@@ -1233,7 +1140,6 @@ namespace BeanModManager
 
             ApplyButtonTheme(btnLaunchSelected, palette.SuccessButtonColor, palette.SuccessButtonTextColor);
             
-            // Update sidebar Launch Vanilla button color
             if (btnSidebarLaunchVanilla != null)
             {
                 btnSidebarLaunchVanilla.ForeColor = palette.PrimaryButtonColor;
@@ -1278,7 +1184,6 @@ namespace BeanModManager
                 progressBar.BackColor = palette.ProgressBackColor;
             }
 
-            // Refresh scrollbars
             if (panelInstalled != null)
             {
                 panelInstalled.RefreshScrollbars();
@@ -1290,7 +1195,6 @@ namespace BeanModManager
 
             tabControl?.Invalidate();
             
-            // Update stats after theme is applied to ensure pending updates color is correct
             UpdateStats();
         }
 
@@ -1303,7 +1207,6 @@ namespace BeanModManager
             tabPage.BackColor = palette.SurfaceColor;
             tabPage.ForeColor = palette.PrimaryTextColor;
             
-            // Ensure tab page paints its background
             tabPage.Paint -= TabPage_Paint;
             tabPage.Paint += TabPage_Paint;
         }
@@ -1322,15 +1225,11 @@ namespace BeanModManager
             if (tabControl == null || e.Index < 0 || e.Index >= tabControl.TabPages.Count)
                 return;
 
-            // Tabs are hidden (ItemSize is 0x1 and Appearance is FlatButtons), so just clear the background
-            // This prevents any visual artifacts while keeping TabControl functionality intact
             var palette = ThemeManager.Current;
             using (var bgBrush = new SolidBrush(palette.WindowBackColor))
             {
                 e.Graphics.FillRectangle(bgBrush, e.Bounds);
             }
-            
-            // Ensure tabs are completely invisible by not drawing anything
         }
 
         private void ApplyGroupTheme(GroupBox group, ThemePalette palette)
@@ -1387,13 +1286,11 @@ namespace BeanModManager
 
             var palette = ThemeManager.Current;
             
-            // Fill the combo box background
             using (var brush = new SolidBrush(palette.InputBackColor))
             {
                 e.Graphics.FillRectangle(brush, e.ClipRectangle);
             }
             
-            // Draw the selected item text
             if (combo.SelectedIndex >= 0 && combo.SelectedIndex < combo.Items.Count)
             {
                 var text = combo.Items[combo.SelectedIndex]?.ToString() ?? combo.Text;
@@ -1500,10 +1397,8 @@ namespace BeanModManager
         {
             if (panelInstalled == null || panelStore == null) return;
             
-            // Clear existing skeletons
             HideSkeletonLoaders();
             
-            // Suspend layout and suppress scrollbar invalidations
             panelInstalled.SuspendLayout();
             panelStore.SuspendLayout();
             panelInstalled.SuppressScrollbarInvalidation(true);
@@ -1511,40 +1406,33 @@ namespace BeanModManager
             
             try
             {
-                // Clear existing cards
                 panelInstalled.Controls.Clear();
                 panelStore.Controls.Clear();
                 
-                // Create skeleton cards for installed mods (invisible initially)
                 for (int i = 0; i < installedCount; i++)
                 {
                     var skeleton = new SkeletonModCard();
-                    skeleton.Visible = false; // Hide until layout is calculated
+                    skeleton.Visible = false;
                     _skeletonInstalledCards.Add(skeleton);
                     panelInstalled.Controls.Add(skeleton);
                 }
                 
-                // Create skeleton cards for store mods (invisible initially)
                 for (int i = 0; i < storeCount; i++)
                 {
                     var skeleton = new SkeletonModCard();
-                    skeleton.Visible = false; // Hide until layout is calculated
+                    skeleton.Visible = false;
                     _skeletonStoreCards.Add(skeleton);
                     panelStore.Controls.Add(skeleton);
                 }
             }
             finally
             {
-                // Re-enable scrollbar invalidations
                 panelInstalled.SuppressScrollbarInvalidation(false);
                 panelStore.SuppressScrollbarInvalidation(false);
                 
-                // Resume layout to calculate positions (synchronously)
                 panelInstalled.ResumeLayout(true);
                 panelStore.ResumeLayout(true);
                 
-                // Make skeletons visible AFTER layout is calculated
-                // ResumeLayout(true) performs layout synchronously, so we can make visible immediately
                 foreach (var skeleton in _skeletonInstalledCards)
                 {
                     if (skeleton != null && !skeleton.IsDisposed)
@@ -1582,14 +1470,12 @@ namespace BeanModManager
         {
             if (panelInstalled == null || panelStore == null) return;
             
-            // Collect skeletons to dispose (but don't dispose yet)
             var skeletonsToDispose = new List<SkeletonModCard>();
             skeletonsToDispose.AddRange(_skeletonInstalledCards);
             skeletonsToDispose.AddRange(_skeletonStoreCards);
             _skeletonInstalledCards.Clear();
             _skeletonStoreCards.Clear();
             
-            // Suspend layout and suppress scrollbar invalidations BEFORE making any changes
             panelInstalled.SuspendLayout();
             panelStore.SuspendLayout();
             panelInstalled.SuppressScrollbarInvalidation(true);
@@ -1597,8 +1483,6 @@ namespace BeanModManager
             
             try
             {
-                // Step 1: Remove cards from BOTH panels first (in case they're in the wrong panel)
-                // This ensures cards are properly moved between panels when install/uninstall happens
                 foreach (var card in installedCards)
                 {
                     if (panelStore.Controls.Contains(card))
@@ -1615,31 +1499,24 @@ namespace BeanModManager
                         panelStore.Controls.Remove(card);
                 }
                 
-                // Step 2: Clear panels completely (removes skeletons and any remaining controls)
                 panelInstalled.Controls.Clear();
                 panelStore.Controls.Clear();
                 
-                // Step 3: Add all cards at once in the correct sorted order (invisible initially to prevent glitchy positioning)
-                // Add all cards first
                 foreach (var card in installedCards)
                 {
-                    card.Visible = false; // Hide until layout is calculated
+                    card.Visible = false;
                     panelInstalled.Controls.Add(card);
                 }
-                // Then set indices in reverse order to avoid shifting issues
-                // SetChildIndex moves controls, so doing it in reverse (last to first) ensures correct final order
                 for (int i = installedCards.Count - 1; i >= 0; i--)
                 {
                     panelInstalled.Controls.SetChildIndex(installedCards[i], i);
                 }
                 
-                // Add all cards first
                 foreach (var card in storeCards)
                 {
-                    card.Visible = false; // Hide until layout is calculated
+                    card.Visible = false;
                     panelStore.Controls.Add(card);
                 }
-                // Then set indices in reverse order to avoid shifting issues
                 for (int i = storeCards.Count - 1; i >= 0; i--)
                 {
                     panelStore.Controls.SetChildIndex(storeCards[i], i);
@@ -1647,16 +1524,12 @@ namespace BeanModManager
             }
             finally
             {
-                // Re-enable scrollbar invalidations
                 panelInstalled.SuppressScrollbarInvalidation(false);
                 panelStore.SuppressScrollbarInvalidation(false);
                 
-                // Resume layout with performLayout=true to do a single layout calculation (synchronously)
                 panelInstalled.ResumeLayout(true);
                 panelStore.ResumeLayout(true);
                 
-                // Make cards visible AFTER layout is calculated
-                // ResumeLayout(true) performs layout synchronously, so we can make visible immediately
                 foreach (var card in installedCards)
                 {
                     if (card != null && !card.IsDisposed && panelInstalled.Controls.Contains(card))
@@ -1673,7 +1546,6 @@ namespace BeanModManager
                     }
                 }
                 
-                // Dispose skeletons AFTER layout is resumed (they're already removed from panels)
                 foreach (var skeleton in skeletonsToDispose)
                 {
                     skeleton?.Dispose();
@@ -1688,21 +1560,16 @@ namespace BeanModManager
 
             try
             {
-                // Check for app updates FIRST, before loading mods
-                // This runs regardless of rate limits (uses cache/ETag) and AutoUpdateMods setting
                 try
                 {
                     await CheckForAppUpdatesAsync().ConfigureAwait(false);
-                    // If update found, UpdateChecker_UpdateAvailable will notify the user
                 }
                 catch
                 {
-                    // Continue loading mods even if update check fails
                 }
                 
                 UpdateStatus("Loading mods...");
                 
-                // Check if Among Us path is set, if not show warning but don't open browse dialog
                 if (string.IsNullOrEmpty(_config.AmongUsPath))
                 {
                     SafeInvoke(() =>
@@ -1712,8 +1579,6 @@ namespace BeanModManager
                     });
                 }
 
-                // Detect installed mods first (doesn't require GitHub API)
-                // Only detect if Among Us path is available
                 HashSet<string> installedModIds;
                 if (!string.IsNullOrEmpty(_config.AmongUsPath))
                 {
@@ -1728,17 +1593,14 @@ namespace BeanModManager
                 }
                 else
                 {
-                    // If Among Us path is not set, only use mods from config (if any)
                     installedModIds = new HashSet<string>(
                         _config.InstalledMods.Select(m => m.ModId),
                         StringComparer.OrdinalIgnoreCase
                     );
                 }
 
-                // Fetch versions prioritizing installed mods
                 _availableMods = await _modStore.GetAvailableModsWithAllVersions(installedModIds).ConfigureAwait(false);
                 
-                // Initialize cache after mods are loaded
                 SafeInvoke(() => 
                 {
                     RefreshModDetectionCache(force: true);
@@ -1756,8 +1618,6 @@ namespace BeanModManager
                 
                 SafeInvoke(() =>
                 {
-                    // Force immediate refresh after initial load (don't debounce)
-                    // Use SuspendLayout for better performance
                     panelInstalled?.SuspendLayout();
                     panelStore?.SuspendLayout();
                     try
@@ -1772,8 +1632,6 @@ namespace BeanModManager
                     UpdateStats();
                     UpdateHeaderInfo();
                     
-                    // Also refresh after a short delay to handle any timing issues with mod detection
-                    // This ensures all mods are displayed even if detection wasn't complete on first refresh
                     if (IsHandleCreated)
                     {
                         var ensureRefreshTimer = new Timer { Interval = 300 };
@@ -1781,14 +1639,12 @@ namespace BeanModManager
                         {
                             ensureRefreshTimer.Stop();
                             ensureRefreshTimer.Dispose();
-                    // Only refresh if we have mods but they're not all showing
                     if (_availableMods != null && _availableMods.Any())
                     {
                         var installedCount = _availableMods.Count(m => m.IsInstalled);
                         //System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Found {installedCount} installed mods in _availableMods");
                         if (installedCount > 0)
                         {
-                            // Check if panels have fewer cards than installed mods
                             var installedCardsCount = panelInstalled?.Controls.OfType<ModCard>().Count() ?? 0;
                             //System.Diagnostics.Debug.WriteLine($"EnsureRefresh: Panel has {installedCardsCount} cards, expected {installedCount}");
                             if (installedCardsCount < installedCount)
@@ -1803,8 +1659,6 @@ namespace BeanModManager
                     }
                 });
 
-                // Check for mod updates if auto-update is enabled
-                // Note: App update check already ran at the start of LoadMods(), regardless of this setting
                 if (_config.AutoUpdateMods && !_modStore.IsRateLimited())
                 {
                     _ = Task.Run(async () => await CheckForUpdatesAsync().ConfigureAwait(false));
@@ -1833,15 +1687,13 @@ namespace BeanModManager
         /// </summary>
         private void RefreshModDetectionCache(bool force = false)
         {
-            // Check if cache is still fresh (unless forced)
             if (!force && _cacheLastUpdated != DateTime.MinValue && 
                 DateTime.Now - _cacheLastUpdated < _cacheMaxAge && 
                 _cachedDetectedMods != null && _cachedModsFolder != null)
             {
-                return; // Cache is still fresh
+                return;
             }
             
-            // Refresh cache
             _cachedModsFolder = GetModsFolder();
             _cachedDetectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, _cachedModsFolder);
             _cachedDetectedModIds = new HashSet<string>(_cachedDetectedMods.Select(m => m.ModId), StringComparer.OrdinalIgnoreCase);
@@ -1863,27 +1715,21 @@ namespace BeanModManager
                 catch { }
             }
             
-            // Pre-calculate installation status for all mods
-            // IMPORTANT: If a mod has been explicitly set (installed/uninstalled), trust mod.IsInstalled
-            // Otherwise fall back to filesystem/config checks
             _cachedInstallationStatus = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             if (_availableMods != null)
             {
                 foreach (var mod in _availableMods)
                 {
-                    // If mod was explicitly set (installed/uninstalled), trust mod.IsInstalled completely
                     if (_explicitlySetMods.Contains(mod.Id))
                     {
                         _cachedInstallationStatus[mod.Id] = mod.IsInstalled;
                     }
                     else if (mod.IsInstalled)
                     {
-                        // mod.IsInstalled is true but wasn't explicitly set - still trust it
                         _cachedInstallationStatus[mod.Id] = true;
                     }
                     else
                     {
-                        // Fall back to filesystem/config checks for mods that haven't been recently changed
                         var modStoragePath = Path.Combine(_cachedModsFolder, mod.Id);
                         bool modFolderExists = !string.IsNullOrEmpty(_config.AmongUsPath) && Directory.Exists(modStoragePath);
                         bool isDetected = _cachedDetectedModIds.Contains(mod.Id);
@@ -1896,10 +1742,7 @@ namespace BeanModManager
             
             _cacheLastUpdated = DateTime.Now;
             
-            // Invalidate Epic/MS Store cache when mods folder changes
             _cachedIsEpicOrMsStore = null;
-            
-            // Invalidate pending updates count cache
             _cachedPendingUpdatesCount = null;
         }
         
@@ -1913,7 +1756,6 @@ namespace BeanModManager
                 return cached;
             }
             
-            // Fallback to direct check if cache not available
             var modsFolder = _cachedModsFolder ?? GetModsFolder();
             var modStoragePath = Path.Combine(modsFolder, modId);
             bool modFolderExists = !string.IsNullOrEmpty(_config.AmongUsPath) && Directory.Exists(modStoragePath);
@@ -1955,7 +1797,6 @@ namespace BeanModManager
                 panelEmptyStore.Visible = false;
                 panelEmptyInstalled.Visible = false;
                 
-                // Get existing cards BEFORE doing anything - we'll reuse them
                 var existingInstalledCards = panelInstalled.Controls.OfType<ModCard>().ToDictionary(c => c.BoundMod?.Id ?? "", c => c, StringComparer.OrdinalIgnoreCase);
                 var existingStoreCards = panelStore.Controls.OfType<ModCard>().ToDictionary(c => c.BoundMod?.Id ?? "", c => c, StringComparer.OrdinalIgnoreCase);
                 
@@ -1975,7 +1816,6 @@ namespace BeanModManager
                     return;
                 }
                 
-                // Use cached detection results instead of detecting every time
                 RefreshModDetectionCache();
                 var modsFolder = _cachedModsFolder;
                 var detectedMods = _cachedDetectedMods;
@@ -1984,12 +1824,10 @@ namespace BeanModManager
                 
                 var expectedInstalledCount = _availableMods.Count(m => 
                 {
-                    // Use cached installation status
                     bool isInstalled = IsModInstalledCached(m.Id);
                     
                     if (!isInstalled) return false;
                     
-                    // Apply filters
                     var searchText = _installedSearchText;
                     var categoryFilter = _installedCategoryFilter;
                     
@@ -3615,7 +3453,7 @@ namespace BeanModManager
                         {
                             Directory.Delete(depStoragePath, true);
                         }
-                        catch (Exception ex)
+                        catch //(Exception ex)
                         {
                             //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete dependency folder {depStoragePath}: {ex.Message}");
                         }
@@ -3776,7 +3614,7 @@ namespace BeanModManager
                             Directory.Delete(modStoragePath, true);
                             //System.Diagnostics.Debug.WriteLine($"Deleted existing mod folder: {modStoragePath}");
                         }
-                        catch (Exception ex)
+                        catch //(Exception ex)
                         {
                             //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete existing folder: {ex.Message}");
                         }
@@ -4105,7 +3943,7 @@ namespace BeanModManager
                     File.Copy(file, destFile, overwrite);
                     //System.Diagnostics.Debug.WriteLine($"Copied: {fileName} -> {destFile}");
                 }
-                catch (Exception ex)
+                catch //(Exception ex)
                 {
                     //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
                 }
@@ -4164,7 +4002,7 @@ namespace BeanModManager
                             Directory.Move(bepInExBackup, bepInExPath2);
                         }
                     }
-                    catch (Exception ex)
+                    catch //(Exception ex)
                     {
                         //System.Diagnostics.Debug.WriteLine($"Error restoring: {ex.Message}");
                     }
@@ -5078,7 +4916,7 @@ namespace BeanModManager
                                     {
                                         Directory.Delete(depStoragePath, true);
                                     }
-                                    catch (Exception ex)
+                                    catch //(Exception ex)
                                     {
                                         //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete dependency folder {depStoragePath}: {ex.Message}");
                                     }
@@ -5116,7 +4954,7 @@ namespace BeanModManager
                                     UpdateStatus($"{depMod.Name} {targetVersion} installed successfully!");
                                 }
                             }
-                            catch (Exception ex)
+                            catch //(Exception ex)
                             {
                                 //System.Diagnostics.Debug.WriteLine($"Error installing {depMod.Name}: {ex.Message}");
                             }
@@ -5151,7 +4989,7 @@ namespace BeanModManager
                                 {
                                     Directory.Delete(modStoragePath, true);
                                 }
-                                catch (Exception ex)
+                                catch //(Exception ex)
                                 {
                                     //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete mod folder {modStoragePath}: {ex.Message}");
                                 }
@@ -5626,7 +5464,7 @@ namespace BeanModManager
                         }
                     }
                 }
-                catch (Exception ex)
+                catch //(Exception ex)
                 {
                     //System.Diagnostics.Debug.WriteLine($"Error reading error log: {ex.Message}");
                     return;
@@ -5703,7 +5541,7 @@ namespace BeanModManager
                     form.ShowDialog();
                 });
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error checking error log: {ex.Message}");
             }
@@ -5738,7 +5576,7 @@ namespace BeanModManager
                         File.Copy(dllFile, destPath, true);
                         //System.Diagnostics.Debug.WriteLine($"Copied DLL: {fileName} -> {destPath}");
                     }
-                    catch (Exception ex)
+                    catch //(Exception ex)
                     {
                         //System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
                     }
@@ -6018,7 +5856,7 @@ namespace BeanModManager
                             }
                             File.Copy(dllFile, destPath, true);
                         }
-                        catch (Exception ex)
+                        catch //(Exception ex)
                         {
                             //System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
                         }
@@ -6048,7 +5886,7 @@ namespace BeanModManager
                                 }
                                 File.Copy(dllFile, destPath, true);
                             }
-                            catch (Exception ex)
+                            catch //(Exception ex)
                             {
                                 //System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
                             }
@@ -6164,7 +6002,7 @@ namespace BeanModManager
                                 }
                                 File.Copy(dllFile, destPath, true);
                             }
-                            catch (Exception ex)
+                            catch //(Exception ex)
                             {
                                 //System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
                             }
@@ -6195,7 +6033,7 @@ namespace BeanModManager
                                     }
                                     File.Copy(dllFile, destPath, true);
                                 }
-                                catch (Exception ex)
+                                catch //(Exception ex)
                                 {
                                     //System.Diagnostics.Debug.WriteLine($"Error copying DLL {fileName}: {ex.Message}");
                                 }
@@ -6731,7 +6569,7 @@ namespace BeanModManager
                                 failedMods.Add(mod.Name);
                             }
                         }
-                        catch (Exception ex)
+                        catch //(Exception ex)
                         {
                             failCount++;
                             failedMods.Add(mod.Name);
@@ -7185,6 +7023,297 @@ namespace BeanModManager
             }
         }
 
+        private void btnImportMod_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(_config.AmongUsPath))
+            {
+                MessageBox.Show("Please set your Among Us path first in Settings.", "Path Required",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                string selectedPath = null;
+
+                // Open file picker first (DLL/ZIP) - user can also navigate to folders
+                using (var dialog = new CommonOpenFileDialog())
+                {
+                    dialog.Title = "Import Mod - Select File or Folder";
+                    dialog.IsFolderPicker = false;
+                    dialog.Multiselect = false;
+                    dialog.Filters.Add(new CommonFileDialogFilter("Mod Files", "*.dll;*.zip"));
+                    dialog.Filters.Add(new CommonFileDialogFilter("DLL Files", "*.dll"));
+                    dialog.Filters.Add(new CommonFileDialogFilter("ZIP Files", "*.zip"));
+                    dialog.Filters.Add(new CommonFileDialogFilter("All Files", "*.*"));
+
+                    var result = dialog.ShowDialog();
+                    if (result == CommonFileDialogResult.Ok)
+                    {
+                        selectedPath = dialog.FileName;
+                    }
+                    else
+                    {
+                        return; // User cancelled
+                    }
+                }
+
+                // If user selected a folder path (by typing or navigating), handle it
+                if (!string.IsNullOrEmpty(selectedPath) && Directory.Exists(selectedPath))
+                {
+                    // It's a folder, proceed with import
+                    ImportCustomMod(selectedPath);
+                }
+                else if (!string.IsNullOrEmpty(selectedPath))
+                {
+                    // It's a file, proceed with import
+                    ImportCustomMod(selectedPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening import dialog: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async void ImportCustomMod(string sourcePath)
+        {
+            try
+            {
+                // Check if it's a directory or file
+                bool isDirectory = Directory.Exists(sourcePath);
+                bool isFile = File.Exists(sourcePath);
+                
+                if (!isDirectory && !isFile)
+                {
+                    MessageBox.Show("The selected path does not exist.", "Invalid Path",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string actualSourcePath = sourcePath;
+                if (isFile)
+                {
+                    var extension = Path.GetExtension(sourcePath).ToLower();
+                    if (extension != ".dll" && extension != ".zip")
+                    {
+                        MessageBox.Show(
+                            "Please select a DLL file, ZIP file, or a folder containing mod files.",
+                            "Invalid File Type",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+
+                // Get mod name from user using themed dialog
+                string modName = null;
+                string defaultName;
+                if (Directory.Exists(actualSourcePath))
+                {
+                    defaultName = Path.GetFileName(actualSourcePath);
+                }
+                else
+                {
+                    defaultName = Path.GetFileNameWithoutExtension(actualSourcePath);
+                }
+                
+                using (var nameDialog = new Form())
+                {
+                    var palette = ThemeManager.Current;
+                    bool isDark = ThemeManager.CurrentVariant == ThemeVariant.Dark;
+                    
+                    nameDialog.Text = "Import Custom Mod";
+                    nameDialog.Size = new Size(420, 160);
+                    nameDialog.StartPosition = FormStartPosition.CenterParent;
+                    nameDialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                    nameDialog.MaximizeBox = false;
+                    nameDialog.MinimizeBox = false;
+                    nameDialog.BackColor = palette.WindowBackColor;
+                    nameDialog.ForeColor = palette.PrimaryTextColor;
+                    
+                    var lblPrompt = new Label
+                    {
+                        Text = "Enter a name for this mod:",
+                        Location = new Point(16, 20),
+                        Size = new Size(380, 20),
+                        Font = new Font("Segoe UI", 9F),
+                        ForeColor = palette.PrimaryTextColor,
+                        BackColor = Color.Transparent
+                    };
+                    
+                    var txtModName = new TextBox
+                    {
+                        Text = defaultName,
+                        Location = new Point(16, 45),
+                        Size = new Size(380, 23),
+                        Font = new Font("Segoe UI", 9F),
+                        BackColor = palette.InputBackColor,
+                        ForeColor = palette.InputTextColor,
+                        BorderStyle = BorderStyle.FixedSingle
+                    };
+                    
+                    var btnOk = new Button
+                    {
+                        Text = "Import",
+                        DialogResult = DialogResult.OK,
+                        Location = new Point(236, 85),
+                        Size = new Size(75, 32),
+                        Font = new Font("Segoe UI", 9F),
+                        UseVisualStyleBackColor = false,
+                        BackColor = palette.SuccessButtonColor,
+                        ForeColor = palette.SuccessButtonTextColor,
+                        FlatStyle = FlatStyle.Flat,
+                        FlatAppearance = { BorderSize = 0 }
+                    };
+                    btnOk.FlatAppearance.MouseOverBackColor = Color.FromArgb(
+                        Math.Min(255, palette.SuccessButtonColor.R + 15),
+                        Math.Min(255, palette.SuccessButtonColor.G + 15),
+                        Math.Min(255, palette.SuccessButtonColor.B + 15));
+                    
+                    var btnCancel = new Button
+                    {
+                        Text = "Cancel",
+                        DialogResult = DialogResult.Cancel,
+                        Location = new Point(317, 85),
+                        Size = new Size(75, 32),
+                        Font = new Font("Segoe UI", 9F),
+                        UseVisualStyleBackColor = false,
+                        BackColor = palette.SecondaryButtonColor,
+                        ForeColor = palette.SecondaryButtonTextColor,
+                        FlatStyle = FlatStyle.Flat,
+                        FlatAppearance = { BorderSize = 0 }
+                    };
+                    btnCancel.FlatAppearance.MouseOverBackColor = Color.FromArgb(
+                        Math.Min(255, palette.SecondaryButtonColor.R + 15),
+                        Math.Min(255, palette.SecondaryButtonColor.G + 15),
+                        Math.Min(255, palette.SecondaryButtonColor.B + 15));
+                    
+                    nameDialog.Controls.AddRange(new Control[] { lblPrompt, txtModName, btnOk, btnCancel });
+                    nameDialog.AcceptButton = btnOk;
+                    nameDialog.CancelButton = btnCancel;
+                    
+                    // Apply Win32 dark mode theming when dialog loads
+                    nameDialog.Load += (s, e) =>
+                    {
+                        if (nameDialog.IsHandleCreated)
+                        {
+                            DarkModeHelper.EnableDarkMode(nameDialog, isDark);
+                            DarkModeHelper.ApplyThemeToControl(nameDialog, isDark);
+                        }
+                    };
+                    
+                    // Also apply after handle is created (in case Load fires before handle creation)
+                    nameDialog.HandleCreated += (s, e) =>
+                    {
+                        DarkModeHelper.EnableDarkMode(nameDialog, isDark);
+                        DarkModeHelper.ApplyThemeToControl(nameDialog, isDark);
+                    };
+                    
+                    // Select all text in the textbox for easy editing
+                    txtModName.SelectAll();
+                    txtModName.Focus();
+                    
+                    if (nameDialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        modName = txtModName.Text.Trim();
+                        if (string.IsNullOrEmpty(modName))
+                        {
+                            MessageBox.Show("Mod name cannot be empty.", "Invalid Name",
+                                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        return; // User cancelled
+                    }
+                }
+
+                // Generate a unique mod ID from the name
+                string modId = "Custom_" + System.Text.RegularExpressions.Regex.Replace(
+                    modName, @"[^a-zA-Z0-9]", "");
+
+                // Ensure mod ID is unique
+                int counter = 1;
+                string originalModId = modId;
+                while (_availableMods.Any(m => m.Id.Equals(modId, StringComparison.OrdinalIgnoreCase)) ||
+                       Directory.Exists(Path.Combine(GetModsFolder(), modId)))
+                {
+                    modId = originalModId + "_" + counter;
+                    counter++;
+                }
+
+                // Determine destination path
+                var modStoragePath = Path.Combine(GetModsFolder(), modId);
+
+                // Show progress
+                UpdateStatus($"Importing {modName}...");
+
+                // Import the mod
+                bool success = _modImporter.ImportMod(actualSourcePath, modName, modStoragePath);
+
+                if (success)
+                {
+                    // Create a Mod object for the imported mod
+                    var customMod = new Mod
+                    {
+                        Id = modId,
+                        Name = modName,
+                        Author = "Custom Import",
+                        Description = $"Custom imported mod from {Path.GetFileName(actualSourcePath)}",
+                        Category = "Custom",
+                        Versions = new List<ModVersion>
+                        {
+                            new ModVersion
+                            {
+                                Version = "Imported",
+                                GameVersion = "Custom",
+                                IsInstalled = true
+                            }
+                        },
+                        IsInstalled = true,
+                        InstalledVersion = new ModVersion { Version = "Imported" }
+                    };
+
+                    // Add to available mods list
+                    if (_availableMods == null)
+                    {
+                        _availableMods = new List<Mod>();
+                    }
+                    _availableMods.Add(customMod);
+
+                    // Mark as installed in config
+                    _config.AddInstalledMod(modId, "Imported");
+
+                    // Save config
+                    await _config.SaveAsync();
+
+                    // Refresh mod detection cache and mod cards
+                    RefreshModDetectionCache(force: true);
+                    RefreshModCards();
+
+                    UpdateStatus($"{modName} imported successfully! You can now launch it from the Installed Mods tab.");
+                }
+                else
+                {
+                    MessageBox.Show(
+                        $"Failed to import {modName}.\n\n" +
+                        "Please check the status bar for details.",
+                        "Import Failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error importing mod: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                UpdateStatus("Ready");
+            }
+        }
+
         private void btnOpenModsFolder_Click(object sender, EventArgs e)
         {
             var modsPath = GetModsFolder();
@@ -7351,7 +7480,7 @@ namespace BeanModManager
                 var hasUpdate = await _updateChecker.CheckForUpdatesAsync().ConfigureAwait(false);
                 // UpdateAvailable event will be fired if update is found
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error checking for app updates: {ex.Message}");
                 // Don't show error to user - update check failure shouldn't block app usage
@@ -7382,7 +7511,7 @@ namespace BeanModManager
                             UseShellExecute = true
                         });
                     }
-                    catch (Exception ex)
+                    catch //(Exception ex)
                     {
                         MessageBox.Show(
                             $"Failed to open the download page.\n\nPlease visit: {e.ReleaseUrl}",
@@ -7731,7 +7860,7 @@ return; // User cancelled
                     }
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error checking for updates: {ex.Message}");
             }

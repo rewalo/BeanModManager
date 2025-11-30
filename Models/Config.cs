@@ -62,7 +62,7 @@ namespace BeanModManager.Models
                     }
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error loading config: {ex.Message}");
             }
@@ -119,7 +119,7 @@ namespace BeanModManager.Models
                     }
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error saving config: {ex.Message}");
             }
@@ -174,7 +174,7 @@ namespace BeanModManager.Models
                     }
                 });
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error saving config: {ex.Message}");
             }

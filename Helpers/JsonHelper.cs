@@ -15,7 +15,7 @@ namespace BeanModManager.Helpers
             {
                 return _serializer.Deserialize<T>(json);
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"JSON deserialization error: {ex.Message}");
                 throw;
@@ -28,7 +28,7 @@ namespace BeanModManager.Helpers
             {
                 return _serializer.Serialize(obj);
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"JSON serialization error: {ex.Message}");
                 throw;

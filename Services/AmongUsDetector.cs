@@ -27,7 +27,7 @@ namespace BeanModManager.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error detecting Among Us: {ex.Message}");
             }

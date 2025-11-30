@@ -39,7 +39,7 @@ namespace BeanModManager.Helpers
                     return JsonHelper.Deserialize<CacheEntry>(json);
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error reading cache for {cacheKey}: {ex.Message}");
             }
@@ -68,7 +68,7 @@ namespace BeanModManager.Helpers
                 var json = JsonHelper.Serialize(cacheEntry);
                 File.WriteAllText(cachePath, json);
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error saving cache for {cacheKey}: {ex.Message}");
             }
@@ -89,7 +89,7 @@ namespace BeanModManager.Helpers
                     File.WriteAllText(cachePath, json);
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error updating cache timestamp for {cacheKey}: {ex.Message}");
             }
@@ -127,7 +127,7 @@ namespace BeanModManager.Helpers
                     }
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error clearing cache: {ex.Message}");
             }

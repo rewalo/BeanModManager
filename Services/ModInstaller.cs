@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using BeanModManager.Models;
+using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -28,7 +29,6 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                // Use provided modStoragePath, or construct from amongUsPath for backward compatibility
                 if (string.IsNullOrEmpty(modStoragePath))
                 {
                     var modsFolder = Path.Combine(amongUsPath, "Mods");
@@ -40,7 +40,6 @@ namespace BeanModManager.Services
                 }
                 else
                 {
-                    // Ensure the modStoragePath directory exists
                     var modsFolder = Path.GetDirectoryName(modStoragePath);
                     if (!string.IsNullOrEmpty(modsFolder) && !Directory.Exists(modsFolder))
                     {
@@ -62,21 +61,17 @@ namespace BeanModManager.Services
 
                 string modContentRoot = modPath;
                 
-                // Check if BepInEx exists directly
                 var directBepInEx = Path.Combine(modPath, "BepInEx");
                 if (!Directory.Exists(directBepInEx))
                 {
-                    // Try to find BepInEx recursively (for nested folder structures)
-                    var foundBepInEx = FindBepInExFolder(modPath);
+                    var foundBepInEx = FileSystemHelper.FindBepInExFolder(modPath);
                     if (foundBepInEx != null)
                     {
-                        // Get the parent directory that contains BepInEx
                         modContentRoot = Directory.GetParent(foundBepInEx).FullName;
                         OnProgressChanged($"Found nested structure, using content from: {Path.GetFileName(modContentRoot)}");
                     }
                     else
                     {
-                        // Fallback: check if there's a single subdirectory that might contain the mod
                         var subdirs = Directory.GetDirectories(modPath);
                         if (subdirs.Length == 1)
                         {
@@ -99,7 +94,6 @@ namespace BeanModManager.Services
                 {
                     var dirName = Path.GetFileName(dir);
                     
-                    // Skip directories in dontInclude list
                     if (dontInclude.Any(item => string.Equals(item, dirName, StringComparison.OrdinalIgnoreCase)))
                     {
                         //System.Diagnostics.Debug.WriteLine($"Skipping directory {dirName} (in dontInclude list)");
@@ -118,7 +112,6 @@ namespace BeanModManager.Services
                     if (fileNameLower.EndsWith(".zip"))
                         continue;
                     
-                    // Skip files in dontInclude list
                     if (dontInclude.Any(item => string.Equals(item, fileName, StringComparison.OrdinalIgnoreCase)))
                     {
                         //System.Diagnostics.Debug.WriteLine($"Skipping file {fileName} (in dontInclude list)");
@@ -131,7 +124,7 @@ namespace BeanModManager.Services
                         File.Copy(file, targetFile, true);
                         OnProgressChanged($"Copied {fileName}");
                     }
-                    catch (Exception ex)
+                    catch //(Exception ex)
                     {
                         //System.Diagnostics.Debug.WriteLine($"Warning: Could not copy file {fileName}: {ex.Message}");
                         OnProgressChanged($"Warning: Could not copy {fileName}");
@@ -146,78 +139,6 @@ namespace BeanModManager.Services
                 OnProgressChanged($"Error installing {mod.Name}: {ex.Message}");
                 return false;
             }
-        }
-
-        private void CleanupPackagingFolders(string amongUsPath)
-        {
-            try
-            {
-                if (!Directory.Exists(amongUsPath))
-                    return;
-
-                var foldersToRemove = new List<string>();
-                
-                foreach (var dir in Directory.GetDirectories(amongUsPath))
-                {
-                    var dirName = Path.GetFileName(dir);
-                    var dirNameLower = dirName.ToLower();
-                    
-                    if (dirNameLower.StartsWith("tou") ||
-                        (dirNameLower.Contains("town") && dirNameLower.Contains("us")) ||
-                        dirNameLower.StartsWith("town-of-us") ||
-                        dirNameLower.StartsWith("townofus"))
-                    {
-                        foldersToRemove.Add(dir);
-                    }
-                }
-
-                foreach (var folder in foldersToRemove)
-                {
-                    try
-                    {
-                        Directory.Delete(folder, true);
-                        OnProgressChanged($"Removed packaging folder: {Path.GetFileName(folder)}");
-                    }
-                    catch (Exception ex)
-                    {
-                        //System.Diagnostics.Debug.WriteLine($"Error removing folder {folder}: {ex.Message}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                //System.Diagnostics.Debug.WriteLine($"Error cleaning up packaging folders: {ex.Message}");
-            }
-        }
-
-        private string FindBepInExFolder(string searchPath)
-        {
-            var directPath = Path.Combine(searchPath, "BepInEx");
-            if (Directory.Exists(directPath))
-            {
-                return directPath;
-            }
-
-            try
-            {
-                foreach (var dir in Directory.GetDirectories(searchPath))
-                {
-                    var bepInExPath = Path.Combine(dir, "BepInEx");
-                    if (Directory.Exists(bepInExPath))
-                    {
-                        return bepInExPath;
-                    }
-                    
-                    var nested = FindBepInExFolder(dir);
-                    if (nested != null)
-                    {
-                        return nested;
-                    }
-                }
-            }
-            catch { }
-
-            return null;
         }
 
 
@@ -252,38 +173,13 @@ namespace BeanModManager.Services
                 }
                 
                 var destFile = Path.Combine(destDir, fileName);
-                int retries = 5;
-                bool copied = false;
-                
-                while (retries > 0 && !copied)
+                try
                 {
-                    try
-                    {
-                        if (File.Exists(destFile))
-                        {
-                            File.SetAttributes(destFile, FileAttributes.Normal);
-                            File.Delete(destFile);
-                        }
-                        File.Copy(file, destFile, overwrite);
-                        copied = true;
-                    }
-                    catch (IOException)
-                    {
-                        retries--;
-                        if (retries > 0)
-                        {
-                            System.Threading.Thread.Sleep(500);
-                        }
-                        else
-                        {
-                            //System.Diagnostics.Debug.WriteLine($"Error copying {file} after retries");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
-                        break;
-                    }
+                    FileSystemHelper.CopyFileWithRetry(file, destFile, overwrite);
+                }
+                catch
+                {
+                    //System.Diagnostics.Debug.WriteLine($"Error copying {file} after retries");
                 }
             }
 
@@ -295,7 +191,6 @@ namespace BeanModManager.Services
                     continue;
                 }
                 
-                // Skip directories in dontInclude list
                 if (dontInclude.Any(item => string.Equals(item, dirName, StringComparison.OrdinalIgnoreCase)))
                 {
                     //System.Diagnostics.Debug.WriteLine($"Skipping directory {dirName} (in dontInclude list)");
@@ -307,75 +202,6 @@ namespace BeanModManager.Services
             }
         }
 
-        private void CopyDirectoryWithRetry(string sourceDir, string destDir, bool overwrite)
-        {
-            if (!Directory.Exists(sourceDir))
-            {
-                return;
-            }
-
-            if (!Directory.Exists(destDir))
-            {
-                Directory.CreateDirectory(destDir);
-            }
-
-            foreach (var file in Directory.GetFiles(sourceDir))
-            {
-                var fileName = Path.GetFileName(file);
-                
-                if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-                
-                var destFile = Path.Combine(destDir, fileName);
-                int retries = 5;
-                bool copied = false;
-                
-                while (retries > 0 && !copied)
-                {
-                    try
-                    {
-                        if (File.Exists(destFile))
-                        {
-                            File.SetAttributes(destFile, FileAttributes.Normal);
-                            File.Delete(destFile);
-                        }
-                        File.Copy(file, destFile, overwrite);
-                        copied = true;
-                    }
-                    catch (IOException)
-                    {
-                        retries--;
-                        if (retries > 0)
-                        {
-                            System.Threading.Thread.Sleep(500);
-                        }
-                        else
-                        {
-                            //System.Diagnostics.Debug.WriteLine($"Error copying {file} after retries");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
-                        break;
-                    }
-                }
-            }
-
-            foreach (var dir in Directory.GetDirectories(sourceDir))
-            {
-                var dirName = Path.GetFileName(dir);
-                if (dirName.Equals("temp", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-                
-                var destSubDir = Path.Combine(destDir, dirName);
-                CopyDirectoryWithRetry(dir, destSubDir, overwrite);
-            }
-        }
 
         public bool UninstallMod(Mod mod, string amongUsPath, string modStoragePath = null)
         {
@@ -394,7 +220,6 @@ namespace BeanModManager.Services
                 var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
                 if (!Directory.Exists(pluginsPath))
                 {
-                    // No plugins folder, just delete mod storage and return
                     if (Directory.Exists(modStoragePath))
                     {
                         try
@@ -415,23 +240,18 @@ namespace BeanModManager.Services
 
                 bool removedAny = false;
 
-                // Get list of files that belong to this mod from the mod storage folder
-                // IMPORTANT: Check BEFORE deleting the mod storage folder!
                 var modFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var modFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 
                 if (Directory.Exists(modStoragePath))
                 {
-                    // Get all DLL files from mod storage (including subdirectories)
                     var modDllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.AllDirectories);
                     foreach (var dllFile in modDllFiles)
                     {
                         var fileName = Path.GetFileName(dllFile);
                         modFiles.Add(fileName);
-                        //System.Diagnostics.Debug.WriteLine($"Found mod DLL in storage: {fileName}");
                     }
                     
-                    // Get all folders from mod storage (for plugins subfolders)
                     var modStorageFolders = Directory.GetDirectories(modStoragePath, "*", SearchOption.AllDirectories);
                     foreach (var folder in modStorageFolders)
                     {
@@ -447,7 +267,7 @@ namespace BeanModManager.Services
                                     var folderParts = folderName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                                     if (folderParts.Length > 0)
                                     {
-                                        modFolders.Add(folderParts[0]); // First level folder name
+                                        modFolders.Add(folderParts[0]);
                                     }
                                 }
                             }
@@ -455,11 +275,9 @@ namespace BeanModManager.Services
                     }
                 }
                 
-                // Also check for DLLs that match the mod name/ID pattern as a fallback
                 var modIdLower = mod.Id.ToLower();
                 var modNameLower = mod.Name.ToLower();
 
-                // Remove DLL files that match mod files
                 var dllFiles = Directory.GetFiles(pluginsPath, "*.dll", SearchOption.AllDirectories);
                 foreach (var dll in dllFiles)
                 {
@@ -467,7 +285,6 @@ namespace BeanModManager.Services
                     var fileNameLower = fileName.ToLower();
                     bool shouldRemove = modFiles.Contains(fileName);
                     
-                    // Fallback: also check if filename matches mod ID or name
                     if (!shouldRemove)
                     {
                         shouldRemove = fileNameLower.Contains(modIdLower) || 
@@ -499,14 +316,13 @@ namespace BeanModManager.Services
                                 }
                             }
                         }
-                        catch (Exception ex)
+                        catch //(Exception ex)
                         {
                             //System.Diagnostics.Debug.WriteLine($"Error deleting {dll}: {ex.Message}");
                         }
                     }
                 }
 
-                // Remove plugin subfolders that match mod folders
                 foreach (var folderName in modFolders)
                 {
                     var pluginFolder = Path.Combine(pluginsPath, folderName);
@@ -518,14 +334,13 @@ namespace BeanModManager.Services
                             removedAny = true;
                             OnProgressChanged($"Removed {folderName} folder");
                         }
-                        catch (Exception ex)
+                        catch //(Exception ex)
                         {
                             //System.Diagnostics.Debug.WriteLine($"Error deleting folder {pluginFolder}: {ex.Message}");
                         }
                     }
                 }
 
-                // Now delete the mod storage folder after we've checked what files to remove
                 if (Directory.Exists(modStoragePath))
                 {
                     try
@@ -544,8 +359,6 @@ namespace BeanModManager.Services
                     modFolderRemoved = true;
                 }
 
-                // Check for special folders in the Among Us root directory (like TOHE-DATA)
-                // These are typically named after the mod ID or contain mod-specific data
                 var specialFolders = new[] { $"{mod.Id}-DATA", $"{mod.Id}_DATA", mod.Id };
                 foreach (var specialFolderName in specialFolders)
                 {
@@ -558,7 +371,7 @@ namespace BeanModManager.Services
                             removedAny = true;
                             OnProgressChanged($"Removed {specialFolderName} folder");
                         }
-                        catch (Exception ex)
+                        catch //(Exception ex)
                         {
                             //System.Diagnostics.Debug.WriteLine($"Error deleting special folder {specialFolderPath}: {ex.Message}");
                         }
@@ -585,37 +398,6 @@ namespace BeanModManager.Services
             }
         }
 
-        private void CopyDirectory(string sourceDir, string destDir, bool overwrite)
-        {
-            if (!Directory.Exists(sourceDir))
-            {
-                return;
-            }
-
-            if (!Directory.Exists(destDir))
-            {
-                Directory.CreateDirectory(destDir);
-            }
-
-            foreach (var file in Directory.GetFiles(sourceDir))
-            {
-                var destFile = Path.Combine(destDir, Path.GetFileName(file));
-                try
-                {
-                    File.Copy(file, destFile, overwrite);
-                }
-                catch (Exception ex)
-                {
-                    //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
-                }
-            }
-
-            foreach (var dir in Directory.GetDirectories(sourceDir))
-            {
-                var destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
-                CopyDirectory(dir, destSubDir, overwrite);
-            }
-        }
 
         protected virtual void OnProgressChanged(string message)
         {

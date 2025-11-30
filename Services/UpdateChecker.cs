@@ -135,7 +135,7 @@ namespace BeanModManager.Services
 
                 return release;
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Failed to fetch latest release: {ex.Message}");
                 return null;

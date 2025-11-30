@@ -292,7 +292,7 @@ namespace BeanModManager.Services
                     return fileInfo.ProductVersion;
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error reading DLL version from {dllPath}: {ex.Message}");
             }

@@ -49,10 +49,9 @@ namespace BeanModManager.Services
                     //System.Diagnostics.Debug.WriteLine($"Loaded cache for {_cacheEntries.Count} mods");
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Failed to load mod cache from {_cacheUrl}: {ex.Message}");
-                // Cache is optional, so we continue without it
             }
         }
 
@@ -89,43 +88,12 @@ namespace BeanModManager.Services
                     return;
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Failed to load mod registry from {_registryUrl}: {ex.Message}");
             }
             MessageBox.Show("Failed to load mod registry from the internet.\n\n" + "Please check your internet connection and try again.", "Mod Registry Load Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             Process.GetCurrentProcess().Kill();
-            //LoadHardcodedMods();
-        }
-
-        private void LoadHardcodedMods()
-        {
-            var json = File.ReadAllText("mod-registry.json");
-            var registry = JsonHelper.Deserialize<ModRegistry>(json);
-
-            if (registry != null && registry.mods != null && registry.mods.Any())
-            {
-                foreach (var entry in registry.mods)
-                {
-                    var mod = new Mod
-                    {
-                        Id = entry.id,
-                        Name = entry.name,
-                        Author = entry.author,
-                        Description = entry.description,
-                        GitHubOwner = entry.githubOwner,
-                        GitHubRepo = entry.githubRepo,
-                        Category = entry.category,
-                        Versions = new List<ModVersion>(),
-                        Incompatibilities = entry.incompatibilities ?? new List<string>(),
-                        IsFeatured = entry.featured
-                    };
-
-                    _registryEntries[entry.id] = entry;
-                    _availableMods.Add(mod);
-                }
-            }
-            //System.Diagnostics.Debug.WriteLine($"Loaded {_availableMods.Count} hardcoded mods (fallback)");
         }
 
         public async Task<List<Mod>> GetAvailableMods()
@@ -166,37 +134,30 @@ namespace BeanModManager.Services
         {
             _rateLimited = false;
             
-            // Start with all mods from registry (they'll be added to results)
             var results = new List<Mod>(_availableMods);
             var processedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // First, fetch all versions for installed mods (needed for dropdowns and update checking)
             var installedMods = _availableMods.Where(m => installedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase)).ToList();
             
             foreach (var mod in installedMods)
             {
                 if (_rateLimited)
                 {
-                    // Already in results, just mark as processed
                     processedModIds.Add(mod.Id);
                     continue;
                 }
 
                 try
                 {
-                    // Fetch all versions for installed mods (needed for dropdowns)
                     await FetchAllModVersions(mod);
                     processedModIds.Add(mod.Id);
                 }
                 catch
                 {
-                    // If rate limited during fetch, mark as processed but mod is already in results
                     processedModIds.Add(mod.Id);
-                    // Continue to try other installed mods even if one fails
                 }
             }
 
-            // Then fetch versions for uninstalled mods (if not rate limited)
             if (!_rateLimited)
             {
                 var uninstalledMods = _availableMods.Where(m => !installedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase)).ToList();
@@ -212,7 +173,6 @@ namespace BeanModManager.Services
                     }
                     catch
                     {
-                        // If rate limited during fetch, mark as processed but mod is already in results
                         processedModIds.Add(mod.Id);
                         if (_rateLimited)
                             break;
@@ -220,7 +180,6 @@ namespace BeanModManager.Services
                 }
             }
 
-            // All mods are already in results, so just return them
             return results;
         }
 
@@ -262,24 +221,20 @@ namespace BeanModManager.Services
             if (string.IsNullOrEmpty(modVersion))
                 return new List<VersionDependency>();
 
-            // Normalize the version (remove 'v' prefix, trim)
             var normalizedVersion = modVersion.TrimStart('v', 'V').Trim();
 
-            // Try exact match first
             if (entry.versionDependencies.ContainsKey(modVersion))
             {
                 //System.Diagnostics.Debug.WriteLine($"Found exact version match for {modId} version {modVersion}");
                 return entry.versionDependencies[modVersion];
             }
 
-            // Try normalized version
             if (entry.versionDependencies.ContainsKey(normalizedVersion))
             {
                 //System.Diagnostics.Debug.WriteLine($"Found normalized version match for {modId} version {normalizedVersion}");
                 return entry.versionDependencies[normalizedVersion];
             }
 
-            // Try case-insensitive match
             foreach (var kvp in entry.versionDependencies)
             {
                 if (string.Equals(kvp.Key, modVersion, StringComparison.OrdinalIgnoreCase) ||
@@ -290,7 +245,6 @@ namespace BeanModManager.Services
                 }
             }
 
-            // Try partial match (e.g., "2024.8.26" matches "v2024.8.26" or vice versa)
             foreach (var kvp in entry.versionDependencies)
             {
                 var normalizedKey = kvp.Key.TrimStart('v', 'V').Trim();
@@ -344,11 +298,9 @@ namespace BeanModManager.Services
                 var apiUrl = $"https://api.github.com/repos/{githubOwner}/{githubRepo}/releases/latest";
                 var cacheKey = $"dep_{githubOwner}_{githubRepo}_latest";
 
-                // Check cache first (1 hour cache)
                 var cache = GitHubCacheHelper.GetCache(cacheKey);
                 if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
                 {
-                    // Use cached data
                     if (!string.IsNullOrEmpty(cache.CachedData))
                     {
                         var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
@@ -371,17 +323,14 @@ namespace BeanModManager.Services
                     }
                 }
 
-                // Fetch from API with ETag
                 string json = null;
                 string etag = cache?.ETag;
                 var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
                 
                 if (result.NotModified)
                 {
-                    // 304 Not Modified - use cached data and update timestamp to extend cache validity
                     if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
                     {
-                        // Update cache timestamp since we successfully checked (even though nothing changed)
                         GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
                         
                         var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
@@ -416,7 +365,6 @@ namespace BeanModManager.Services
 
                 if (releaseObj != null)
                 {
-                    // Save to cache
                     GitHubCacheHelper.SaveCache(cacheKey, etag, json, releaseObj.tag_name);
 
                     if (releaseObj.assets != null)
@@ -436,7 +384,7 @@ namespace BeanModManager.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error fetching dependency DLL for {githubOwner}/{githubRepo}: {ex.Message}");
             }
@@ -451,20 +399,14 @@ namespace BeanModManager.Services
                 var apiUrl = $"https://api.github.com/repos/{mod.GitHubOwner}/{mod.GitHubRepo}/releases/latest";
                 var cacheKey = $"mod_{mod.Id}_latest";
 
-                // Get registry entry once at the start (used throughout the method)
                 _registryEntries.TryGetValue(mod.Id, out var registryEntry);
 
-                // Declare etag variable at the start (used throughout the method)
                 string etag = null;
 
-                // Priority 1: Check separate cache file (if available and recent)
-                // Even if cache is recent, we still do a lightweight ETag check to detect updates
                 if (_cacheEntries.TryGetValue(mod.Id, out var cacheEntry) &&
                     !string.IsNullOrEmpty(cacheEntry.cachedReleaseData) &&
                     !string.IsNullOrEmpty(cacheEntry.cachedETag))
                 {
-                    // Always check API with ETag to see if mod was updated (even if cache is recent)
-                    // This ensures we detect updates even if cache file is a few hours old
                     etag = cacheEntry.cachedETag;
                     try
                     {
@@ -472,7 +414,6 @@ namespace BeanModManager.Services
                         
                         if (result.NotModified)
                         {
-                            // 304 Not Modified - mod hasn't changed, use cache file data
                             var release = JsonHelper.Deserialize<GitHubRelease>(cacheEntry.cachedReleaseData);
                             if (release != null && !string.IsNullOrEmpty(release.tag_name))
                             {
@@ -482,18 +423,15 @@ namespace BeanModManager.Services
                                     AddVersionsFromRegistry(mod, release, registryEntry, release.prerelease);
                                 }
                                 
-                                // Also save to local cache for faster future access
                                 GitHubCacheHelper.SaveCache(cacheKey, cacheEntry.cachedETag, cacheEntry.cachedReleaseData, release.tag_name);
-                                return; // Successfully used cache file (verified with ETag)
+                                return;
                             }
                         }
                         else if (!string.IsNullOrEmpty(result.Content))
                         {
-                            // 200 OK - mod was updated! Use new data
                             var release = JsonHelper.Deserialize<GitHubRelease>(result.Content);
                             if (release != null && !string.IsNullOrEmpty(release.tag_name))
                             {
-                                // Save new data to local cache
                                 GitHubCacheHelper.SaveCache(cacheKey, result.ETag, result.Content, release.tag_name);
                                 
                                 mod.Versions.Clear();
@@ -501,25 +439,21 @@ namespace BeanModManager.Services
                                 {
                                     AddVersionsFromRegistry(mod, release, registryEntry, release.prerelease);
                                 }
-                                return; // Successfully fetched updated data
+                                return;
                             }
                         }
                     }
                     catch (HttpRequestException ex) when (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
                     {
                         _rateLimited = true;
-                        // Fall through to use cache file data as fallback
                     }
                     catch
                     {
-                        // Fall through to use cache file data as fallback
                     }
                     
-                    // If ETag check failed or returned no data, use cache file as fallback
                     if (DateTime.TryParse(cacheEntry.lastChecked, out var lastChecked) &&
                         DateTime.UtcNow - lastChecked < TimeSpan.FromHours(24))
                     {
-                        // Cache file is still reasonably fresh (within 24 hours) - use it as fallback
                         var release = JsonHelper.Deserialize<GitHubRelease>(cacheEntry.cachedReleaseData);
                         if (release != null && !string.IsNullOrEmpty(release.tag_name))
                         {
@@ -530,16 +464,14 @@ namespace BeanModManager.Services
                             }
                             
                             GitHubCacheHelper.SaveCache(cacheKey, cacheEntry.cachedETag, cacheEntry.cachedReleaseData, release.tag_name);
-                            return; // Used cache file as fallback
+                            return;
                         }
                     }
                 }
 
-                // Priority 2: Check local cache (1 hour cache)
                 var cache = GitHubCacheHelper.GetCache(cacheKey);
                 if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
                 {
-                    // Use cached data
                     if (!string.IsNullOrEmpty(cache.CachedData))
                     {
                         var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
@@ -547,19 +479,16 @@ namespace BeanModManager.Services
                         {
                             mod.Versions.Clear();
 
-                            // registryEntry is already in scope from Priority 1 check above
                             if (registryEntry != null)
                             {
                                 AddVersionsFromRegistry(mod, release, registryEntry, release.prerelease);
                             }
                         }
-                        return; // Successfully used cache
+                        return;
                     }
                 }
 
-                // Priority 3: Fetch from API with ETag (prefer cache file ETag, then local cache ETag)
                 string json = null;
-                // Use existing etag if set from Priority 1, otherwise get from cache file or local cache
                 if (string.IsNullOrEmpty(etag))
                 {
                     etag = (_cacheEntries.TryGetValue(mod.Id, out var cacheFileEntry) ? cacheFileEntry.cachedETag : null) ?? cache?.ETag;
@@ -570,10 +499,8 @@ namespace BeanModManager.Services
                     
                     if (result.NotModified)
                     {
-                        // 304 Not Modified - use cached data and update timestamp to extend cache validity
                         if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
                         {
-                            // Update cache timestamp since we successfully checked (even though nothing changed)
                             GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
                             
                             var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
@@ -581,14 +508,13 @@ namespace BeanModManager.Services
                             {
                                 mod.Versions.Clear();
 
-                                // registryEntry is already in scope from Priority 1 check above
                                 if (registryEntry != null)
                                 {
                                     AddVersionsFromRegistry(mod, release, registryEntry, release.prerelease);
                                 }
                             }
                         }
-                        return; // Successfully used cache (304 response)
+                        return;
                     }
 
                     json = result.Content;
@@ -602,14 +528,12 @@ namespace BeanModManager.Services
 
                 if (string.IsNullOrEmpty(json))
                 {
-                    // Fallback to cached data if available (try local cache first, then registry cache)
                     if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
                     {
                         json = cache.CachedData;
                     }
                     else if (_cacheEntries.TryGetValue(mod.Id, out var fallbackCacheEntry) && !string.IsNullOrEmpty(fallbackCacheEntry.cachedReleaseData))
                     {
-                        // Fallback to cache file even if it's old
                         json = fallbackCacheEntry.cachedReleaseData;
                         //System.Diagnostics.Debug.WriteLine($"Using cache file for {mod.Name} (fallback)");
                     }
@@ -623,7 +547,6 @@ namespace BeanModManager.Services
 
                 if (releaseObj != null && !string.IsNullOrEmpty(releaseObj.tag_name))
                 {
-                    // Save to cache
                     GitHubCacheHelper.SaveCache(cacheKey, etag, json, releaseObj.tag_name);
 
                     mod.Versions.Clear();
@@ -639,7 +562,7 @@ namespace BeanModManager.Services
                 _rateLimited = true;
                 throw;
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error fetching versions for {mod.Name}: {ex.Message}");
 
@@ -658,13 +581,9 @@ namespace BeanModManager.Services
         private void AddVersionsFromRegistry(Mod mod, GitHubRelease release, ModRegistryEntry registryEntry, bool isPreRelease)
         {
             var releaseDate = DateTime.Parse(release.published_at);
-            
-            // Track versions added for THIS release
-            int versionsBefore = mod.Versions.Count;
 
             if (registryEntry.assetFilters != null)
             {
-                // Add Steam version
                 if (registryEntry.assetFilters.steam != null)
                 {
                     var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.steam);
@@ -682,7 +601,6 @@ namespace BeanModManager.Services
                     }
                 }
 
-                // Add Epic/MS Store version
                 if (registryEntry.assetFilters.epic != null)
                 {
                     var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.epic);
@@ -700,7 +618,6 @@ namespace BeanModManager.Services
                     }
                 }
 
-                // Add DLL version
                 if (registryEntry.assetFilters.dll != null)
                 {
                     var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.dll);
@@ -718,7 +635,6 @@ namespace BeanModManager.Services
                     }
                 }
 
-                // Add default version (process alongside other filters, not just as fallback)
                 if (registryEntry.assetFilters.@default != null)
                 {
                     var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.@default);
@@ -762,7 +678,6 @@ namespace BeanModManager.Services
                         assetNameLower.Contains(pattern.ToLower()));
                 }
 
-                // Check exclude patterns
                 if (matches && filter.exclude != null && filter.exclude.Any())
                 {
                     matches = !filter.exclude.Any(exclude => 
@@ -780,19 +695,14 @@ namespace BeanModManager.Services
         {
             try
             {
-                // Only fetch all releases - no need for separate /latest call
-                // The /releases endpoint returns releases sorted by date (newest first)
                 var apiUrl = $"https://api.github.com/repos/{mod.GitHubOwner}/{mod.GitHubRepo}/releases";
                 var cacheKey = $"mod_{mod.Id}_all";
                 
-                // Get registry entry once at the start
                 _registryEntries.TryGetValue(mod.Id, out var registryEntry);
 
-                // Priority 1: Check local cache (1 hour cache)
                 var cache = GitHubCacheHelper.GetCache(cacheKey);
                 if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
                 {
-                    // Use cached data
                     if (!string.IsNullOrEmpty(cache.CachedData))
                     {
                         var cachedReleases = JsonHelper.Deserialize<List<GitHubRelease>>(cache.CachedData);
@@ -804,7 +714,6 @@ namespace BeanModManager.Services
                     }
                 }
 
-                // Priority 2: Fetch from API with ETag (prefer cache file ETag, then local cache ETag)
                 string json = null;
                 string etag = (_cacheEntries.TryGetValue(mod.Id, out var cacheFileEntry) ? cacheFileEntry.cachedETag : null) ?? cache?.ETag;
                 try
@@ -813,10 +722,8 @@ namespace BeanModManager.Services
                     
                     if (result.NotModified)
                     {
-                        // 304 Not Modified - use cached data and update timestamp to extend cache validity
                         if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
                         {
-                            // Update cache timestamp since we successfully checked (even though nothing changed)
                             GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
                             
                             var cachedReleases = JsonHelper.Deserialize<List<GitHubRelease>>(cache.CachedData);
@@ -839,7 +746,6 @@ namespace BeanModManager.Services
 
                 if (string.IsNullOrEmpty(json))
                 {
-                    // Fallback to cached data if available
                     if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
                     {
                         json = cache.CachedData;
@@ -854,7 +760,6 @@ namespace BeanModManager.Services
 
                 if (releases != null && releases.Any())
                 {
-                    // Save to cache
                     var latestTag = releases.FirstOrDefault(r => !string.IsNullOrEmpty(r.tag_name))?.tag_name;
                     GitHubCacheHelper.SaveCache(cacheKey, etag, json, latestTag);
                 }
@@ -865,7 +770,6 @@ namespace BeanModManager.Services
                 }
                 else
                 {
-                    // No releases found, fall back to latest release only
                     //System.Diagnostics.Debug.WriteLine($"No releases found for {mod.Name}, falling back to latest release");
                     if (!mod.Versions.Any())
                     {
@@ -878,7 +782,7 @@ namespace BeanModManager.Services
                 _rateLimited = true;
                 throw;
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error fetching all versions for {mod.Name}: {ex.Message}");
 

@@ -59,6 +59,7 @@
             this.txtInstalledSearch = new System.Windows.Forms.TextBox();
             this.lblInstalledCategory = new System.Windows.Forms.Label();
             this.cmbInstalledCategory = new System.Windows.Forms.ComboBox();
+            this.btnImportMod = new System.Windows.Forms.Button();
             this.panelInstalledHost = new System.Windows.Forms.Panel();
             this.panelEmptyInstalled = new System.Windows.Forms.Panel();
             this.lblEmptyInstalled = new System.Windows.Forms.Label();
@@ -457,6 +458,7 @@
             this.flowInstalledFilters.Controls.Add(this.txtInstalledSearch);
             this.flowInstalledFilters.Controls.Add(this.lblInstalledCategory);
             this.flowInstalledFilters.Controls.Add(this.cmbInstalledCategory);
+            this.flowInstalledFilters.Controls.Add(this.btnImportMod);
             this.flowInstalledFilters.Dock = System.Windows.Forms.DockStyle.Fill;
             this.flowInstalledFilters.Location = new System.Drawing.Point(0, 23);
             this.flowInstalledFilters.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
@@ -516,6 +518,25 @@
             this.cmbInstalledCategory.Size = new System.Drawing.Size(180, 23);
             this.cmbInstalledCategory.TabIndex = 3;
             this.cmbInstalledCategory.SelectedIndexChanged += new System.EventHandler(this.cmbInstalledCategory_SelectedIndexChanged);
+            // 
+            // btnImportMod
+            // 
+            this.btnImportMod.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(108)))), ((int)(((byte)(117)))), ((int)(((byte)(125)))));
+            this.btnImportMod.FlatAppearance.BorderSize = 0;
+            this.btnImportMod.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(98)))), ((int)(((byte)(105)))));
+            this.btnImportMod.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnImportMod.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.btnImportMod.ForeColor = System.Drawing.Color.White;
+            this.btnImportMod.AutoSize = false;
+            this.btnImportMod.Location = new System.Drawing.Point(576, 3);
+            this.btnImportMod.Margin = new System.Windows.Forms.Padding(15, 0, 0, 0);
+            this.btnImportMod.Name = "btnImportMod";
+            this.btnImportMod.Size = new System.Drawing.Size(100, 23);
+            this.btnImportMod.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.btnImportMod.TabIndex = 4;
+            this.btnImportMod.Text = "Import Mod";
+            this.btnImportMod.UseVisualStyleBackColor = false;
+            this.btnImportMod.Click += new System.EventHandler(this.btnImportMod_Click);
             // 
             // panelBulkActionsInstalled
             // 
@@ -1497,6 +1518,7 @@
         private System.Windows.Forms.Label lblEmptyInstalled;
         private System.Windows.Forms.Button btnEmptyInstalledBrowseFeatured;
         private System.Windows.Forms.Button btnEmptyInstalledBrowseStore;
+        private System.Windows.Forms.Button btnImportMod;
         private System.Windows.Forms.Panel panelEmptyStore;
         private System.Windows.Forms.Label lblEmptyStore;
         private System.Windows.Forms.Button btnEmptyStoreClearFilters;

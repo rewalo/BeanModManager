@@ -83,7 +83,7 @@ namespace BeanModManager.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"Error finding Steam path: {ex.Message}");
             }
@@ -263,7 +263,7 @@ namespace BeanModManager.Services
                     System.Windows.Forms.Clipboard.SetText(depotCommand);
                     OnProgressChanged("Command copied to clipboard!");
                 }
-                catch (Exception ex)
+                catch //(Exception ex)
                 {
                     //System.Diagnostics.Debug.WriteLine($"Error copying to clipboard: {ex.Message}");
                 }
@@ -610,7 +610,7 @@ namespace BeanModManager.Services
                     }
                     File.Copy(file, destFile, overwrite);
                 }
-                catch (Exception ex)
+                catch //(Exception ex)
                 {
                     //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
                 }

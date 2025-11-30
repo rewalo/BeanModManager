@@ -71,7 +71,7 @@ namespace BeanModManager.Services
                             { 
                                 File.Delete(destinationPath); 
                             } 
-                            catch (Exception deleteEx)
+                            catch //(Exception deleteEx)
                             {
                                 //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete partial download {destinationPath}: {deleteEx.Message}");
                             }
@@ -101,7 +101,7 @@ namespace BeanModManager.Services
                             { 
                                 File.Delete(tempZipPath); 
                             } 
-                            catch (Exception deleteEx)
+                            catch //(Exception deleteEx)
                             {
                                 //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete temp ZIP {tempZipPath}: {deleteEx.Message}");
                             }
@@ -118,7 +118,7 @@ namespace BeanModManager.Services
                             { 
                                 File.Delete(tempZipPath); 
                             } 
-                            catch (Exception deleteEx)
+                            catch //(Exception deleteEx)
                             {
                                 //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete invalid ZIP {tempZipPath}: {deleteEx.Message}");
                             }
@@ -140,7 +140,7 @@ namespace BeanModManager.Services
                             { 
                                 Directory.Delete(extractToPath, true); 
                             } 
-                            catch (Exception deleteEx)
+                            catch //(Exception deleteEx)
                             {
                                 //System.Diagnostics.Debug.WriteLine($"Warning: Could not clean up extract directory {extractToPath}: {deleteEx.Message}");
                             }
@@ -352,7 +352,7 @@ namespace BeanModManager.Services
                     {
                         Directory.Delete(extractToPath, true);
                     }
-                    catch (Exception cleanupEx)
+                    catch //(Exception cleanupEx)
                     {
                         //System.Diagnostics.Debug.WriteLine($"Warning: Could not clean up extract directory {extractToPath}: {cleanupEx.Message}");
                     }
@@ -565,7 +565,7 @@ namespace BeanModManager.Services
 
                 return true;
             }
-            catch (Exception ex)
+            catch //(Exception ex)
             {
                 //System.Diagnostics.Debug.WriteLine($"ZIP validation failed: {ex.Message}");
                 return false;
