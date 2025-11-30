@@ -594,17 +594,36 @@
       "incompatibilities": []
     },
     {
-      "id": "Impostor",
-      "name": "Impostor",
-      "author": "Impostor",
-      "description": "Custom Among Us server utility",
-      "githubOwner": "Impostor",
-      "githubRepo": "Impostor",
-      "category": "Utility",
+      "id": "UnlockDleks",
+      "name": "Unlock dleks ehT",
+      "author": "Tommy-XL",
+      "description": "Mod for Among Us that allows you to play on \"dleks ehT\" (mirrored Skeld)",
+      "githubOwner": "Tommy-XL",
+      "githubRepo": "Unlock-dlekS-ehT",
+      "category": "Mod",
       "assetFilters": {
-        "default": {
-          "patterns": ["win-x64.zip"],
-          "exclude": ["source", "linux", "osx", "darwin", "nupkg", "snupkg"]
+        "dll": {
+          "patterns": ["UnlockDleks.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "MinimumLevel",
+      "name": "Minimum Level",
+      "author": "AtomicTyler1",
+      "description": "This mod will automatically kick/ban anyone who doesn't fall in range of whatever config you set (Must be host!!).",
+      "githubOwner": "AtomicTyler1",
+      "githubRepo": "MinimumLevel",
+      "category": "Host Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["MinimumLevel.dll"],
+          "exclude": [],
+          "exactMatch": true
         }
       },
       "requiresDepot": false,

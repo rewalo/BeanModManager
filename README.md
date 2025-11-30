@@ -66,16 +66,17 @@ A comprehensive mod manager for the popular game Among Us built with Windows For
 - **NewMod** - A mod for Among Us that introduces a variety of new roles, unique abilities, and custom game modes
 - **Cursed Among Us** - A mod for Among Us that introduces challenging modifications to gameplay
 - **CrowdedMod** - Unlocks the possibility for more than 15 players to join in an Among Us lobby
+- **Unlock dleks ehT** - Mod for Among Us that allows you to play on "dleks ehT" (mirrored Skeld)
 
 ### Host Mods
 - **Project Lotus: Continued** - Unique, beautiful, and customizable host mod. Adds cosmetics, commands and hotkeys, and various options
+- **Minimum Level** - Automatically kick/ban anyone who doesn't fall in range of whatever config you set (Must be host!!)
 
 ### Utility & Fun Mods
 - **SmolMod** - An Among Us Mod that makes players the size of pets!
 - **PropHunt** - A mod for Among Us which extends Hide and Seek into a new mode, Prop Hunt!
 - **Level Imposter** - Custom Among Us Mapping Studio
 - **AUnlocker** - A mod that unlocks additional content and features in Among Us
-- **Impostor** - Custom Among Us server utility
 
 **Note:** Epic/MS Store versions are automatically detected - mod dropdowns will prefer the right version for your game. Some mods require Steam depot downloads for specific game versions, which are handled automatically.
 
