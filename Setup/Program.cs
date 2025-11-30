@@ -12,7 +12,7 @@ namespace Setup
             var project = new ManagedProject(
                 "Bean Mod Manager",
                 new Dir(@"%ProgramFiles%\Bean Mod Manager",
-                    new Files(@"..\bin\Release\*.exe")),
+                    new Files(@"..\bin\Release\BeanModManager.exe")),
 
                 // Desktop shortcut (conditional)
                 new Dir(@"%Desktop%",
@@ -35,7 +35,7 @@ namespace Setup
 
             project.GUID = new Guid("5939155f-c7e1-43ee-aad9-9bc67a35d9c5");
             project.Version = new Version("1.5.5");
-            
+
             // Set Control Panel icon
             project.ControlPanelInfo.ProductIcon = @"..\mod.ico";
             project.ControlPanelInfo.Manufacturer = "rewalo";
@@ -44,7 +44,7 @@ namespace Setup
             project.ControlPanelInfo.HelpLink = "https://github.com/rewalo/BeanModManager";
             project.ControlPanelInfo.UrlInfoAbout = "https://github.com/rewalo/BeanModManager";
             project.ControlPanelInfo.UrlUpdateInfo = "https://github.com/rewalo/BeanModManager/releases";
-            
+
             // Per-machine installation (requires admin/UAC)
             project.Scope = InstallScope.perMachine;
 

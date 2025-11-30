@@ -49,7 +49,7 @@ namespace BeanModManager.Services
                     //System.Diagnostics.Debug.WriteLine($"Loaded cache for {_cacheEntries.Count} mods");
                 }
             }
-            catch //(Exception ex)
+            catch
             {
                 //System.Diagnostics.Debug.WriteLine($"Failed to load mod cache from {_cacheUrl}: {ex.Message}");
             }
@@ -88,7 +88,7 @@ namespace BeanModManager.Services
                     return;
                 }
             }
-            catch //(Exception ex)
+            catch
             {
                 //System.Diagnostics.Debug.WriteLine($"Failed to load mod registry from {_registryUrl}: {ex.Message}");
             }
