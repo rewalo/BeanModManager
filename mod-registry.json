@@ -591,6 +591,25 @@
         }
       },
       "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": null,
+          "optional": false
+        }
+      ],
+      "versionDependencies": {
+        "v2.3.1": [
+          {
+            "modId": "Reactor",
+            "requiredVersion": ">=2.3.1"
+          }
+        ]
+      },
       "incompatibilities": []
     },
     {
