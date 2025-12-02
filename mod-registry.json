@@ -293,7 +293,7 @@
       "description": "A mod for Among Us which adds a new map into the game.",
       "githubOwner": "SubmergedAmongUs",
       "githubRepo": "Submerged",
-      "category": "Mod",
+      "category": "Map",
       "assetFilters": {
         "dll": {
           "patterns": ["Submerged.dll"],
@@ -333,8 +333,7 @@
           }
         ]
       },
-      "incompatibilities": [],
-      "featured": true
+      "incompatibilities": []
     },
     {
       "id": "StellarRolesAU",
@@ -440,7 +439,7 @@
       "description": "An Among Us Mod that makes players the size of pets!",
       "githubOwner": "XtraCube",
       "githubRepo": "SmolMod",
-      "category": "Mod",
+      "category": "Fun",
       "assetFilters": {
         "dll": {
           "patterns": [".dll"],
@@ -478,7 +477,7 @@
       "description": "A mod for Among Us which extends Hide and Seek into a new mode, Prop Hunt!",
       "githubOwner": "ugackMiner53",
       "githubRepo": "PropHunt",
-      "category": "Mod",
+      "category": "Fun",
       "assetFilters": {
         "steam": {
           "patterns": [".zip"],
@@ -499,7 +498,7 @@
       "description": "Custom Among Us Mapping Studio",
       "githubOwner": "DigiWorm0",
       "githubRepo": "LevelImposter",
-      "category": "Mod",
+      "category": "Map",
       "assetFilters": {
         "steam": {
           "patterns": [".zip"],
@@ -613,7 +612,7 @@
       "description": "A mod for Among Us that introduces challenging modifications to gameplay.",
       "githubOwner": "Devs-Us",
       "githubRepo": "Cursed-Among-Us",
-      "category": "Mod",
+      "category": "Fun",
       "assetFilters": {
         "dll": {
           "patterns": [".dll"],
@@ -677,7 +676,7 @@
       "description": "Mod for Among Us that allows you to play on \"dleks ehT\" (mirrored Skeld)",
       "githubOwner": "Tommy-XL",
       "githubRepo": "Unlock-dlekS-ehT",
-      "category": "Mod",
+      "category": "Map",
       "assetFilters": {
         "dll": {
           "patterns": ["UnlockDleks.dll"],
@@ -784,7 +783,7 @@
       "description": "An Among Us mod that tweaks Polus, allowing a more balanced experience.",
       "githubOwner": "Brybry16",
       "githubRepo": "BetterPolus",
-      "category": "Mod",
+      "category": "Map",
       "assetFilters": {
         "dll": {
           "patterns": ["BetterPolus.dll"],

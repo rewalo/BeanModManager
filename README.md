@@ -52,7 +52,6 @@ A comprehensive mod manager for the popular game Among Us built with Windows For
 - **Town of Host Enhanced (TOHE)** - A host-only modpack for Among Us with enhanced features
 - **Town of Us Mira** - Town of Us Reactivated, but cleaner using MiraAPI with many improvements!
 - **Better CrewLink** - Voice proximity chat for Among Us
-- **Submerged** - A mod for Among Us which adds a new map into the game
 - **The Other Roles GM IA** - A mod for Among Us which adds many new roles, new Settings and new Custom Hats to the game (GM IA version)
 - **Endless Host Roles** - The largest Among Us mod
 
@@ -64,21 +63,27 @@ A comprehensive mod manager for the popular game Among Us built with Windows For
 - **Las Monjas** - A mod for Among Us which adds new roles and features to the game
 - **yanplaRoles** - A mod that introduces new roles and modifiers
 - **NewMod** - A mod for Among Us that introduces a variety of new roles, unique abilities, and custom game modes
-- **Cursed Among Us** - A mod for Among Us that introduces challenging modifications to gameplay
 - **CrowdedMod** - Unlocks the possibility for more than 15 players to join in an Among Us lobby
-- **Unlock dleks ehT** - Mod for Among Us that allows you to play on "dleks ehT" (mirrored Skeld)
 - **ChaosTokens** - Addon for ToUM that adds chaos! The mod adds Town Of Salem 2 inspired Chaos Tokens to Town of Us Mira
 - **Extreme Roles** - AmongUs Mod that adds +100 roles, +1300 options, and cosmetics
-- **Better Polus** - An Among Us mod that tweaks Polus, allowing a more balanced experience
 
 ### Host Mods
 - **Project Lotus: Continued** - Unique, beautiful, and customizable host mod. Adds cosmetics, commands and hotkeys, and various options
 - **Minimum Level** - Automatically kick/ban anyone who doesn't fall in range of whatever config you set (Must be host!!)
 
-### Utility & Fun Mods
+### Fun Mods
 - **SmolMod** - An Among Us Mod that makes players the size of pets!
 - **PropHunt** - A mod for Among Us which extends Hide and Seek into a new mode, Prop Hunt!
+- **Cursed Among Us** - A mod for Among Us that introduces challenging modifications to gameplay
+
+### Map Mods
+- **Unlock dleks ehT** - Mod for Among Us that allows you to play on "dleks ehT" (mirrored Skeld)
+- **Submerged** - A mod for Among Us which adds a new map into the game
+- **Better Polus** - An Among Us mod that tweaks Polus, allowing a more balanced experience
 - **Level Imposter** - Custom Among Us Mapping Studio
+
+### Utility Mods
+- **Better-BCL** - A fork of Better CrewLink with some extra features
 - **AUnlocker** - A mod that unlocks additional content and features in Among Us
 - **Impostor** - The first working Among Us private server, written in C#
 - **Vanilla Enhancements** - An among us mod adding lots of quality-of-life features to the game
