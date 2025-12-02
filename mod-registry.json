@@ -68,6 +68,35 @@
       "featured": true
     },
     {
+      "id": "ChaosTokens",
+      "name": "ChaosTokens",
+      "author": "xChipseq",
+      "description": "Addon for ToUM that adds chaos! The mod adds Town Of Salem 2 inspired Chaos Tokens to Town of Us Mira",
+      "githubOwner": "xChipseq",
+      "githubRepo": "ChaosTokens",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["ChaosTokens.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "TownOfUs",
+          "name": "Town of Us Mira",
+          "fileName": "MiraAPI.dll",
+          "githubOwner": "AU-Avengers",
+          "githubRepo": "TOU-Mira",
+          "requiredVersion": null,
+          "optional": false
+        }
+      ],
+      "incompatibilities": []
+    },
+    {
       "id": "BetterCrewLink",
       "name": "Better CrewLink",
       "author": "OhMyGuus",
