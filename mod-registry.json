@@ -667,6 +667,23 @@
       },
       "requiresDepot": false,
       "incompatibilities": []
+    },
+    {
+      "id": "Impostor",
+      "name": "Impostor",
+      "author": "Impostor",
+      "description": "Impostor is the first working Among Us private server, written in C#.",
+      "githubOwner": "Impostor",
+      "githubRepo": "Impostor",
+      "category": "Utility",
+      "assetFilters": {
+        "default": {
+          "patterns": ["win-x64.zip"],
+          "exclude": ["linux", "osx", "arm", "arm64", "nupkg", "snupkg", "source", "Source"]
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
     }
   ]
 }
