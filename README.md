@@ -21,17 +21,17 @@ A comprehensive mod manager for <strong>Among Us</strong>, built with Windows Fo
 
 ## Features
 
-- First Launch Wizard — Guided setup for new users  
-- Automatic Detection — Steam, Epic Games, MS Store  
-- Smart Mod Management — Multiple installed, one active  
-- Dependency Management — Reactor, MiraAPI handled automatically  
-- Update Checker — Notifies you when updates are available  
-- Incompatibility Detection — Warns of conflicts before installation  
-- Search and Filter — Quickly find mods using categories and search  
-- Bulk Actions — Install, uninstall, or update multiple mods  
-- Theme Support — Light and dark themes with auto-detection  
-- Virtualized UI — Smooth performance with large mod lists  
-- Steam Depot Support — Automatically downloads required game versions  
+- **First Launch Wizard:** Guided setup for new users  
+- **Automatic Detection:** Steam, Epic Games, MS Store  
+- **Smart Mod Management:** Multiple installed, one active  
+- **Dependency Management:** Reactor, MiraAPI handled automatically  
+- **Update Checker:** Notifies you when updates are available  
+- **Incompatibility Detection:** Warns of conflicts before installation  
+- **Search and Filter:** Quickly find mods using categories and search  
+- **Bulk Actions:** Install, uninstall, or update multiple mods  
+- **Theme Support:** Light and dark themes with auto-detection  
+- **Virtualized UI:** Smooth performance with large mod lists  
+- **Steam Depot Support:** Automatically downloads required game versions  
 
 ---
 
