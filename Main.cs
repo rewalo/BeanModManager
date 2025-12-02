@@ -1848,6 +1848,10 @@ namespace BeanModManager
                 
                 var expectedStoreCount = _availableMods.Count(m => 
                 {
+                    // Exclude imported/custom mods from store view - they should only appear in installed view
+                    if (m.Author == "Custom Import" || m.Category == "Custom")
+                        return false;
+                    
                     // Use cached installation status
                     bool isInstalled = IsModInstalledCached(m.Id);
                     
@@ -2127,6 +2131,13 @@ namespace BeanModManager
                 }
                 else
                 {
+                    // Skip imported/custom mods - they should only appear in installed view, not store view
+                    if (mod.Author == "Custom Import" || mod.Category == "Custom")
+                    {
+                        processedCount++;
+                        continue;
+                    }
+                    
                     // Cache Epic/MS Store check result (respects onboarding channel selection)
                     if (_cachedIsEpicOrMsStore == null)
                     {

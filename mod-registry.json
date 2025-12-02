@@ -86,6 +86,24 @@
       "featured": true
     },
     {
+      "id": "Better-BCL",
+      "name": "Better-BCL",
+      "author": "rewalo",
+      "description": "A fork of Better CrewLink with some extra features",
+      "githubOwner": "rewalo",
+      "githubRepo": "BetterCrewLink",
+      "category": "Utility",
+      "assetFilters": {
+        "default": {
+          "patterns": [".zip"],
+          "exclude": ["source"]
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": [],
+      "featured": false
+    },
+    {
       "id": "TheOtherRoles",
       "name": "The Other Roles",
       "author": "TheOtherRolesAU",
