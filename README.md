@@ -67,6 +67,7 @@ A comprehensive mod manager for the popular game Among Us built with Windows For
 - **Cursed Among Us** - A mod for Among Us that introduces challenging modifications to gameplay
 - **CrowdedMod** - Unlocks the possibility for more than 15 players to join in an Among Us lobby
 - **Unlock dleks ehT** - Mod for Among Us that allows you to play on "dleks ehT" (mirrored Skeld)
+- **ChaosTokens** - Addon for ToUM that adds chaos! The mod adds Town Of Salem 2 inspired Chaos Tokens to Town of Us Mira
 
 ### Host Mods
 - **Project Lotus: Continued** - Unique, beautiful, and customizable host mod. Adds cosmetics, commands and hotkeys, and various options
@@ -77,6 +78,7 @@ A comprehensive mod manager for the popular game Among Us built with Windows For
 - **PropHunt** - A mod for Among Us which extends Hide and Seek into a new mode, Prop Hunt!
 - **Level Imposter** - Custom Among Us Mapping Studio
 - **AUnlocker** - A mod that unlocks additional content and features in Among Us
+- **Impostor** - The first working Among Us private server, written in C#
 
 **Note:** Epic/MS Store versions are automatically detected - mod dropdowns will prefer the right version for your game. Some mods require Steam depot downloads for specific game versions, which are handled automatically.
 
