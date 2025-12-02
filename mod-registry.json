@@ -722,6 +722,78 @@
       },
       "requiresDepot": false,
       "incompatibilities": []
+    },
+    {
+      "id": "VanillaEnhancements",
+      "name": "Vanilla Enhancements",
+      "author": "xChipseq",
+      "description": "An among us mod adding lots of quality-of-life features to the game.",
+      "githubOwner": "xChipseq",
+      "githubRepo": "VanillaEnhancements",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["VanillaEnhancements.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": null,
+          "optional": false
+        }
+      ],
+      "incompatibilities": []
+    },
+    {
+      "id": "ExtremeRoles",
+      "name": "Extreme Roles",
+      "author": "yukieiji",
+      "description": "AmongUs Mod that adds +100 roles, +1300 options, and cosmetics",
+      "githubOwner": "yukieiji",
+      "githubRepo": "ExtremeRoles",
+      "category": "Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": ["STEAM_ONLY_ExtremeRoles", "STEAM_ONLY"],
+          "exclude": []
+        },
+        "epic": {
+          "patterns": ["ExtremeRoles-v", "ExtremeRoles"],
+          "exclude": ["STEAM_ONLY"]
+        },
+        "dll": {
+          "patterns": ["ExtremeRoles.dll", "ExtremeSkins.dll", "ExtremeVoiceEngine.dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "BetterPolus",
+      "name": "Better Polus",
+      "author": "Brybry16",
+      "description": "An Among Us mod that tweaks Polus, allowing a more balanced experience.",
+      "githubOwner": "Brybry16",
+      "githubRepo": "BetterPolus",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["BetterPolus.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
     }
   ]
 }
