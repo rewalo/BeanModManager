@@ -10,7 +10,7 @@
 <h1 align="center">Bean Mod Manager</h1>
 
 <p align="center">
-A comprehensive mod manager for <strong>Among Us</strong>, built with Windows Forms. Easily install, manage, and switch between mods like TOHE, Town of Us Mira, Better CrewLink, TOR, StellarRoles, and many more without hassle.
+A comprehensive mod manager for <strong>Among Us</strong>, built with Windows Forms. Easily install, manage, and switch between 20+ mods including TOHE, Town of Us Mira, Better CrewLink, TOR, StellarRoles, and many more without hassle.
 </p>
 
 <p align="center">
