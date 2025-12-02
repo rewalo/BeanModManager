@@ -48,7 +48,7 @@ namespace BeanModManager.Models
         
         public string GetRequiredVersion()
         {
-            return !string.IsNullOrEmpty(requiredVersion) ? requiredVersion : "Unknown";
+            return !string.IsNullOrEmpty(requiredVersion) ? requiredVersion : null;
         }
     }
 

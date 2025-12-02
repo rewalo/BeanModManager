@@ -2525,7 +2525,14 @@ namespace BeanModManager
                                 if (dep != null)
                                 {
                                     var reqVersion = dep.GetRequiredVersion();
-                                    dependentDetails.Add($"{dependent.Name} requires {reqVersion}");
+                                    if (!string.IsNullOrEmpty(reqVersion))
+                                    {
+                                        dependentDetails.Add($"{dependent.Name} requires {reqVersion}");
+                                    }
+                                    else
+                                    {
+                                        dependentDetails.Add($"{dependent.Name} requires {mod.Name}");
+                                    }
                                 }
                             }
                             
