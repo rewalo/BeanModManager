@@ -87,9 +87,18 @@
         {
           "modId": "TownOfUs",
           "name": "Town of Us Mira",
-          "fileName": "MiraAPI.dll",
+          "fileName": "TownOfUsMira.dll",
           "githubOwner": "AU-Avengers",
           "githubRepo": "TOU-Mira",
+          "requiredVersion": null,
+          "optional": false
+        },
+        {
+          "modId": "MiraAPI",
+          "name": "MiraAPI",
+          "fileName": "MiraAPI.dll",
+          "githubOwner": "All-Of-Us-Mods",
+          "githubRepo": "MiraAPI",
           "requiredVersion": null,
           "optional": false
         }
