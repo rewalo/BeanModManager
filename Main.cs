@@ -2102,8 +2102,8 @@ namespace BeanModManager
                     if (installedCard.IsSelectable)
                     {
                         // Restore launch selection state if applicable (for game launching)
-                        bool isLaunchSelection = !string.Equals(mod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ||
-                                                   string.Equals(mod.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase);
+                        // Utilities can be launched, but they launch their own executable, not Among Us
+                        bool isLaunchSelection = true;
                         bool shouldBeLaunchSelected = isLaunchSelection && _selectedModIds.Contains(mod.Id);
                         
                         // Restore bulk selection state (sync with launch selection for installed mods)
@@ -2477,8 +2477,8 @@ namespace BeanModManager
                 // Handle launch selection for installed mods (separate from bulk)
                 if (isInstalledView)
                 {
-                    bool isLaunchSelection = !string.Equals(mod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ||
-                                             string.Equals(mod.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase);
+                    // Utilities can be launched, but they launch their own executable, not Among Us
+                    bool isLaunchSelection = true;
                     
                     if (isLaunchSelection)
                     {
@@ -3195,9 +3195,8 @@ namespace BeanModManager
             _ = _config.SaveAsync();
         }
 
-        private bool LaunchBetterCrewLinkExecutable(Mod mod = null, bool showErrors = true)
+        private bool LaunchUtilityExecutable(Mod mod, bool showErrors = true)
         {
-            mod = mod ?? FindModById("BetterCrewLink");
             if (mod == null)
                 return false;
 
@@ -3212,45 +3211,74 @@ namespace BeanModManager
                 return false;
             }
 
-            var bclExe = Path.Combine(modStoragePath, "Better-CrewLink.exe");
-            if (!File.Exists(bclExe))
+            string exePath = null;
+            
+            // First, try to find the executable using the registry's executableName
+            if (!string.IsNullOrEmpty(mod.ExecutableName))
             {
-                var bclExes = Directory.GetFiles(modStoragePath, "Better-CrewLink.exe", SearchOption.AllDirectories);
-                if (bclExes.Any())
+                var exactPath = Path.Combine(modStoragePath, mod.ExecutableName);
+                if (File.Exists(exactPath))
                 {
-                    bclExe = bclExes.First();
+                    exePath = exactPath;
                 }
                 else
                 {
-                    if (showErrors)
+                    // Try searching recursively with the executable name
+                    var foundExes = Directory.GetFiles(modStoragePath, mod.ExecutableName, SearchOption.AllDirectories);
+                    if (foundExes.Any())
                     {
-                        MessageBox.Show("Better-CrewLink.exe not found in mod folder.", "File Not Found",
-                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        exePath = foundExes.First();
                     }
-                    return false;
                 }
+            }
+            
+            // If not found via registry, try to find any .exe in the mod folder
+            if (string.IsNullOrEmpty(exePath))
+            {
+                var allExes = Directory.GetFiles(modStoragePath, "*.exe", SearchOption.AllDirectories);
+                if (allExes.Any())
+                {
+                    exePath = allExes.First();
+                }
+            }
+
+            if (string.IsNullOrEmpty(exePath))
+            {
+                if (showErrors)
+                {
+                    var exeName = !string.IsNullOrEmpty(mod.ExecutableName) ? mod.ExecutableName : "executable";
+                    MessageBox.Show($"{exeName} not found in mod folder.", "File Not Found",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                return false;
             }
 
             try
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = bclExe,
-                    WorkingDirectory = Path.GetDirectoryName(bclExe),
+                    FileName = exePath,
+                    WorkingDirectory = Path.GetDirectoryName(exePath),
                     UseShellExecute = true
                 });
-                UpdateStatus("Launched Better CrewLink");
+                UpdateStatus($"Launched {mod.Name}");
                 return true;
             }
             catch (Exception ex)
             {
                 if (showErrors)
                 {
-                    MessageBox.Show($"Failed to launch Better CrewLink: {ex.Message}", "Launch Error",
+                    MessageBox.Show($"Failed to launch {mod.Name}: {ex.Message}", "Launch Error",
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
                 return false;
             }
+        }
+
+        private bool LaunchBetterCrewLinkExecutable(Mod mod = null, bool showErrors = true)
+        {
+            mod = mod ?? FindModById("BetterCrewLink");
+            return LaunchUtilityExecutable(mod, showErrors);
         }
 
         private Mod FindModById(string modId)
@@ -3832,9 +3860,10 @@ namespace BeanModManager
             {
                 bool isVanilla = mod == null;
 
-                if (!isVanilla && mod.Id == "BetterCrewLink")
+                // Handle utilities - they launch their own executable, not Among Us
+                if (!isVanilla && string.Equals(mod.Category, "Utility", StringComparison.OrdinalIgnoreCase))
                 {
-                    LaunchBetterCrewLinkExecutable(mod);
+                    LaunchUtilityExecutable(mod);
                     return;
                 }
 
@@ -5170,28 +5199,32 @@ namespace BeanModManager
                     .Where(m => !IsDependencyMod(m))
                     .ToList();
 
-                var betterCrewLinkMods = playableMods
-                    .Where(m => string.Equals(m.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase))
+                // Separate utilities from regular mods
+                var utilityMods = playableMods
+                    .Where(m => string.Equals(m.Category, "Utility", StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
-                if (betterCrewLinkMods.Any())
+                if (utilityMods.Any())
                 {
-                    if (playableMods.Count == betterCrewLinkMods.Count)
+                    if (playableMods.Count == utilityMods.Count)
                     {
-                        LaunchGame(betterCrewLinkMods.First(), betterCrewLinkMods.First().InstalledVersion);
+                        // Only utilities selected - launch the first one
+                        LaunchUtilityExecutable(utilityMods.First());
                         return;
                     }
 
-                    foreach (var bcl in betterCrewLinkMods)
+                    // Launch all utilities separately
+                    foreach (var utility in utilityMods)
                     {
-                        LaunchBetterCrewLinkExecutable(bcl);
+                        LaunchUtilityExecutable(utility);
                     }
 
+                    // Remove utilities from the mod list for game launch
                     playableMods = playableMods
-                        .Where(m => !string.Equals(m.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase))
+                        .Where(m => !string.Equals(m.Category, "Utility", StringComparison.OrdinalIgnoreCase))
                         .ToList();
                     mods = mods
-                        .Where(m => !string.Equals(m.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase))
+                        .Where(m => !string.Equals(m.Category, "Utility", StringComparison.OrdinalIgnoreCase))
                         .ToList();
                 }
 
@@ -5205,11 +5238,11 @@ namespace BeanModManager
                 if (!EnsureAmongUsPathSet())
                     return;
 
-                if (playableMods.Any(m => string.Equals(m.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase)))
+                if (playableMods.Any(m => string.Equals(m.Category, "Utility", StringComparison.OrdinalIgnoreCase)))
                 {
                     if (playableMods.Count > 1)
                     {
-                        MessageBox.Show("Better CrewLink must be launched separately.", "Unsupported Combination",
+                        MessageBox.Show("Utilities must be launched separately from game mods.", "Unsupported Combination",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
                         return;
                     }
@@ -5242,9 +5275,10 @@ namespace BeanModManager
                     }
 
                     // Allow non-depot mods to launch with depot mods (they'll be copied into the depot folder)
+                    // Exclude utilities as they launch their own executable
                     var supportingMods = mods
                         .Where(m => !string.Equals(m.Id, depotMods[0].Id, StringComparison.OrdinalIgnoreCase))
-                        .Where(m => !IsBetterCrewLink(m))
+                        .Where(m => !string.Equals(m.Category, "Utility", StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
                     // Pre-launch validation: Check for version conflicts (including depot mods)
@@ -5289,7 +5323,8 @@ namespace BeanModManager
 
                 foreach (var mod in mods)
                 {
-                    if (string.Equals(mod?.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase))
+                    // Skip utilities - they launch their own executable, not Among Us
+                    if (string.Equals(mod?.Category, "Utility", StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     // Skip dependency mods if they're optional or if their files already exist in another mod folder
@@ -5560,6 +5595,12 @@ namespace BeanModManager
 
         private void PrepareModForLaunch(Mod mod, string pluginsPath)
         {
+            // Utilities should not be prepared for launch - they run their own executable
+            if (string.Equals(mod.Category, "Utility", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
             if (!Directory.Exists(modStoragePath))
             {
@@ -5605,7 +5646,8 @@ namespace BeanModManager
             try
             {
                 supportingMods = supportingMods?
-                    .Where(m => m != null && !string.Equals(m.Id, mod.Id, StringComparison.OrdinalIgnoreCase) && !IsBetterCrewLink(m))
+                    .Where(m => m != null && !string.Equals(m.Id, mod.Id, StringComparison.OrdinalIgnoreCase) && 
+                                !string.Equals(m.Category, "Utility", StringComparison.OrdinalIgnoreCase))
                     .ToList() ?? new List<Mod>();
 
                 // Check if BepInEx is installed, if not try to install it

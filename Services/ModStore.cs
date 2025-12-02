@@ -77,7 +77,8 @@ namespace BeanModManager.Services
                             Category = entry.category,
                             Versions = new List<ModVersion>(),
                             Incompatibilities = entry.incompatibilities ?? new List<string>(),
-                            IsFeatured = entry.featured
+                            IsFeatured = entry.featured,
+                            ExecutableName = entry.executableName
                         };
 
                         _registryEntries[entry.id] = entry;

@@ -26,6 +26,7 @@ namespace BeanModManager.Models
         public string packageType { get; set; }
         public List<string> dontInclude { get; set; }
         public bool featured { get; set; }
+        public string executableName { get; set; }
     }
 
     public class VersionDependency
