@@ -12,7 +12,7 @@ namespace Setup
             var project = new ManagedProject(
                 "Bean Mod Manager",
                 new Dir(@"%ProgramFiles%\Bean Mod Manager",
-                    new Files(@"..\bin\Release\*.exe")),
+                    new Files(@"*.exe")),
 
                 // Desktop shortcut (conditional)
                 new Dir(@"%Desktop%",
@@ -32,6 +32,9 @@ namespace Setup
                         Condition = new Condition("START_MENU_ENTRY=\"1\"")
                     })
             );
+
+            project.SourceBaseDir = System.IO.Path.GetFullPath(@"..\bin\Release");
+
 
             project.GUID = new Guid("5939155f-c7e1-43ee-aad9-9bc67a35d9c5");
             project.Version = new Version("1.5.6");
