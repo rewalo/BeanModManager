@@ -6,7 +6,7 @@
     <img alt="CurseForge Downloads" src="https://cf.way2muchnoise.eu/1390152.svg?badge_style=for_the_badge">
   </a>
 </p>
-
+ 
 <h1 align="center">Bean Mod Manager</h1>
 
 <p align="center">
