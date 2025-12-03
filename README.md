@@ -6,7 +6,7 @@
     <img alt="CurseForge Downloads" src="https://cf.way2muchnoise.eu/1390152.svg?badge_style=for_the_badge">
   </a>
   <a href="https://discord.gg/2V6Vn4KCRf">
-    <img alt="Discord" src="https://img.shields.io/discord/2V6Vn4KCRf?label=Discord&logo=discord&style=for-the-badge">
+    <img alt="Discord" src="https://img.shields.io/discord/1445655512166432833?label=Discord&logo=discord&style=for-the-badge">
   </a>
 </p>
 
