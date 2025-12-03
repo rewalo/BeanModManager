@@ -706,6 +706,32 @@
       "incompatibilities": []
     },
     {
+      "id": "MoreGamemodes",
+      "name": "More Gamemodes",
+      "author": "Rabek009",
+      "description": "An Among Us host-only mod that adds new gamemodes and roles.",
+      "githubOwner": "Rabek009",
+      "githubRepo": "MoreGamemodes",
+      "category": "Host Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": ["More-Gamemodes-SteamItchio", "SteamItchio"],
+          "exclude": ["Epic", "epic", "Msstore", "msstore"]
+        },
+        "epic": {
+          "patterns": ["More-Gamemodes-EpicMsstore", "EpicMsstore"],
+          "exclude": ["Steam", "steam", "Itchio", "itchio"]
+        },
+        "dll": {
+          "patterns": ["MoreGamemodes.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
       "id": "Impostor",
       "name": "Impostor",
       "author": "Impostor",
