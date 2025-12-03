@@ -78,6 +78,7 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - Endless Host Roles  
 
 ### Gameplay Mods
+- Better Among Us  
 - Launchpad: Reloaded  
 - All The Roles  
 - The Other Roles  

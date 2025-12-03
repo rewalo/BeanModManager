@@ -777,6 +777,32 @@
       "incompatibilities": []
     },
     {
+      "id": "BetterAmongUs",
+      "name": "Better Among Us",
+      "author": "D1GQ",
+      "description": "A client-sided mod that enhances the experience for the popular game Among Us!",
+      "githubOwner": "D1GQ",
+      "githubRepo": "BetterAmongUs-Public",
+      "category": "Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": ["BAU-SteamItchio", "SteamItchio"],
+          "exclude": ["Epic", "epic", "MsStore", "msstore"]
+        },
+        "epic": {
+          "patterns": ["BAU-EpicMsStore", "EpicMsStore"],
+          "exclude": ["Steam", "steam", "Itchio", "itchio"]
+        },
+        "dll": {
+          "patterns": ["BetterAmongUs.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
       "id": "BetterPolus",
       "name": "Better Polus",
       "author": "Brybry16",
