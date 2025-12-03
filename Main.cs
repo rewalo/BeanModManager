@@ -63,7 +63,15 @@ namespace BeanModManager
             
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             this.Text = $"Bean Mod Manager v{version.Major}.{version.Minor}.{version.Build}";
-            
+
+            try
+            {
+                CheckForAppUpdatesAsync().ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+
             InitializeUiPerformanceTweaks();
             _config = Config.Load();
             
@@ -894,6 +902,13 @@ namespace BeanModManager
                 lblHeaderInfo.ForeColor = palette.SecondaryTextColor;
             }
             
+            if (lblDiscordLink != null)
+            {
+                lblDiscordLink.LinkColor = palette.LinkColor;
+                lblDiscordLink.ActiveLinkColor = palette.LinkActiveColor;
+                lblDiscordLink.VisitedLinkColor = palette.LinkColor;
+            }
+            
             // Apply theme to sidebar
             if (leftSidebar != null)
             {
@@ -1560,13 +1575,6 @@ namespace BeanModManager
 
             try
             {
-                try
-                {
-                    await CheckForAppUpdatesAsync().ConfigureAwait(false);
-                }
-                catch
-                {
-                }
                 
                 UpdateStatus("Loading mods...");
                 
@@ -7582,6 +7590,28 @@ namespace BeanModManager
                     }
                 }
             });
+        }
+
+        private void lblDiscordLink_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            e.Link.Visited = true;
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "https://discord.gg/2V6Vn4KCRf",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to open Discord link.\n\nPlease visit: https://discord.gg/2V6Vn4KCRf",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                System.Diagnostics.Debug.WriteLine($"Failed to open Discord URL: {ex.Message}");
+            }
         }
 
         private void btnBackupAmongUsData_Click(object sender, EventArgs e)

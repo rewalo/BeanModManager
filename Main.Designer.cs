@@ -36,6 +36,7 @@
             this.lblStatus = new System.Windows.Forms.ToolStripStatusLabel();
             this.progressBar = new System.Windows.Forms.ToolStripProgressBar();
             this.headerStrip = new System.Windows.Forms.Panel();
+            this.lblDiscordLink = new System.Windows.Forms.LinkLabel();
             this.lblHeaderInfo = new System.Windows.Forms.Label();
             this.leftSidebar = new System.Windows.Forms.Panel();
             this.sidebarButtons = new System.Windows.Forms.Panel();
@@ -60,6 +61,10 @@
             this.lblInstalledCategory = new System.Windows.Forms.Label();
             this.cmbInstalledCategory = new System.Windows.Forms.ComboBox();
             this.btnImportMod = new System.Windows.Forms.Button();
+            this.panelBulkActionsInstalled = new System.Windows.Forms.Panel();
+            this.lblBulkSelectedCountInstalled = new System.Windows.Forms.Label();
+            this.btnBulkUninstallInstalled = new System.Windows.Forms.Button();
+            this.btnBulkDeselectAllInstalled = new System.Windows.Forms.Button();
             this.panelInstalledHost = new System.Windows.Forms.Panel();
             this.panelEmptyInstalled = new System.Windows.Forms.Panel();
             this.lblEmptyInstalled = new System.Windows.Forms.Label();
@@ -75,20 +80,16 @@
             this.txtStoreSearch = new System.Windows.Forms.TextBox();
             this.lblStoreCategory = new System.Windows.Forms.Label();
             this.cmbStoreCategory = new System.Windows.Forms.ComboBox();
+            this.panelBulkActionsStore = new System.Windows.Forms.Panel();
+            this.lblBulkSelectedCountStore = new System.Windows.Forms.Label();
+            this.btnBulkInstallStore = new System.Windows.Forms.Button();
+            this.btnBulkDeselectAllStore = new System.Windows.Forms.Button();
             this.panelStoreHost = new System.Windows.Forms.Panel();
             this.panelEmptyStore = new System.Windows.Forms.Panel();
             this.lblEmptyStore = new System.Windows.Forms.Label();
             this.btnEmptyStoreClearFilters = new System.Windows.Forms.Button();
             this.btnEmptyStoreBrowseFeatured = new System.Windows.Forms.Button();
             this.panelStore = new BeanModManager.Controls.ThemedFlowLayoutPanel();
-            this.panelBulkActionsInstalled = new System.Windows.Forms.Panel();
-            this.lblBulkSelectedCountInstalled = new System.Windows.Forms.Label();
-            this.btnBulkUninstallInstalled = new System.Windows.Forms.Button();
-            this.btnBulkDeselectAllInstalled = new System.Windows.Forms.Button();
-            this.panelBulkActionsStore = new System.Windows.Forms.Panel();
-            this.lblBulkSelectedCountStore = new System.Windows.Forms.Label();
-            this.btnBulkInstallStore = new System.Windows.Forms.Button();
-            this.btnBulkDeselectAllStore = new System.Windows.Forms.Button();
             this.tabSettings = new System.Windows.Forms.TabPage();
             this.settingsLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpPath = new System.Windows.Forms.GroupBox();
@@ -132,15 +133,15 @@
             this.tabInstalled.SuspendLayout();
             this.installedLayout.SuspendLayout();
             this.flowInstalledFilters.SuspendLayout();
+            this.panelBulkActionsInstalled.SuspendLayout();
             this.panelInstalledHost.SuspendLayout();
             this.panelEmptyInstalled.SuspendLayout();
             this.tabStore.SuspendLayout();
             this.storeLayout.SuspendLayout();
             this.flowStoreFilters.SuspendLayout();
+            this.panelBulkActionsStore.SuspendLayout();
             this.panelStoreHost.SuspendLayout();
             this.panelEmptyStore.SuspendLayout();
-            this.panelBulkActionsInstalled.SuspendLayout();
-            this.panelBulkActionsStore.SuspendLayout();
             this.tabSettings.SuspendLayout();
             this.settingsLayout.SuspendLayout();
             this.grpPath.SuspendLayout();
@@ -186,6 +187,7 @@
             // headerStrip
             // 
             this.headerStrip.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+            this.headerStrip.Controls.Add(this.lblDiscordLink);
             this.headerStrip.Controls.Add(this.lblHeaderInfo);
             this.headerStrip.Dock = System.Windows.Forms.DockStyle.Top;
             this.headerStrip.Location = new System.Drawing.Point(0, 0);
@@ -194,6 +196,20 @@
             this.headerStrip.Size = new System.Drawing.Size(1335, 32);
             this.headerStrip.TabIndex = 2;
             this.headerStrip.Paint += new System.Windows.Forms.PaintEventHandler(this.HeaderStrip_Paint);
+            // 
+            // lblDiscordLink
+            // 
+            this.lblDiscordLink.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblDiscordLink.AutoSize = true;
+            this.lblDiscordLink.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblDiscordLink.LinkBehavior = System.Windows.Forms.LinkBehavior.HoverUnderline;
+            this.lblDiscordLink.Location = new System.Drawing.Point(1225, 6);
+            this.lblDiscordLink.Name = "lblDiscordLink";
+            this.lblDiscordLink.Size = new System.Drawing.Size(106, 19);
+            this.lblDiscordLink.TabIndex = 1;
+            this.lblDiscordLink.TabStop = true;
+            this.lblDiscordLink.Text = "💬 Join Discord";
+            this.lblDiscordLink.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.lblDiscordLink_LinkClicked);
             // 
             // lblHeaderInfo
             // 
@@ -521,18 +537,17 @@
             // 
             // btnImportMod
             // 
+            this.btnImportMod.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.btnImportMod.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(108)))), ((int)(((byte)(117)))), ((int)(((byte)(125)))));
             this.btnImportMod.FlatAppearance.BorderSize = 0;
             this.btnImportMod.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(98)))), ((int)(((byte)(105)))));
             this.btnImportMod.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnImportMod.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.btnImportMod.ForeColor = System.Drawing.Color.White;
-            this.btnImportMod.AutoSize = false;
-            this.btnImportMod.Location = new System.Drawing.Point(576, 3);
+            this.btnImportMod.Location = new System.Drawing.Point(591, 3);
             this.btnImportMod.Margin = new System.Windows.Forms.Padding(15, 0, 0, 0);
             this.btnImportMod.Name = "btnImportMod";
             this.btnImportMod.Size = new System.Drawing.Size(100, 23);
-            this.btnImportMod.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.btnImportMod.TabIndex = 4;
             this.btnImportMod.Text = "Import Mod";
             this.btnImportMod.UseVisualStyleBackColor = false;
@@ -545,7 +560,7 @@
             this.panelBulkActionsInstalled.Controls.Add(this.btnBulkUninstallInstalled);
             this.panelBulkActionsInstalled.Controls.Add(this.btnBulkDeselectAllInstalled);
             this.panelBulkActionsInstalled.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panelBulkActionsInstalled.Location = new System.Drawing.Point(0, 52);
+            this.panelBulkActionsInstalled.Location = new System.Drawing.Point(0, 60);
             this.panelBulkActionsInstalled.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.panelBulkActionsInstalled.Name = "panelBulkActionsInstalled";
             this.panelBulkActionsInstalled.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
@@ -560,7 +575,7 @@
             this.lblBulkSelectedCountInstalled.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(90)))));
             this.lblBulkSelectedCountInstalled.Location = new System.Drawing.Point(12, 11);
             this.lblBulkSelectedCountInstalled.Name = "lblBulkSelectedCountInstalled";
-            this.lblBulkSelectedCountInstalled.Size = new System.Drawing.Size(95, 15);
+            this.lblBulkSelectedCountInstalled.Size = new System.Drawing.Size(97, 15);
             this.lblBulkSelectedCountInstalled.TabIndex = 0;
             this.lblBulkSelectedCountInstalled.Text = "0 mods selected";
             // 
@@ -604,10 +619,10 @@
             this.panelInstalledHost.Controls.Add(this.panelEmptyInstalled);
             this.panelInstalledHost.Controls.Add(this.panelInstalled);
             this.panelInstalledHost.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelInstalledHost.Location = new System.Drawing.Point(0, 68);
+            this.panelInstalledHost.Location = new System.Drawing.Point(0, 112);
             this.panelInstalledHost.Margin = new System.Windows.Forms.Padding(0);
             this.panelInstalledHost.Name = "panelInstalledHost";
-            this.panelInstalledHost.Size = new System.Drawing.Size(1087, 571);
+            this.panelInstalledHost.Size = new System.Drawing.Size(1087, 519);
             this.panelInstalledHost.TabIndex = 3;
             // 
             // panelEmptyInstalled
@@ -618,7 +633,7 @@
             this.panelEmptyInstalled.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelEmptyInstalled.Location = new System.Drawing.Point(0, 0);
             this.panelEmptyInstalled.Name = "panelEmptyInstalled";
-            this.panelEmptyInstalled.Size = new System.Drawing.Size(1087, 571);
+            this.panelEmptyInstalled.Size = new System.Drawing.Size(1087, 519);
             this.panelEmptyInstalled.TabIndex = 2;
             this.panelEmptyInstalled.Visible = false;
             // 
@@ -627,7 +642,7 @@
             this.lblEmptyInstalled.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.lblEmptyInstalled.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblEmptyInstalled.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(150)))));
-            this.lblEmptyInstalled.Location = new System.Drawing.Point(0, 200);
+            this.lblEmptyInstalled.Location = new System.Drawing.Point(0, 174);
             this.lblEmptyInstalled.Name = "lblEmptyInstalled";
             this.lblEmptyInstalled.Size = new System.Drawing.Size(1087, 30);
             this.lblEmptyInstalled.TabIndex = 0;
@@ -643,7 +658,7 @@
             this.btnEmptyInstalledBrowseFeatured.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnEmptyInstalledBrowseFeatured.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnEmptyInstalledBrowseFeatured.ForeColor = System.Drawing.Color.White;
-            this.btnEmptyInstalledBrowseFeatured.Location = new System.Drawing.Point(443, 250);
+            this.btnEmptyInstalledBrowseFeatured.Location = new System.Drawing.Point(443, 224);
             this.btnEmptyInstalledBrowseFeatured.Name = "btnEmptyInstalledBrowseFeatured";
             this.btnEmptyInstalledBrowseFeatured.Size = new System.Drawing.Size(200, 36);
             this.btnEmptyInstalledBrowseFeatured.TabIndex = 1;
@@ -660,7 +675,7 @@
             this.btnEmptyInstalledBrowseStore.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnEmptyInstalledBrowseStore.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnEmptyInstalledBrowseStore.ForeColor = System.Drawing.Color.White;
-            this.btnEmptyInstalledBrowseStore.Location = new System.Drawing.Point(443, 296);
+            this.btnEmptyInstalledBrowseStore.Location = new System.Drawing.Point(443, 270);
             this.btnEmptyInstalledBrowseStore.Name = "btnEmptyInstalledBrowseStore";
             this.btnEmptyInstalledBrowseStore.Size = new System.Drawing.Size(200, 36);
             this.btnEmptyInstalledBrowseStore.TabIndex = 2;
@@ -678,7 +693,7 @@
             this.panelInstalled.Margin = new System.Windows.Forms.Padding(0);
             this.panelInstalled.Name = "panelInstalled";
             this.panelInstalled.Padding = new System.Windows.Forms.Padding(10);
-            this.panelInstalled.Size = new System.Drawing.Size(1087, 571);
+            this.panelInstalled.Size = new System.Drawing.Size(1087, 519);
             this.panelInstalled.TabIndex = 1;
             // 
             // btnLaunchSelected
@@ -705,7 +720,7 @@
             this.tabStore.Location = new System.Drawing.Point(4, 5);
             this.tabStore.Name = "tabStore";
             this.tabStore.Padding = new System.Windows.Forms.Padding(10);
-            this.tabStore.Size = new System.Drawing.Size(1110, 701);
+            this.tabStore.Size = new System.Drawing.Size(1107, 701);
             this.tabStore.TabIndex = 1;
             this.tabStore.Text = "Mod Store";
             // 
@@ -725,7 +740,7 @@
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.storeLayout.Size = new System.Drawing.Size(1090, 681);
+            this.storeLayout.Size = new System.Drawing.Size(1087, 681);
             this.storeLayout.TabIndex = 2;
             // 
             // lblStoreHeader
@@ -753,7 +768,7 @@
             this.flowStoreFilters.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.flowStoreFilters.Name = "flowStoreFilters";
             this.flowStoreFilters.Padding = new System.Windows.Forms.Padding(0, 3, 0, 3);
-            this.flowStoreFilters.Size = new System.Drawing.Size(1090, 29);
+            this.flowStoreFilters.Size = new System.Drawing.Size(1087, 29);
             this.flowStoreFilters.TabIndex = 4;
             this.flowStoreFilters.WrapContents = false;
             // 
@@ -814,11 +829,11 @@
             this.panelBulkActionsStore.Controls.Add(this.btnBulkInstallStore);
             this.panelBulkActionsStore.Controls.Add(this.btnBulkDeselectAllStore);
             this.panelBulkActionsStore.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panelBulkActionsStore.Location = new System.Drawing.Point(0, 52);
+            this.panelBulkActionsStore.Location = new System.Drawing.Point(0, 60);
             this.panelBulkActionsStore.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.panelBulkActionsStore.Name = "panelBulkActionsStore";
             this.panelBulkActionsStore.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
-            this.panelBulkActionsStore.Size = new System.Drawing.Size(1090, 44);
+            this.panelBulkActionsStore.Size = new System.Drawing.Size(1087, 44);
             this.panelBulkActionsStore.TabIndex = 6;
             this.panelBulkActionsStore.Visible = false;
             // 
@@ -829,7 +844,7 @@
             this.lblBulkSelectedCountStore.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(70)))), ((int)(((byte)(90)))));
             this.lblBulkSelectedCountStore.Location = new System.Drawing.Point(12, 11);
             this.lblBulkSelectedCountStore.Name = "lblBulkSelectedCountStore";
-            this.lblBulkSelectedCountStore.Size = new System.Drawing.Size(95, 15);
+            this.lblBulkSelectedCountStore.Size = new System.Drawing.Size(97, 15);
             this.lblBulkSelectedCountStore.TabIndex = 0;
             this.lblBulkSelectedCountStore.Text = "0 mods selected";
             // 
@@ -842,7 +857,7 @@
             this.btnBulkInstallStore.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnBulkInstallStore.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.btnBulkInstallStore.ForeColor = System.Drawing.Color.White;
-            this.btnBulkInstallStore.Location = new System.Drawing.Point(800, 6);
+            this.btnBulkInstallStore.Location = new System.Drawing.Point(797, 6);
             this.btnBulkInstallStore.Name = "btnBulkInstallStore";
             this.btnBulkInstallStore.Size = new System.Drawing.Size(130, 28);
             this.btnBulkInstallStore.TabIndex = 1;
@@ -859,7 +874,7 @@
             this.btnBulkDeselectAllStore.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnBulkDeselectAllStore.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.btnBulkDeselectAllStore.ForeColor = System.Drawing.Color.White;
-            this.btnBulkDeselectAllStore.Location = new System.Drawing.Point(936, 6);
+            this.btnBulkDeselectAllStore.Location = new System.Drawing.Point(933, 6);
             this.btnBulkDeselectAllStore.Name = "btnBulkDeselectAllStore";
             this.btnBulkDeselectAllStore.Size = new System.Drawing.Size(139, 28);
             this.btnBulkDeselectAllStore.TabIndex = 2;
@@ -873,10 +888,10 @@
             this.panelStoreHost.Controls.Add(this.panelEmptyStore);
             this.panelStoreHost.Controls.Add(this.panelStore);
             this.panelStoreHost.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelStoreHost.Location = new System.Drawing.Point(0, 68);
+            this.panelStoreHost.Location = new System.Drawing.Point(0, 112);
             this.panelStoreHost.Margin = new System.Windows.Forms.Padding(0);
             this.panelStoreHost.Name = "panelStoreHost";
-            this.panelStoreHost.Size = new System.Drawing.Size(1090, 621);
+            this.panelStoreHost.Size = new System.Drawing.Size(1087, 569);
             this.panelStoreHost.TabIndex = 2;
             // 
             // panelEmptyStore
@@ -887,7 +902,7 @@
             this.panelEmptyStore.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelEmptyStore.Location = new System.Drawing.Point(0, 0);
             this.panelEmptyStore.Name = "panelEmptyStore";
-            this.panelEmptyStore.Size = new System.Drawing.Size(1090, 621);
+            this.panelEmptyStore.Size = new System.Drawing.Size(1087, 569);
             this.panelEmptyStore.TabIndex = 5;
             this.panelEmptyStore.Visible = false;
             // 
@@ -896,7 +911,7 @@
             this.lblEmptyStore.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.lblEmptyStore.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblEmptyStore.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(150)))));
-            this.lblEmptyStore.Location = new System.Drawing.Point(0, 200);
+            this.lblEmptyStore.Location = new System.Drawing.Point(-2, 174);
             this.lblEmptyStore.Name = "lblEmptyStore";
             this.lblEmptyStore.Size = new System.Drawing.Size(1090, 30);
             this.lblEmptyStore.TabIndex = 0;
@@ -912,7 +927,7 @@
             this.btnEmptyStoreClearFilters.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnEmptyStoreClearFilters.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnEmptyStoreClearFilters.ForeColor = System.Drawing.Color.White;
-            this.btnEmptyStoreClearFilters.Location = new System.Drawing.Point(445, 250);
+            this.btnEmptyStoreClearFilters.Location = new System.Drawing.Point(443, 224);
             this.btnEmptyStoreClearFilters.Name = "btnEmptyStoreClearFilters";
             this.btnEmptyStoreClearFilters.Size = new System.Drawing.Size(200, 36);
             this.btnEmptyStoreClearFilters.TabIndex = 1;
@@ -929,7 +944,7 @@
             this.btnEmptyStoreBrowseFeatured.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnEmptyStoreBrowseFeatured.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnEmptyStoreBrowseFeatured.ForeColor = System.Drawing.Color.White;
-            this.btnEmptyStoreBrowseFeatured.Location = new System.Drawing.Point(445, 296);
+            this.btnEmptyStoreBrowseFeatured.Location = new System.Drawing.Point(443, 270);
             this.btnEmptyStoreBrowseFeatured.Name = "btnEmptyStoreBrowseFeatured";
             this.btnEmptyStoreBrowseFeatured.Size = new System.Drawing.Size(200, 36);
             this.btnEmptyStoreBrowseFeatured.TabIndex = 2;
@@ -946,7 +961,7 @@
             this.panelStore.Location = new System.Drawing.Point(0, 0);
             this.panelStore.Name = "panelStore";
             this.panelStore.Padding = new System.Windows.Forms.Padding(10);
-            this.panelStore.Size = new System.Drawing.Size(1090, 621);
+            this.panelStore.Size = new System.Drawing.Size(1087, 569);
             this.panelStore.TabIndex = 0;
             // 
             // tabSettings
@@ -955,7 +970,7 @@
             this.tabSettings.Location = new System.Drawing.Point(4, 5);
             this.tabSettings.Name = "tabSettings";
             this.tabSettings.Padding = new System.Windows.Forms.Padding(3);
-            this.tabSettings.Size = new System.Drawing.Size(1110, 701);
+            this.tabSettings.Size = new System.Drawing.Size(1107, 701);
             this.tabSettings.TabIndex = 2;
             this.tabSettings.Text = "Settings";
             // 
@@ -979,7 +994,7 @@
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.settingsLayout.Size = new System.Drawing.Size(1104, 695);
+            this.settingsLayout.Size = new System.Drawing.Size(1101, 695);
             this.settingsLayout.TabIndex = 0;
             // 
             // grpPath
@@ -992,7 +1007,7 @@
             this.grpPath.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpPath.Name = "grpPath";
             this.grpPath.Padding = new System.Windows.Forms.Padding(12);
-            this.grpPath.Size = new System.Drawing.Size(1078, 114);
+            this.grpPath.Size = new System.Drawing.Size(1075, 114);
             this.grpPath.TabIndex = 0;
             this.grpPath.TabStop = false;
             this.grpPath.Text = "Among Us Path";
@@ -1012,7 +1027,7 @@
             this.pathLayout.Name = "pathLayout";
             this.pathLayout.RowCount = 1;
             this.pathLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.pathLayout.Size = new System.Drawing.Size(1054, 35);
+            this.pathLayout.Size = new System.Drawing.Size(1051, 35);
             this.pathLayout.TabIndex = 2;
             // 
             // txtAmongUsPath
@@ -1022,14 +1037,14 @@
             this.txtAmongUsPath.Location = new System.Drawing.Point(3, 3);
             this.txtAmongUsPath.Name = "txtAmongUsPath";
             this.txtAmongUsPath.ReadOnly = true;
-            this.txtAmongUsPath.Size = new System.Drawing.Size(808, 23);
+            this.txtAmongUsPath.Size = new System.Drawing.Size(805, 23);
             this.txtAmongUsPath.TabIndex = 0;
             // 
             // btnBrowsePath
             // 
             this.btnBrowsePath.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnBrowsePath.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnBrowsePath.Location = new System.Drawing.Point(817, 3);
+            this.btnBrowsePath.Location = new System.Drawing.Point(814, 3);
             this.btnBrowsePath.Name = "btnBrowsePath";
             this.btnBrowsePath.Size = new System.Drawing.Size(114, 29);
             this.btnBrowsePath.TabIndex = 1;
@@ -1041,7 +1056,7 @@
             // 
             this.btnDetectPath.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnDetectPath.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnDetectPath.Location = new System.Drawing.Point(937, 3);
+            this.btnDetectPath.Location = new System.Drawing.Point(934, 3);
             this.btnDetectPath.Name = "btnDetectPath";
             this.btnDetectPath.Size = new System.Drawing.Size(114, 29);
             this.btnDetectPath.TabIndex = 2;
@@ -1070,7 +1085,7 @@
             this.grpBepInEx.Margin = new System.Windows.Forms.Padding(3, 3, 10, 10);
             this.grpBepInEx.Name = "grpBepInEx";
             this.grpBepInEx.Padding = new System.Windows.Forms.Padding(12);
-            this.grpBepInEx.Size = new System.Drawing.Size(529, 170);
+            this.grpBepInEx.Size = new System.Drawing.Size(527, 215);
             this.grpBepInEx.TabIndex = 1;
             this.grpBepInEx.TabStop = false;
             this.grpBepInEx.Text = "BepInEx";
@@ -1087,7 +1102,7 @@
             this.flowBepInEx.Location = new System.Drawing.Point(12, 28);
             this.flowBepInEx.Name = "flowBepInEx";
             this.flowBepInEx.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowBepInEx.Size = new System.Drawing.Size(505, 130);
+            this.flowBepInEx.Size = new System.Drawing.Size(503, 175);
             this.flowBepInEx.TabIndex = 0;
             this.flowBepInEx.WrapContents = false;
             // 
@@ -1133,11 +1148,11 @@
             this.grpFolders.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.grpFolders.Controls.Add(this.flowFolders);
             this.grpFolders.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpFolders.Location = new System.Drawing.Point(555, 140);
+            this.grpFolders.Location = new System.Drawing.Point(553, 140);
             this.grpFolders.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpFolders.Name = "grpFolders";
             this.grpFolders.Padding = new System.Windows.Forms.Padding(12);
-            this.grpFolders.Size = new System.Drawing.Size(536, 170);
+            this.grpFolders.Size = new System.Drawing.Size(535, 215);
             this.grpFolders.TabIndex = 2;
             this.grpFolders.TabStop = false;
             this.grpFolders.Text = "Quick Actions";
@@ -1155,7 +1170,7 @@
             this.flowFolders.Location = new System.Drawing.Point(12, 28);
             this.flowFolders.Name = "flowFolders";
             this.flowFolders.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowFolders.Size = new System.Drawing.Size(512, 130);
+            this.flowFolders.Size = new System.Drawing.Size(511, 175);
             this.flowFolders.TabIndex = 0;
             this.flowFolders.WrapContents = false;
             // 
@@ -1212,11 +1227,11 @@
             this.settingsLayout.SetColumnSpan(this.grpAppearance, 2);
             this.grpAppearance.Controls.Add(this.appearanceLayout);
             this.grpAppearance.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpAppearance.Location = new System.Drawing.Point(13, 323);
+            this.grpAppearance.Location = new System.Drawing.Point(13, 368);
             this.grpAppearance.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpAppearance.Name = "grpAppearance";
             this.grpAppearance.Padding = new System.Windows.Forms.Padding(12);
-            this.grpAppearance.Size = new System.Drawing.Size(1078, 110);
+            this.grpAppearance.Size = new System.Drawing.Size(1075, 110);
             this.grpAppearance.TabIndex = 5;
             this.grpAppearance.TabStop = false;
             this.grpAppearance.Text = "Appearance";
@@ -1233,7 +1248,7 @@
             this.appearanceLayout.Name = "appearanceLayout";
             this.appearanceLayout.RowCount = 1;
             this.appearanceLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.appearanceLayout.Size = new System.Drawing.Size(1054, 70);
+            this.appearanceLayout.Size = new System.Drawing.Size(1051, 70);
             this.appearanceLayout.TabIndex = 0;
             // 
             // lblTheme
@@ -1265,11 +1280,11 @@
             // 
             this.grpMods.Controls.Add(this.flowMods);
             this.grpMods.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpMods.Location = new System.Drawing.Point(13, 446);
+            this.grpMods.Location = new System.Drawing.Point(13, 491);
             this.grpMods.Margin = new System.Windows.Forms.Padding(3, 3, 10, 10);
             this.grpMods.Name = "grpMods";
             this.grpMods.Padding = new System.Windows.Forms.Padding(12);
-            this.grpMods.Size = new System.Drawing.Size(529, 229);
+            this.grpMods.Size = new System.Drawing.Size(527, 184);
             this.grpMods.TabIndex = 3;
             this.grpMods.TabStop = false;
             this.grpMods.Text = "Mod Management";
@@ -1285,7 +1300,7 @@
             this.flowMods.Location = new System.Drawing.Point(12, 28);
             this.flowMods.Name = "flowMods";
             this.flowMods.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowMods.Size = new System.Drawing.Size(505, 189);
+            this.flowMods.Size = new System.Drawing.Size(503, 144);
             this.flowMods.TabIndex = 0;
             this.flowMods.WrapContents = false;
             // 
@@ -1331,11 +1346,11 @@
             // 
             this.grpData.Controls.Add(this.flowData);
             this.grpData.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpData.Location = new System.Drawing.Point(555, 446);
+            this.grpData.Location = new System.Drawing.Point(553, 491);
             this.grpData.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpData.Name = "grpData";
             this.grpData.Padding = new System.Windows.Forms.Padding(12);
-            this.grpData.Size = new System.Drawing.Size(536, 229);
+            this.grpData.Size = new System.Drawing.Size(535, 184);
             this.grpData.TabIndex = 4;
             this.grpData.TabStop = false;
             this.grpData.Text = "Save Data";
@@ -1350,7 +1365,7 @@
             this.flowData.Location = new System.Drawing.Point(12, 28);
             this.flowData.Name = "flowData";
             this.flowData.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowData.Size = new System.Drawing.Size(512, 189);
+            this.flowData.Size = new System.Drawing.Size(511, 144);
             this.flowData.TabIndex = 0;
             this.flowData.WrapContents = false;
             // 
@@ -1469,6 +1484,7 @@
         private System.Windows.Forms.TabPage tabSettings;
         private System.Windows.Forms.Panel headerStrip;
         private System.Windows.Forms.Label lblHeaderInfo;
+        private System.Windows.Forms.LinkLabel lblDiscordLink;
         private System.Windows.Forms.Panel leftSidebar;
         private System.Windows.Forms.Panel sidebarHeader;
         private System.Windows.Forms.Label lblSidebarTitle;

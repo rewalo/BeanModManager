@@ -5,12 +5,15 @@
   <a href="https://www.curseforge.com/among-us/all-mods/bean-mod-manager">
     <img alt="CurseForge Downloads" src="https://cf.way2muchnoise.eu/1390152.svg?badge_style=for_the_badge">
   </a>
+  <a href="https://discord.gg/2V6Vn4KCRf">
+    <img alt="Discord" src="https://img.shields.io/discord/2V6Vn4KCRf?label=Discord&logo=discord&style=for-the-badge">
+  </a>
 </p>
 
 <h1 align="center">Bean Mod Manager</h1>
 
 <p align="center">
-A comprehensive mod manager for <strong>Among Us</strong>, built with Windows Forms. Easily install, manage, and switch between mods like TOHE, Town of Us Mira, Better CrewLink, TOR, StellarRoles, and many more without hassle.
+A comprehensive mod manager for <strong>Among Us</strong>, built with Windows Forms. Easily install, manage, and switch between 20+ mods including TOHE, Town of Us Mira, Better CrewLink, TOR, StellarRoles, and many more without hassle.
 </p>
 
 <p align="center">
@@ -19,19 +22,27 @@ A comprehensive mod manager for <strong>Among Us</strong>, built with Windows Fo
 
 ---
 
+## Support & Community
+
+Need help, have questions, or want to connect with other users? Join our Discord server:
+
+**[💬 Join Discord](https://discord.gg/2V6Vn4KCRf)**
+
+---
+
 ## Features
 
-- First Launch Wizard — Guided setup for new users  
-- Automatic Detection — Steam, Epic Games, MS Store  
-- Smart Mod Management — Multiple installed, one active  
-- Dependency Management — Reactor, MiraAPI handled automatically  
-- Update Checker — Notifies you when updates are available  
-- Incompatibility Detection — Warns of conflicts before installation  
-- Search and Filter — Quickly find mods using categories and search  
-- Bulk Actions — Install, uninstall, or update multiple mods  
-- Theme Support — Light and dark themes with auto-detection  
-- Virtualized UI — Smooth performance with large mod lists  
-- Steam Depot Support — Automatically downloads required game versions  
+- **First Launch Wizard:** Guided setup for new users  
+- **Automatic Detection:** Steam, Epic Games, MS Store  
+- **Smart Mod Management:** Multiple installed, one active  
+- **Dependency Management:** Reactor, MiraAPI handled automatically  
+- **Update Checker:** Notifies you when updates are available  
+- **Incompatibility Detection:** Warns of conflicts before installation  
+- **Search and Filter:** Quickly find mods using categories and search  
+- **Bulk Actions:** Install, uninstall, or update multiple mods  
+- **Theme Support:** Light and dark themes with auto-detection  
+- **Virtualized UI:** Smooth performance with large mod lists  
+- **Steam Depot Support:** Automatically downloads required game versions  
 
 ---
 
@@ -157,6 +168,7 @@ Open `BeanModManager.sln`, restore NuGet packages, build, and run.
 - To add a mod, open an issue or pull request.  
 - To remove a mod, request removal via issue.  
 - For bugs or feature requests, submit an issue on GitHub.  
+- For real-time support and discussions, join our [Discord server](https://discord.gg/2V6Vn4KCRf).  
 
 ---
 
