@@ -510,6 +510,7 @@
         }
       },
       "requiresDepot": false,
+      "keepFiles": ["plugins/LevelImposter"],
       "incompatibilities": []
     },
     {

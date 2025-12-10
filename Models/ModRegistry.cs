@@ -25,6 +25,7 @@ namespace BeanModManager.Models
         public List<string> incompatibilities { get; set; }
         public string packageType { get; set; }
         public List<string> dontInclude { get; set; }
+        public List<string> keepFiles { get; set; } // Files/folders to preserve during uninstall (e.g., "plugins/LevelImposter")
         public bool featured { get; set; }
         public string executableName { get; set; }
     }

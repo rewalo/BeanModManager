@@ -3815,7 +3815,8 @@ namespace BeanModManager
             {
                 // Run uninstall on background thread
                 var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
-                var uninstalled = await Task.Run(() => _modInstaller.UninstallMod(mod, _config.AmongUsPath, modStoragePath)).ConfigureAwait(false);
+                var keepFiles = _modStore.GetKeepFiles(mod.Id);
+                var uninstalled = await Task.Run(() => _modInstaller.UninstallMod(mod, _config.AmongUsPath, modStoragePath, keepFiles)).ConfigureAwait(false);
                 
                 // Delete depot if mod requires it
                 if (uninstalled && _modStore.ModRequiresDepot(mod.Id))
@@ -5619,6 +5620,49 @@ namespace BeanModManager
                 return;
             }
 
+            // Backup files/folders that should be kept before cleaning plugins folder
+            var keepFiles = _modStore.GetKeepFiles(mod.Id);
+            var backupPaths = new Dictionary<string, string>(); // Maps original path to backup path
+            
+            if (keepFiles != null && keepFiles.Any())
+            {
+                foreach (var keepPath in keepFiles)
+                {
+                    // Normalize the path (handle both "plugins/LevelImposter" and "LevelImposter")
+                    var normalizedPath = keepPath.Replace("plugins/", "").Replace("plugins\\", "").TrimStart('/', '\\');
+                    var fullPath = Path.Combine(pluginsPath, normalizedPath);
+                    
+                    if (Directory.Exists(fullPath) || File.Exists(fullPath))
+                    {
+                        var backupPath = Path.Combine(Path.GetTempPath(), "BeanModManager_Backup_" + Guid.NewGuid().ToString("N"));
+                        try
+                        {
+                            if (Directory.Exists(fullPath))
+                            {
+                                CopyDirectoryContents(fullPath, backupPath, true);
+                                backupPaths[fullPath] = backupPath;
+                                UpdateStatus($"Backed up {normalizedPath}");
+                            }
+                            else if (File.Exists(fullPath))
+                            {
+                                var backupDir = Path.GetDirectoryName(backupPath);
+                                if (!Directory.Exists(backupDir))
+                                {
+                                    Directory.CreateDirectory(backupDir);
+                                }
+                                File.Copy(fullPath, backupPath, true);
+                                backupPaths[fullPath] = backupPath;
+                                UpdateStatus($"Backed up {Path.GetFileName(fullPath)}");
+                            }
+                        }
+                        catch
+                        {
+                            // If backup fails, skip this entry
+                        }
+                    }
+                }
+            }
+
             var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
             if (!Directory.Exists(modStoragePath))
             {
@@ -5656,6 +5700,66 @@ namespace BeanModManager
             {
                 UpdateStatus($"Copying {mod.Name} files...");
                 CopyDirectoryContents(modStoragePath, _config.AmongUsPath, true);
+            }
+            
+            // Restore backed up files/folders after copying mod files
+            foreach (var kvp in backupPaths)
+            {
+                var originalPath = kvp.Key;
+                var backupPath = kvp.Value;
+                
+                try
+                {
+                    if (Directory.Exists(backupPath))
+                    {
+                        if (!Directory.Exists(originalPath))
+                        {
+                            Directory.CreateDirectory(originalPath);
+                        }
+                        CopyDirectoryContents(backupPath, originalPath, true);
+                        UpdateStatus($"Restored {Path.GetFileName(originalPath)}");
+                    }
+                    else if (File.Exists(backupPath))
+                    {
+                        var originalDir = Path.GetDirectoryName(originalPath);
+                        if (!Directory.Exists(originalDir))
+                        {
+                            Directory.CreateDirectory(originalDir);
+                        }
+                        File.Copy(backupPath, originalPath, true);
+                        UpdateStatus($"Restored {Path.GetFileName(originalPath)}");
+                    }
+                    
+                    // Clean up backup
+                    try
+                    {
+                        if (Directory.Exists(backupPath))
+                        {
+                            Directory.Delete(backupPath, true);
+                        }
+                        else if (File.Exists(backupPath))
+                        {
+                            File.Delete(backupPath);
+                        }
+                    }
+                    catch { }
+                }
+                catch
+                {
+                    // If restore fails, try to clean up backup anyway
+                    try
+                    {
+                        if (Directory.Exists(backupPath))
+                        {
+                            Directory.Delete(backupPath, true);
+                        }
+                        else if (File.Exists(backupPath))
+                        {
+                            File.Delete(backupPath);
+                        }
+                    }
+                    catch { }
+                }
             }
         }
 
@@ -6746,7 +6850,8 @@ namespace BeanModManager
                             
                             // Run uninstall on background thread
                             var modStoragePath = Path.Combine(GetModsFolder(), mod.Id);
-                            var uninstalled = await Task.Run(() => _modInstaller.UninstallMod(mod, _config.AmongUsPath, modStoragePath)).ConfigureAwait(false);
+                            var keepFiles = _modStore.GetKeepFiles(mod.Id);
+                            var uninstalled = await Task.Run(() => _modInstaller.UninstallMod(mod, _config.AmongUsPath, modStoragePath, keepFiles)).ConfigureAwait(false);
                             
                             // Delete depot if mod requires it
                             if (uninstalled && _modStore.ModRequiresDepot(mod.Id))

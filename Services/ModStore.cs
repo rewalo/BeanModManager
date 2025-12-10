@@ -277,6 +277,14 @@ namespace BeanModManager.Services
             return new List<string>();
         }
 
+        public List<string> GetKeepFiles(string modId)
+        {
+            if (_registryEntries.ContainsKey(modId) && _registryEntries[modId].keepFiles != null)
+                return _registryEntries[modId].keepFiles;
+
+            return new List<string>();
+        }
+
         public List<string> GetDependents(string dependencyId)
         {
             if (string.IsNullOrEmpty(dependencyId))

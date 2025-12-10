@@ -203,7 +203,7 @@ namespace BeanModManager.Services
         }
 
 
-        public bool UninstallMod(Mod mod, string amongUsPath, string modStoragePath = null)
+        public bool UninstallMod(Mod mod, string amongUsPath, string modStoragePath = null, List<string> keepFiles = null)
         {
             try
             {
@@ -323,8 +323,30 @@ namespace BeanModManager.Services
                     }
                 }
 
+                keepFiles = keepFiles ?? new List<string>();
+                
                 foreach (var folderName in modFolders)
                 {
+                    // Check if this folder should be kept
+                    bool shouldKeep = false;
+                    foreach (var keepPath in keepFiles)
+                    {
+                        // Normalize paths for comparison (handle both "plugins/LevelImposter" and "LevelImposter")
+                        var normalizedKeep = keepPath.Replace("plugins/", "").Replace("plugins\\", "").TrimStart('/', '\\');
+                        if (string.Equals(folderName, normalizedKeep, StringComparison.OrdinalIgnoreCase) ||
+                            keepPath.EndsWith(folderName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            shouldKeep = true;
+                            break;
+                        }
+                    }
+                    
+                    if (shouldKeep)
+                    {
+                        OnProgressChanged($"Preserving {folderName} folder (in keepFiles list)");
+                        continue;
+                    }
+                    
                     var pluginFolder = Path.Combine(pluginsPath, folderName);
                     if (Directory.Exists(pluginFolder))
                     {
@@ -340,6 +362,9 @@ namespace BeanModManager.Services
                         }
                     }
                 }
+                
+                // Clean up hat bundles and other asset files that might remain
+                CleanupLeftoverAssets(pluginsPath, mod, keepFiles);
 
                 if (Directory.Exists(modStoragePath))
                 {
@@ -398,6 +423,104 @@ namespace BeanModManager.Services
             }
         }
 
+
+        private void CleanupLeftoverAssets(string pluginsPath, Mod mod, List<string> keepFiles)
+        {
+            try
+            {
+                if (!Directory.Exists(pluginsPath))
+                    return;
+
+                var modIdLower = mod.Id.ToLower();
+                var modNameLower = mod.Name.ToLower().Replace(":", "").Replace(" ", "");
+
+                // Clean up hat bundles and other asset files
+                var assetExtensions = new[] { ".bundle", ".asset", ".png", ".jpg", ".jpeg" };
+                var allFiles = Directory.GetFiles(pluginsPath, "*", SearchOption.AllDirectories);
+                
+                foreach (var file in allFiles)
+                {
+                    var fileName = Path.GetFileName(file);
+                    var fileNameLower = fileName.ToLower();
+                    var extension = Path.GetExtension(fileNameLower);
+                    
+                    // Skip if it's a DLL (already handled)
+                    if (extension == ".dll")
+                        continue;
+                    
+                    // Check if file should be kept
+                    bool shouldKeep = false;
+                    var relativePath = file.Substring(pluginsPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    foreach (var keepPath in keepFiles)
+                    {
+                        var normalizedKeep = keepPath.Replace("plugins/", "").Replace("plugins\\", "").TrimStart('/', '\\');
+                        if (relativePath.StartsWith(normalizedKeep, StringComparison.OrdinalIgnoreCase))
+                        {
+                            shouldKeep = true;
+                            break;
+                        }
+                    }
+                    
+                    if (shouldKeep)
+                        continue;
+                    
+                    // Check if file belongs to this mod
+                    bool belongsToMod = false;
+                    
+                    // Check by mod ID or name in filename
+                    if (fileNameLower.Contains(modIdLower) || fileNameLower.Contains(modNameLower))
+                    {
+                        belongsToMod = true;
+                    }
+                    
+                    // Check by directory structure - if file is in a folder that matches mod ID/name
+                    var fileDir = Path.GetDirectoryName(file);
+                    if (fileDir != null && fileDir.StartsWith(pluginsPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var relativeDir = fileDir.Substring(pluginsPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        var dirParts = relativeDir.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        if (dirParts.Length > 0)
+                        {
+                            var firstDir = dirParts[0].ToLower();
+                            if (firstDir.Contains(modIdLower) || firstDir.Contains(modNameLower))
+                            {
+                                belongsToMod = true;
+                            }
+                        }
+                    }
+                    
+                    // Also check for common asset file patterns that might be leftover
+                    if (!belongsToMod && assetExtensions.Contains(extension))
+                    {
+                        // Check if it's in a folder that was already deleted or doesn't match any installed mod
+                        // This is a heuristic - we'll be conservative and only delete if we're confident
+                        var parentDir = Path.GetDirectoryName(file);
+                        if (parentDir != null && !Directory.Exists(Path.Combine(parentDir, "..", "..", mod.Id)))
+                        {
+                            // This is a more aggressive cleanup - only for asset files
+                            // We'll skip this for now to be safe, but the structure is here
+                        }
+                    }
+                    
+                    if (belongsToMod)
+                    {
+                        try
+                        {
+                            File.Delete(file);
+                            OnProgressChanged($"Removed leftover asset: {fileName}");
+                        }
+                        catch
+                        {
+                            // Ignore errors deleting assets
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore errors during asset cleanup
+            }
+        }
 
         protected virtual void OnProgressChanged(string message)
         {
