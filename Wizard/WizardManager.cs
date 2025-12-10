@@ -100,7 +100,7 @@ namespace BeanModManager.Wizard
                             break;
 
                         case 3:
-                            using (var bepInExDialog = new WizardInstallBepInExDialog(amongUsPath))
+                            using (var bepInExDialog = new WizardInstallBepInExDialog(amongUsPath, selectedChannel))
                             {
                                 var result = bepInExDialog.ShowDialog(owner);
                                 if (result == DialogResult.OK)

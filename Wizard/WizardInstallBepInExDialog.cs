@@ -13,12 +13,14 @@ namespace BeanModManager.Wizard
     {
         private readonly BepInExInstaller _installer;
         private readonly string _amongUsPath;
+        private readonly string _gameChannel;
         public bool InstallationSuccess { get; private set; }
         public bool SkipInstallation { get; private set; }
 
-        public WizardInstallBepInExDialog(string amongUsPath)
+        public WizardInstallBepInExDialog(string amongUsPath, string gameChannel = null)
         {
             _amongUsPath = amongUsPath;
+            _gameChannel = gameChannel;
             _installer = new BepInExInstaller();
             _installer.ProgressChanged += Installer_ProgressChanged;
             InitializeComponent();
@@ -133,7 +135,7 @@ namespace BeanModManager.Wizard
 
                 try
                 {
-                    InstallationSuccess = await _installer.InstallBepInEx(_amongUsPath);
+                    InstallationSuccess = await _installer.InstallBepInEx(_amongUsPath, _gameChannel);
                     if (InstallationSuccess)
                     {
                         lblStatus.Text = "BepInEx installed successfully!";

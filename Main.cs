@@ -3624,7 +3624,7 @@ namespace BeanModManager
 
                         try
                         {
-                            var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath).ConfigureAwait(false);
+                            var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath, _config.GameChannel).ConfigureAwait(false);
                             if (!installed)
                             {
                                 SafeInvoke(() => MessageBox.Show("Failed to install BepInEx. Please install it manually from Settings.", "Installation Failed",
@@ -5266,7 +5266,7 @@ namespace BeanModManager
                 if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
                 {
                     UpdateStatus("BepInEx not found. Installing BepInEx...");
-                    var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath);
+                    var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath, _config.GameChannel);
                     if (!installed)
                     {
                         MessageBox.Show(
@@ -5669,7 +5669,7 @@ namespace BeanModManager
                 if (!ModDetector.IsBepInExInstalled(_config.AmongUsPath))
                 {
                     UpdateStatus("BepInEx not found. Installing BepInEx...");
-                    var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath).ConfigureAwait(false);
+                    var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath, _config.GameChannel).ConfigureAwait(false);
                     if (!installed)
                     {
                         MessageBox.Show(
@@ -6912,7 +6912,7 @@ namespace BeanModManager
 
             try
             {
-                var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath).ConfigureAwait(false);
+                var installed = await _bepInExInstaller.InstallBepInEx(_config.AmongUsPath, _config.GameChannel).ConfigureAwait(false);
                 if (installed)
                 {
                     SafeInvoke(() =>
