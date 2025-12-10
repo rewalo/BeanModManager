@@ -5694,6 +5694,17 @@ namespace BeanModManager
 
                 var depotConfig = _modStore.GetDepotConfig(mod.Id);
                 string depotVersion = depotConfig?.gameVersion ?? _steamDepotService.GetDepotVersion(mod.Id);
+                
+                // Check if Epic Games channel - show warning about manual downgrade requirement
+                if (!string.IsNullOrEmpty(_config.GameChannel) && _config.GameChannel == "Epic/MS Store")
+                {
+                    var warningResult = ShowEpicDowngradeWarning(depotVersion);
+                    if (warningResult == DialogResult.Cancel)
+                    {
+                        UpdateStatus("Launch cancelled.");
+                        return;
+                    }
+                }
                 string depotManifest = depotConfig?.manifestId ?? _steamDepotService.GetDepotManifest(mod.Id);
                 int depotId = depotConfig?.depotId ?? 945361;
                 
@@ -6234,6 +6245,47 @@ namespace BeanModManager
             }
         }
 
+        private DialogResult ShowEpicDowngradeWarning(string depotVersion)
+        {
+            const string downgraderUrl = "https://github.com/whichtwix/EpicGamesDowngrader";
+            
+            var message = $"This mod requires Among Us {depotVersion} (older version).\n\n" +
+                         $"Epic Games requires manual downgrade - we cannot automatically downgrade Epic Games installations.\n\n" +
+                         $"Please use the Epic Games Downgrader tool to downgrade your game:\n" +
+                         $"{downgraderUrl}\n\n" +
+                         $"If you've already downgraded, you can ignore this warning and continue.\n\n" +
+                         $"Would you like to open the downgrader tool page?";
+
+            var result = MessageBox.Show(
+                message,
+                "Epic Games Downgrade Required",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Warning);
+
+            if (result == DialogResult.Yes)
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = downgraderUrl,
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        $"Failed to open the downgrader page.\n\nPlease visit: {downgraderUrl}",
+                        "Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    System.Diagnostics.Debug.WriteLine($"Failed to open downgrader URL: {ex.Message}");
+                }
+            }
+
+            // Return OK to continue, Cancel to cancel
+            return result == DialogResult.Cancel ? DialogResult.Cancel : DialogResult.OK;
+        }
 
         private async Task LaunchSelectedModsAsync()
         {
