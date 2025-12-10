@@ -1819,9 +1819,15 @@ namespace BeanModManager
                 {
                     HideSkeletonLoaders();
                     if (panelStore.IsHandleCreated)
+                    {
                         panelStore.RefreshScrollbars();
+                        panelStore.PerformLayout();
+                    }
                     if (panelInstalled.IsHandleCreated)
+                    {
                         panelInstalled.RefreshScrollbars();
+                        panelInstalled.PerformLayout();
+                    }
                     UpdateStats();
                     UpdateHeaderInfo();
                     return;
@@ -2433,11 +2439,47 @@ namespace BeanModManager
                 UpdateStats();
                 UpdateHeaderInfo();
                 
-                // Refresh scrollbars
+                // Refresh scrollbars and force layout recalculation
                 if (panelStore.IsHandleCreated)
+                {
+                    // Force recalculation of preferred size by temporarily disabling/enabling AutoScroll
+                    var wasAutoScroll = panelStore.AutoScroll;
+                    panelStore.AutoScroll = false;
+                    panelStore.AutoScroll = wasAutoScroll;
                     panelStore.RefreshScrollbars();
+                    panelStore.PerformLayout();
+                    // Reset scroll position if content is smaller than viewport
+                    if (panelStore.VerticalScroll.Visible && panelStore.VerticalScroll.Value > 0)
+                    {
+                        var contentHeight = panelStore.Controls.Cast<Control>().Any() 
+                            ? panelStore.Controls.Cast<Control>().Max(c => c.Bottom) 
+                            : 0;
+                        if (contentHeight <= panelStore.ClientSize.Height)
+                        {
+                            panelStore.AutoScrollPosition = new Point(0, 0);
+                        }
+                    }
+                }
                 if (panelInstalled.IsHandleCreated)
+                {
+                    // Force recalculation of preferred size by temporarily disabling/enabling AutoScroll
+                    var wasAutoScroll = panelInstalled.AutoScroll;
+                    panelInstalled.AutoScroll = false;
+                    panelInstalled.AutoScroll = wasAutoScroll;
                     panelInstalled.RefreshScrollbars();
+                    panelInstalled.PerformLayout();
+                    // Reset scroll position if content is smaller than viewport
+                    if (panelInstalled.VerticalScroll.Visible && panelInstalled.VerticalScroll.Value > 0)
+                    {
+                        var contentHeight = panelInstalled.Controls.Cast<Control>().Any() 
+                            ? panelInstalled.Controls.Cast<Control>().Max(c => c.Bottom) 
+                            : 0;
+                        if (contentHeight <= panelInstalled.ClientSize.Height)
+                        {
+                            panelInstalled.AutoScrollPosition = new Point(0, 0);
+                        }
+                    }
+                }
             }
             finally
             {
