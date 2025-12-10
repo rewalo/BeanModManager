@@ -21,7 +21,7 @@ namespace BeanModManager.Models
         public bool WizardDetectedAmongUs { get; set; }
         public bool WizardSelectedChannel { get; set; }
         public bool WizardInstalledBepInEx { get; set; }
-        public string GameChannel { get; set; } // "Steam/Itch.io" or "Epic/MS Store" - stored from onboarding
+        public string GameChannel { get; set; }
 
         private static string ConfigPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -56,8 +56,6 @@ namespace BeanModManager.Models
                             config.SelectedMods = new List<string>();
                         if (string.IsNullOrWhiteSpace(config.ThemePreference))
                             config.ThemePreference = "Dark";
-                        // Don't auto-complete wizard - user must go through onboarding
-                        // Only set FirstLaunchWizardCompleted if it was explicitly set before
                         return config;
                     }
                 }
@@ -72,13 +70,11 @@ namespace BeanModManager.Models
 
         public void Save()
         {
-            // Fire and forget async save to avoid blocking
             _ = SaveAsync();
         }
 
         public void SaveSync()
         {
-            // Synchronous save for cases where we need to ensure the save completes
             _saveLock.Wait();
             try
             {
@@ -90,7 +86,6 @@ namespace BeanModManager.Models
 
                 var json = JsonHelper.Serialize(this);
                 
-                // Write to temp file first, then rename (atomic operation)
                 const int MaxSaveRetries = 5;
                 const int InitialRetryDelayMs = 100;
                 var tempPath = ConfigPath + ".tmp";
@@ -103,7 +98,6 @@ namespace BeanModManager.Models
                     {
                         File.WriteAllText(tempPath, json);
                         
-                        // Delete existing file if it exists, then move temp file
                         if (File.Exists(ConfigPath))
                         {
                             File.Delete(ConfigPath);
@@ -115,7 +109,7 @@ namespace BeanModManager.Models
                     {
                         retries--;
                         Thread.Sleep(delay);
-                        delay *= 2; // Exponential backoff
+                        delay *= 2;
                     }
                 }
             }
@@ -144,7 +138,6 @@ namespace BeanModManager.Models
 
                     var json = JsonHelper.Serialize(this);
                     
-                    // Write to temp file first, then rename (atomic operation)
                     const int MaxSaveRetries = 5;
                     const int InitialRetryDelayMs = 100;
                     var tempPath = ConfigPath + ".tmp";
@@ -157,7 +150,6 @@ namespace BeanModManager.Models
                         {
                             File.WriteAllText(tempPath, json);
                             
-                            // Delete existing file if it exists, then move temp file
                             if (File.Exists(ConfigPath))
                             {
                                 File.Delete(ConfigPath);
@@ -186,11 +178,8 @@ namespace BeanModManager.Models
 
         public void AddInstalledMod(string modId, string version)
         {
-            // Remove any existing entries for this mod to prevent duplicates
-            // We only want one version entry per mod (the most recent installation)
             InstalledMods.RemoveAll(m => m.ModId == modId);
             
-            // Add the new version entry
             if (!string.IsNullOrEmpty(version))
             {
                 InstalledMods.Add(new InstalledMod { ModId = modId, Version = version });
@@ -223,6 +212,7 @@ namespace BeanModManager.Models
     {
         public string ModId { get; set; }
         public string Version { get; set; }
+        public string Name { get; set; }
     }
 }
 

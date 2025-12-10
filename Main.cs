@@ -1609,6 +1609,9 @@ namespace BeanModManager
 
                 _availableMods = await _modStore.GetAvailableModsWithAllVersions(installedModIds).ConfigureAwait(false);
                 
+                // Load imported custom mods and add them to the available mods list
+                LoadImportedMods();
+                
                 SafeInvoke(() => 
                 {
                     RefreshModDetectionCache(force: true);
@@ -6287,6 +6290,87 @@ namespace BeanModManager
             return result == DialogResult.Cancel ? DialogResult.Cancel : DialogResult.OK;
         }
 
+        private void LoadImportedMods()
+        {
+            try
+            {
+                if (_availableMods == null)
+                {
+                    _availableMods = new List<Mod>();
+                }
+
+                var modsFolder = GetModsFolder();
+                if (!Directory.Exists(modsFolder))
+                {
+                    return;
+                }
+
+                // Get all custom mod IDs from config
+                var customModIds = _config.InstalledMods
+                    .Where(m => m.ModId.StartsWith("Custom_", StringComparison.OrdinalIgnoreCase))
+                    .Select(m => m.ModId)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                // Check each custom mod folder
+                foreach (var modId in customModIds)
+                {
+                    // Skip if mod is already in the available mods list
+                    if (_availableMods.Any(m => m.Id.Equals(modId, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        continue;
+                    }
+
+                    var modFolder = Path.Combine(modsFolder, modId);
+                    if (!Directory.Exists(modFolder))
+                    {
+                        continue;
+                    }
+
+                    // Try to find mod name from config first, then fallback to extracting from mod ID
+                    string modName = null;
+                    var installedModEntry = _config.InstalledMods.FirstOrDefault(m => m.ModId.Equals(modId, StringComparison.OrdinalIgnoreCase));
+                    if (installedModEntry != null && !string.IsNullOrEmpty(installedModEntry.Name))
+                    {
+                        modName = installedModEntry.Name;
+                    }
+                    else
+                    {
+                        // Try to extract name from mod ID (remove "Custom_" prefix and clean up)
+                        modName = modId.Replace("Custom_", "");
+                        // Replace underscores with spaces and capitalize
+                        modName = System.Text.RegularExpressions.Regex.Replace(modName, @"([a-z])([A-Z])", "$1 $2");
+                    }
+
+                    // Create Mod object for the imported mod
+                    var customMod = new Mod
+                    {
+                        Id = modId,
+                        Name = modName,
+                        Author = "Custom Import",
+                        Description = $"Custom imported mod",
+                        Category = "Custom",
+                        Versions = new List<ModVersion>
+                        {
+                            new ModVersion
+                            {
+                                Version = "Imported",
+                                GameVersion = "Custom",
+                                IsInstalled = true
+                            }
+                        },
+                        IsInstalled = true,
+                        InstalledVersion = new ModVersion { Version = "Imported" }
+                    };
+
+                    _availableMods.Add(customMod);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading imported mods: {ex.Message}");
+            }
+        }
+
         private async Task LaunchSelectedModsAsync()
         {
             if (!EnsureAmongUsPathSet())
@@ -7404,8 +7488,14 @@ namespace BeanModManager
                     }
                     _availableMods.Add(customMod);
 
-                    // Mark as installed in config
-                    _config.AddInstalledMod(modId, "Imported");
+                    // Mark as installed in config with mod name
+                    _config.InstalledMods.RemoveAll(m => m.ModId == modId);
+                    _config.InstalledMods.Add(new InstalledMod 
+                    { 
+                        ModId = modId, 
+                        Version = "Imported",
+                        Name = modName
+                    });
 
                     // Save config
                     await _config.SaveAsync();
