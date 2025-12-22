@@ -236,26 +236,6 @@ jobs:
           "$msiFile"
 
     # --------------------------------------------
-    # Generate SHA256 hashes (AFTER signing)
-    # --------------------------------------------
-    - name: Generate SHA256 hashes
-      shell: pwsh
-      id: hashes
-      run: |
-        $msiFile = "${{ steps.prepare-files.outputs.msi-file }}"
-        $exeFile = "${{ steps.prepare-files.outputs.exe-file }}"
-        
-        # Generate hashes after signing (signing changes the files)
-        $msiHash = (Get-FileHash -Path $msiFile -Algorithm SHA256).Hash.ToLower()
-        $exeHash = (Get-FileHash -Path $exeFile -Algorithm SHA256).Hash.ToLower()
-        
-        Add-Content -Path $env:GITHUB_OUTPUT -Value "msi-hash=$msiHash"
-        Add-Content -Path $env:GITHUB_OUTPUT -Value "exe-hash=$exeHash"
-        
-        Write-Host "MSI SHA256: $msiHash"
-        Write-Host "EXE SHA256: $exeHash"
-
-    # --------------------------------------------
     # Get previous tag for changelog
     # --------------------------------------------
     - name: Get previous tag
@@ -279,10 +259,6 @@ jobs:
       run: |
         $version = "${{ steps.version.outputs.version }}"
         $prevTag = "${{ steps.prev-tag.outputs.prev-tag }}"
-        $msiHash = "${{ steps.hashes.outputs.msi-hash }}"
-        $exeHash = "${{ steps.hashes.outputs.exe-hash }}"
-        $msiFile = "${{ steps.prepare-files.outputs.msi-file }}"
-        $exeFile = "${{ steps.prepare-files.outputs.exe-file }}"
         
         # Check if there's a release notes file for this version
         $notesFile = "RELEASE_NOTES_$version.md"
@@ -330,13 +306,6 @@ jobs:
           $notes += "Happy modding! ❤️`n"
         }
         
-        # Always append assets section with hashes
-        $notes += "`n`n### Assets`n`n"
-        $notes += "- **$msiFile**`n"
-        $notes += "  - sha256:$msiHash`n`n"
-        $notes += "- **$exeFile**`n"
-        $notes += "  - sha256:$exeHash`n"
-        
         # Save to file for release action
         $notes | Out-File -FilePath release-notes.md -Encoding utf8
         Write-Host "Release notes generated"
@@ -354,7 +323,7 @@ jobs:
     - name: Publish Release
       uses: softprops/action-gh-release@v2
       with:
-        name: v${{ steps.version.outputs.version }} Latest
+        name: v${{ steps.version.outputs.version }}
         tag_name: v${{ steps.version.outputs.version }}
         body_path: release-notes.md
         files: |
