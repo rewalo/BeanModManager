@@ -35,7 +35,7 @@ namespace Setup
 
 
             project.GUID = new Guid("5939155f-c7e1-43ee-aad9-9bc67a35d9c5");
-            project.Version = new Version("1.5.7");
+            project.Version = new Version("1.5.9");
 
                         project.ControlPanelInfo.ProductIcon = @"..\mod.ico";
             project.ControlPanelInfo.Manufacturer = "rewalo";
