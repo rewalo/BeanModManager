@@ -6,15 +6,15 @@
     To suppress generation of this file remove `set ide=true` from the PostBuildEvent of the VS project
 </auto-generated>
 -->
-  <Package Compressed="yes" ProductCode="5939155f-c7e1-43ee-aad9-9bc68a8559c5" Name="Bean Mod Manager" Language="1033" Version="1.5.7" UpgradeCode="5939155f-c7e1-43ee-aad9-9bc67a35d9c5" Manufacturer="rewalo" Scope="perMachine" InstallerVersion="200">
+  <Package Compressed="yes" ProductCode="5939155f-c7e1-43ee-aad9-9bc68a8579c5" Name="Bean Mod Manager" Language="1033" Version="1.5.9" UpgradeCode="5939155f-c7e1-43ee-aad9-9bc67a35d9c5" Manufacturer="rewalo" Scope="perMachine" InstallerVersion="200">
     <SummaryInformation Codepage="Windows-1252" />
+    <Media Id="1" Cabinet="Bean20Mod20Manager.cab" EmbedCab="yes" />
 
     <StandardDirectory Id="ProgramFilesFolder">
       <Directory Id="INSTALLDIR" Name="Bean Mod Manager">
 
-        <Component Id="Component.INSTALLDIR.EmptyDirectory" Guid="5939155f-c7e1-43ee-aad9-9bc69c78c8a7" KeyPath="yes">
-          <CreateFolder />
-          <RemoveFolder Id="INSTALLDIR" On="uninstall" />
+        <Component Id="Component.BeanModManager.exe_1943252492" Guid="5939155f-c7e1-43ee-aad9-9bc6ba8f3ca5">
+          <File Id="BeanModManager.exe_1943252492" Source="BeanModManager.exe" />
         </Component>
 
       </Directory>
@@ -86,8 +86,8 @@
     <Property Id="START_MENU_ENTRY" Value="1" />
     <Property Id="WixSharp_UI_INSTALLDIR" Value="INSTALLDIR" />
     <Property Id="UAC_WARNING" Value="Please wait for UAC prompt to appear.&#xD;&#xA;&#xD;&#xA;If it appears minimized then activate it from the taskbar." />
-    <Property Id="WixSharp_InstallDialogs" Value="Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.WelcomeDialog&#xA;Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.LicenceDialog&#xA;Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.InstallDirDialog&#xA;Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.OptionsDialog&#xA;Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.ProgressDialog&#xA;Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.ExitDialog" />
-    <Property Id="WixSharp_ModifyDialogs" Value="Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.MaintenanceTypeDialog&#xA;Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.ProgressDialog&#xA;Setup, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.ExitDialog" />
+    <Property Id="WixSharp_InstallDialogs" Value="Setup, Version=1.5.9.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.WelcomeDialog&#xA;Setup, Version=1.5.9.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.LicenceDialog&#xA;Setup, Version=1.5.9.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.InstallDirDialog&#xA;Setup, Version=1.5.9.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.OptionsDialog&#xA;Setup, Version=1.5.9.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.ProgressDialog&#xA;Setup, Version=1.5.9.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.ExitDialog" />
+    <Property Id="WixSharp_ModifyDialogs" Value="Setup, Version=1.5.9.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.MaintenanceTypeDialog&#xA;Setup, Version=1.5.9.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.ProgressDialog&#xA;Setup, Version=1.5.9.0, Culture=neutral, PublicKeyToken=null|Setup.Dialogs.ExitDialog" />
     <Property Id="ARPCOMMENTS" Value="A simple mod manager for Among Us. Install and manage mods like TOHE, Town of Us Mira, Better CrewLink, and The Other Roles without the hassle." />
     <Property Id="ARPHELPLINK" Value="https://github.com/rewalo/BeanModManager" />
     <Property Id="ARPPRODUCTICON" Value="app_icon.ico" />
@@ -96,7 +96,7 @@
     <Property Id="ARPURLUPDATEINFO" Value="https://github.com/rewalo/BeanModManager/releases" />
 
     <Feature Id="Complete" Title="Complete" Level="1" AllowAbsent="yes">
-      <ComponentRef Id="Component.INSTALLDIR.EmptyDirectory" />
+      <ComponentRef Id="Component.BeanModManager.exe_1943252492" />
       <ComponentRef Id="Component.Bean20Mod20Manager__" />
       <ComponentRef Id="Component.Bean20Mod20Manager.1_" />
       <ComponentRef Id="Component.Uninstall20Bean20Mod20Manager" />
