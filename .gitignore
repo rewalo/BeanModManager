@@ -11,5 +11,6 @@ riderModule.iml
 Properties/
 *.exe
 *.dll
+*.msi
 
 .fake
