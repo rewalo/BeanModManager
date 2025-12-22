@@ -24,10 +24,12 @@ jobs:
     # --------------------------------------------
     - name: Get version from tag
       id: version
+      shell: pwsh
       run: |
         $version = "${{ github.ref_name }}".TrimStart("v")
-        echo "VERSION=$version" >> $env:GITHUB_ENV
-        echo "Version: $version"
+        Write-Host "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+        Write-Host "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        Write-Host "Version: $version"
 
     # --------------------------------------------
     # Setup .NET
@@ -43,18 +45,50 @@ jobs:
     - name: Restore
       run: dotnet restore $env:SOLUTION
 
-    - name: Build
+    - name: Build main project
       run: |
-        dotnet build $env:SOLUTION `
+        dotnet build BeanModManager.csproj `
           -c Release `
-          -p:Version=$env:VERSION `
-          -p:AssemblyVersion=$env:VERSION `
-          -p:FileVersion=$env:VERSION
+          -p:Version=${{ env.VERSION }} `
+          -p:AssemblyVersion=${{ env.VERSION }} `
+          -p:FileVersion=${{ env.VERSION }}
+
+    # --------------------------------------------
+    # Build portable EXE (Costura.Fody embeds dependencies)
+    # --------------------------------------------
+    - name: Build portable EXE
+      shell: pwsh
+      run: |
+        $version = "${{ steps.version.outputs.version }}"
+        $env:VERSION = $version
+        # Build with Costura.Fody which embeds dependencies into the EXE
+        dotnet build BeanModManager.csproj `
+          -c Release `
+          -p:Version=$version `
+          -p:AssemblyVersion=$version `
+          -p:FileVersion=$version
+        
+        # Create portable directory and copy the built EXE
+        New-Item -ItemType Directory -Force -Path "publish/portable" | Out-Null
+        Copy-Item -Path "bin\Release\BeanModManager.exe" -Destination "publish/portable\BeanModManager.exe"
+
+    # --------------------------------------------
+    # Build Setup project with version
+    # --------------------------------------------
+    - name: Build Setup project
+      shell: pwsh
+      run: |
+        $version = "${{ steps.version.outputs.version }}"
+        $env:VERSION = $version
+        dotnet build Setup\Setup.csproj `
+          -c Release `
+          -p:Version=$version
 
     # --------------------------------------------
     # Verify MSI exists
     # --------------------------------------------
     - name: Verify MSI
+      shell: pwsh
       run: |
         if (!(Test-Path "$env:MSI_PATH")) {
           Write-Error "MSI not found at $env:MSI_PATH"
@@ -69,35 +103,169 @@ jobs:
         [IO.File]::WriteAllBytes("codesign.pfx", $bytes)
 
     # --------------------------------------------
+    # Prepare release files with proper names
+    # --------------------------------------------
+    - name: Prepare release files
+      shell: pwsh
+      id: prepare-files
+      run: |
+        $version = "${{ steps.version.outputs.version }}"
+        
+        # Rename and copy MSI
+        $msiSource = "$env:MSI_PATH"
+        $msiDest = "BeanModManager-$version-Installer.msi"
+        Copy-Item -Path $msiSource -Destination $msiDest
+        Write-Host "msi-file=$msiDest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        
+        # Rename and copy portable EXE
+        $exeSource = "publish/portable/BeanModManager.exe"
+        $exeDest = "BeanModManager-$version-Portable.exe"
+        Copy-Item -Path $exeSource -Destination $exeDest
+        Write-Host "exe-file=$exeDest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        
+        Write-Host "Prepared files: $msiDest, $exeDest"
+
+    # --------------------------------------------
     # Sign EXE(s)
     # --------------------------------------------
-    - name: Sign Bean Mod Manager EXE
+    - name: Sign portable EXE
+      shell: pwsh
       run: |
+        $exeFile = "${{ steps.prepare-files.outputs.exe-file }}"
         signtool sign `
           /f codesign.pfx `
           /p "${{ secrets.CODESIGN_PASSWORD }}" `
           /fd sha256 `
           /tr http://timestamp.digicert.com `
           /td sha256 `
-          **/BeanModManager.exe
+          "$exeFile"
 
     # --------------------------------------------
     # Sign MSI (CRITICAL for SmartScreen)
     # --------------------------------------------
     - name: Sign MSI
+      shell: pwsh
       run: |
+        $msiFile = "${{ steps.prepare-files.outputs.msi-file }}"
         signtool sign `
           /f codesign.pfx `
           /p "${{ secrets.CODESIGN_PASSWORD }}" `
           /fd sha256 `
           /tr http://timestamp.digicert.com `
           /td sha256 `
-          "$env:MSI_PATH"
+          "$msiFile"
+
+    # --------------------------------------------
+    # Generate SHA256 hashes (AFTER signing)
+    # --------------------------------------------
+    - name: Generate SHA256 hashes
+      shell: pwsh
+      id: hashes
+      run: |
+        $msiFile = "${{ steps.prepare-files.outputs.msi-file }}"
+        $exeFile = "${{ steps.prepare-files.outputs.exe-file }}"
+        
+        # Generate hashes after signing (signing changes the files)
+        $msiHash = (Get-FileHash -Path $msiFile -Algorithm SHA256).Hash.ToLower()
+        $exeHash = (Get-FileHash -Path $exeFile -Algorithm SHA256).Hash.ToLower()
+        
+        Write-Host "msi-hash=$msiHash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        Write-Host "exe-hash=$exeHash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        
+        Write-Host "MSI SHA256: $msiHash"
+        Write-Host "EXE SHA256: $exeHash"
+
+    # --------------------------------------------
+    # Get previous tag for changelog
+    # --------------------------------------------
+    - name: Get previous tag
+      shell: pwsh
+      id: prev-tag
+      run: |
+        $currentTag = "${{ github.ref_name }}"
+        $prevTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null
+        if ($LASTEXITCODE -ne 0) {
+          $prevTag = ""
+        }
+        Write-Host "prev-tag=$prevTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        Write-Host "Previous tag: $prevTag"
+
+    # --------------------------------------------
+    # Generate release notes
+    # --------------------------------------------
+    - name: Generate release notes
+      shell: pwsh
+      id: release-notes
+      run: |
+        $version = "${{ steps.version.outputs.version }}"
+        $prevTag = "${{ steps.prev-tag.outputs.prev-tag }}"
+        $msiHash = "${{ steps.hashes.outputs.msi-hash }}"
+        $exeHash = "${{ steps.hashes.outputs.exe-hash }}"
+        $msiFile = "${{ steps.prepare-files.outputs.msi-file }}"
+        $exeFile = "${{ steps.prepare-files.outputs.exe-file }}"
+        
+        # Check if there's a release notes file for this version
+        $notesFile = "RELEASE_NOTES_$version.md"
+        $hasCustomNotes = $false
+        if (Test-Path $notesFile) {
+          Write-Host "Using existing release notes file: $notesFile"
+          $notes = Get-Content $notesFile -Raw
+          $hasCustomNotes = $true
+        } else {
+          # Generate from git commits
+          Write-Host "Generating release notes from git commits"
+          if ($prevTag) {
+            $commits = git log --pretty=format:"%s" "$prevTag..HEAD" | Where-Object { $_ -notmatch "^Merge|^chore|^docs" }
+            $changelogUrl = "https://github.com/${{ github.repository }}/compare/$prevTag...v$version"
+          } else {
+            $commits = git log --pretty=format:"%s" -n 50 | Where-Object { $_ -notmatch "^Merge|^chore|^docs" }
+            $changelogUrl = "https://github.com/${{ github.repository }}/releases/tag/v$version"
+          }
+          
+          # Categorize commits
+          $added = @()
+          $fixed = @()
+          foreach ($commit in $commits) {
+            if ($commit -match "^(add|feat|new)", "IgnoreCase") {
+              $added += "- $commit"
+            } elseif ($commit -match "^(fix|bug|patch)", "IgnoreCase") {
+              $fixed += "- $commit"
+            } else {
+              # Default to Fixed if no clear category
+              $fixed += "- $commit"
+            }
+          }
+          
+          # Build notes
+          $notes = "## Release $version`n`n"
+          if ($added.Count -gt 0) {
+            $notes += "### Added`n`n"
+            $notes += ($added -join "`n") + "`n`n"
+          }
+          if ($fixed.Count -gt 0) {
+            $notes += "### Fixed`n`n"
+            $notes += ($fixed -join "`n") + "`n`n"
+          }
+          $notes += "**Full Changelog**: $changelogUrl`n`n"
+          $notes += "Happy modding! ❤️`n"
+        }
+        
+        # Always append assets section with hashes
+        $notes += "`n`n### Assets`n`n"
+        $notes += "- **$msiFile**`n"
+        $notes += "  - sha256:$msiHash`n`n"
+        $notes += "- **$exeFile**`n"
+        $notes += "  - sha256:$exeHash`n"
+        
+        # Save to file for release action
+        $notes | Out-File -FilePath release-notes.md -Encoding utf8
+        Write-Host "Release notes generated"
 
     # --------------------------------------------
     # Cleanup cert
     # --------------------------------------------
     - name: Cleanup cert
+      shell: pwsh
       run: Remove-Item codesign.pfx
 
     # --------------------------------------------
@@ -106,7 +274,11 @@ jobs:
     - name: Publish Release
       uses: softprops/action-gh-release@v2
       with:
-        name: Bean Mod Manager v${{ env.VERSION }}
-        tag_name: v${{ env.VERSION }}
+        name: v${{ steps.version.outputs.version }} Latest
+        tag_name: v${{ steps.version.outputs.version }}
+        body_path: release-notes.md
         files: |
-          ${{ env.MSI_PATH }}
+          ${{ steps.prepare-files.outputs.msi-file }}
+          ${{ steps.prepare-files.outputs.exe-file }}
+        draft: false
+        prerelease: false

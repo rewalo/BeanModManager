@@ -49,8 +49,12 @@
     </None>
   </ItemGroup>
 
+  <PropertyGroup>
+    <Version Condition="'$(Version)' == ''">1.5.9</Version>
+  </PropertyGroup>
+
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="cd .\&#xD;&#xA;set ide=true&#xD;&#xA;&quot;$(TargetPath)&quot;" />
+    <Exec Command="cd .\&#xD;&#xA;set ide=true&#xD;&#xA;set VERSION=$(Version)&#xD;&#xA;&quot;$(TargetPath)&quot;" />
   </Target>
 
 </Project>
