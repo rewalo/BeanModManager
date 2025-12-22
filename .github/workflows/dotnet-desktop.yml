@@ -32,12 +32,18 @@ jobs:
         Write-Host "Version: $version"
 
     # --------------------------------------------
-    # Setup .NET (use 6.0.x for better .NET Framework 4.8.1 support)
+    # Setup .NET (for NuGet restore tooling if needed)
     # --------------------------------------------
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '6.0.x'
+
+    # --------------------------------------------
+    # Setup MSBuild (Visual Studio) for .NET Framework builds
+    # --------------------------------------------
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
 
     # --------------------------------------------
     # Restore & Build (inject version)
@@ -46,15 +52,22 @@ jobs:
       run: dotnet --version
       
     - name: Restore
-      run: dotnet restore $env:SOLUTION
+      shell: pwsh
+      run: |
+        msbuild -version
+        msbuild $env:SOLUTION /t:Restore /p:RestoreLockedMode=false
 
     - name: Build main project
+      shell: pwsh
       run: |
-        dotnet build BeanModManager.csproj `
-          -c Release `
-          -p:Version=${{ env.VERSION }} `
-          -p:AssemblyVersion=${{ env.VERSION }} `
-          -p:FileVersion=${{ env.VERSION }}
+        $version = "${{ steps.version.outputs.version }}"
+        msbuild BeanModManager.csproj `
+          /t:Build `
+          /p:Configuration=Release `
+          /p:Platform=AnyCPU `
+          /p:Version=$version `
+          /p:AssemblyVersion=$version `
+          /p:FileVersion=$version
 
     # --------------------------------------------
     # Build portable EXE (Costura.Fody embeds dependencies)
@@ -65,11 +78,13 @@ jobs:
         $version = "${{ steps.version.outputs.version }}"
         $env:VERSION = $version
         # Build with Costura.Fody which embeds dependencies into the EXE
-        dotnet build BeanModManager.csproj `
-          -c Release `
-          -p:Version=$version `
-          -p:AssemblyVersion=$version `
-          -p:FileVersion=$version
+        msbuild BeanModManager.csproj `
+          /t:Build `
+          /p:Configuration=Release `
+          /p:Platform=AnyCPU `
+          /p:Version=$version `
+          /p:AssemblyVersion=$version `
+          /p:FileVersion=$version
         
         # Create portable directory and copy the built EXE
         New-Item -ItemType Directory -Force -Path "publish/portable" | Out-Null
@@ -83,9 +98,11 @@ jobs:
       run: |
         $version = "${{ steps.version.outputs.version }}"
         $env:VERSION = $version
-        dotnet build Setup\Setup.csproj `
-          -c Release `
-          -p:Version=$version
+        msbuild Setup\Setup.csproj `
+          /t:Build `
+          /p:Configuration=Release `
+          /p:Platform=AnyCPU `
+          /p:Version=$version
 
     # --------------------------------------------
     # Verify MSI exists
