@@ -42,6 +42,9 @@ jobs:
     # --------------------------------------------
     # Restore & Build (inject version)
     # --------------------------------------------
+    - name: Verify .NET SDK version
+      run: dotnet --version
+      
     - name: Restore
       run: dotnet restore $env:SOLUTION
 
