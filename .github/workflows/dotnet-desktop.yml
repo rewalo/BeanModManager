@@ -32,12 +32,12 @@ jobs:
         Write-Host "Version: $version"
 
     # --------------------------------------------
-    # Setup .NET
+    # Setup .NET (use 6.0.x for better .NET Framework 4.8.1 support)
     # --------------------------------------------
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: '6.0.x'
 
     # --------------------------------------------
     # Restore & Build (inject version)
