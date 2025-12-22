@@ -131,24 +131,29 @@ jobs:
       shell: pwsh
       run: |
         $candidates = @()
-        $kitsRoot = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
-        if (Test-Path $kitsRoot) {
-          $candidates += Get-ChildItem -Path $kitsRoot -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue
-        }
-        $candidates += Get-ChildItem -Path "${env:ProgramFiles(x86)}\Microsoft SDKs" -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue
 
+        $kitsRoot = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
+        if (Test-Path $kitsRoot) { $candidates += Get-ChildItem -Path $kitsRoot -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue }
+
+        $sdkRoot = "${env:ProgramFiles(x86)}\Microsoft SDKs"
+        if (Test-Path $sdkRoot) { $candidates += Get-ChildItem -Path $sdkRoot -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue }
+
+        # Prefer x64 signtool if present (better default for signing 64-bit binaries)
         $signtool = $candidates |
-          Sort-Object FullName -Descending |
+          Sort-Object @{ Expression = { $_.FullName -match "\\x64\\signtool\.exe$" }; Descending = $true }, `
+                     @{ Expression = { $_.FullName }; Descending = $true } |
           Select-Object -First 1
 
-        if (-not $signtool) {
+        if (-not $signtool -or -not (Test-Path $signtool.FullName)) {
           Write-Error "signtool.exe not found on runner."
           exit 1
         }
 
         Write-Host "Found signtool: $($signtool.FullName)"
+        # PATH updates via GITHUB_PATH only apply to subsequent steps, so also store full path for direct invocation.
         Add-Content -Path $env:GITHUB_PATH -Value $signtool.Directory.FullName
-        signtool /?
+        Add-Content -Path $env:GITHUB_ENV -Value "SIGNTOOL=$($signtool.FullName)"
+        & $signtool.FullName /?
 
     - name: Decode code signing certificate
       shell: pwsh
@@ -186,7 +191,7 @@ jobs:
       shell: pwsh
       run: |
         $exeFile = "${{ steps.prepare-files.outputs.exe-file }}"
-        signtool sign `
+        & $env:SIGNTOOL sign `
           /f codesign.pfx `
           /p "${{ secrets.CODESIGN_PASSWORD }}" `
           /fd sha256 `
@@ -201,7 +206,7 @@ jobs:
       shell: pwsh
       run: |
         $msiFile = "${{ steps.prepare-files.outputs.msi-file }}"
-        signtool sign `
+        & $env:SIGNTOOL sign `
           /f codesign.pfx `
           /p "${{ secrets.CODESIGN_PASSWORD }}" `
           /fd sha256 `
