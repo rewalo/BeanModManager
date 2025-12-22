@@ -40,6 +40,16 @@ jobs:
         dotnet-version: '6.0.x'
 
     # --------------------------------------------
+    # Install WiX v4 CLI (required by WixSharp to build MSI)
+    # --------------------------------------------
+    - name: Install WiX tool
+      shell: pwsh
+      run: |
+        dotnet tool install --global wix
+        Add-Content -Path $env:GITHUB_PATH -Value "$env:USERPROFILE\.dotnet\tools"
+        wix --version
+
+    # --------------------------------------------
     # Setup MSBuild (Visual Studio) for .NET Framework builds
     # --------------------------------------------
     - name: Setup MSBuild
