@@ -8,13 +8,7 @@ using WixSharp.UI.Forms;
 
 namespace Setup.Dialogs
 {
-    /// <summary>
-    /// The logical equivalent of the standard Features dialog. Though it implement slightly
-    /// different user experience as it has checkboxes bound to the features instead of icons context menu
-    /// as MSI dialog has.
-    /// </summary>
-    public partial class FeaturesDialog : ManagedForm, IManagedDialog // change ManagedForm->Form if you want to show it in designer
-    {
+                        public partial class FeaturesDialog : ManagedForm, IManagedDialog     {
         /*https://msdn.microsoft.com/en-us/library/aa367536(v=vs.85).aspx
          * ADDLOCAL - list of features to install
          * REMOVE - list of features to uninstall
@@ -23,10 +17,7 @@ namespace Setup.Dialogs
 
         FeatureItem[] features;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FeaturesDialog"/> class.
-        /// </summary>
-        public FeaturesDialog()
+                                public FeaturesDialog()
         {
             InitializeComponent();
             label1.MakeTransparentOn(banner);
@@ -47,8 +38,7 @@ namespace Setup.Dialogs
             else
             {
                 float dpi = CreateGraphics().DpiY;
-                if (dpi == 96) // the checkbox custom drawing is only compatible with 96 DPI
-                    drawTextOnly = false;
+                if (dpi == 96)                     drawTextOnly = false;
             }
 
             ReadOnlyTreeNode.Behavior.AttachTo(featuresTree, drawTextOnly);
@@ -64,10 +54,7 @@ namespace Setup.Dialogs
 
         void ResetLayout()
         {
-            // The form controls are properly anchored and will be correctly resized on parent form
-            // resizing. However the initial sizing by WinForm runtime doesn't a do good job with DPI
-            // other than 96. Thus manual resizing is the only reliable option apart from going WPF.
-
+                                    
             float ratio = (float)banner.Image.Width / (float)banner.Image.Height;
             topPanel.Height = (int)(banner.Width / ratio);
             topBorder.Top = topPanel.Height + 1;
@@ -87,37 +74,27 @@ namespace Setup.Dialogs
             featuresTree.Nodes[0].EnsureVisible();
         }
 
-        /// <summary>
-        /// The collection of the features selected by user as the features to be installed.
-        /// </summary>
-        public static List<string> UserSelectedItems { get; private set; }
+                                public static List<string> UserSelectedItems { get; private set; }
 
-        /// <summary>
-        /// The initial/default set of selected items (features) before user made any selection(s).
-        /// </summary>
-        public static List<string> InitialUserSelectedItems { get; private set; }
+                                public static List<string> InitialUserSelectedItems { get; private set; }
 
         void BuildFeaturesHierarchy()
         {
             features = Runtime.Session.Features;
 
-            //build the hierarchy tree
-            var rootItems = features.Where(x => x.ParentName.IsEmpty())
+                        var rootItems = features.Where(x => x.ParentName.IsEmpty())
                                     .OrderBy(x => x.RawDisplay)
                                     .ToArray();
 
-            var itemsToProcess = new Queue<FeatureItem>(rootItems); //features to find the children for
-
+            var itemsToProcess = new Queue<FeatureItem>(rootItems); 
             while (itemsToProcess.Any())
             {
                 var item = itemsToProcess.Dequeue();
 
-                //create the view of the feature
-                var viewModel = new ReadOnlyTreeNode
+                                var viewModel = new ReadOnlyTreeNode
                 {
                     Text = item.Title,
-                    Tag = item, //link view to model
-                    IsReadOnly = item.DisallowAbsent,
+                    Tag = item,                     IsReadOnly = item.DisallowAbsent,
                     DefaultChecked = item.DefaultIsToBeInstalled(),
                     Checked = item.DefaultIsToBeInstalled()
                 };
@@ -125,17 +102,12 @@ namespace Setup.Dialogs
                 item.ViewModel = viewModel;
 
                 if (item.Parent != null && item.Display != FeatureDisplay.hidden)
-                    (item.Parent.ViewModel as TreeNode).Nodes.Add(viewModel); //link child view to parent view
-
-                // even if the item is hidden process all its children so the correct hierarchy is established
-
-                // find all children
-                features.Where(x => x.ParentName == item.Name)
+                    (item.Parent.ViewModel as TreeNode).Nodes.Add(viewModel); 
+                
+                                features.Where(x => x.ParentName == item.Name)
                         .ForEach(c =>
                                  {
-                                     c.Parent = item; //link child model to parent model
-                                     itemsToProcess.Enqueue(c); //schedule for further processing
-                                 });
+                                     c.Parent = item;                                      itemsToProcess.Enqueue(c);                                  });
 
                 if (UserSelectedItems != null)
                     viewModel.Checked = UserSelectedItems.Contains((viewModel.Tag as FeatureItem).Name);
@@ -144,8 +116,7 @@ namespace Setup.Dialogs
                     viewModel.Expand();
             }
 
-            //add views to the treeView control
-            rootItems.Where(x => x.Display != FeatureDisplay.hidden)
+                        rootItems.Where(x => x.Display != FeatureDisplay.hidden)
                      .Select(x => x.ViewModel)
                      .Cast<TreeNode>()
                      .ForEach(node => featuresTree.Nodes.Add(node));
@@ -174,9 +145,7 @@ namespace Setup.Dialogs
 
         void next_Click(object sender, System.EventArgs e)
         {
-            // ensure the child nodes are in sync with the parent here
-            // (childFeature.View as TreeNode).Checked = true;
-
+                        
             bool userChangedFeatures = UserSelectedItems?.JoinBy(",") != InitialUserSelectedItems.JoinBy(",");
 
             if (userChangedFeatures)

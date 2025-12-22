@@ -14,15 +14,13 @@ namespace Setup
                 new Dir(@"%ProgramFiles%\Bean Mod Manager",
                     new Files(@"*.exe")),
 
-                // Desktop shortcut (conditional)
-                new Dir(@"%Desktop%",
+                                new Dir(@"%Desktop%",
                     new ExeFileShortcut("Bean Mod Manager", "[INSTALLDIR]BeanModManager.exe", "")
                     {
                         Condition = new Condition("DESKTOP_SHORTCUT=\"1\"")
                     }),
 
-                // Start Menu shortcut (conditional)
-                new Dir(@"%ProgramMenu%\Bean Mod Manager",
+                                new Dir(@"%ProgramMenu%\Bean Mod Manager",
                     new ExeFileShortcut("Bean Mod Manager", "[INSTALLDIR]BeanModManager.exe", "")
                     {
                         Condition = new Condition("START_MENU_ENTRY=\"1\"")
@@ -39,8 +37,7 @@ namespace Setup
             project.GUID = new Guid("5939155f-c7e1-43ee-aad9-9bc67a35d9c5");
             project.Version = new Version("1.5.7");
 
-            // Set Control Panel icon
-            project.ControlPanelInfo.ProductIcon = @"..\mod.ico";
+                        project.ControlPanelInfo.ProductIcon = @"..\mod.ico";
             project.ControlPanelInfo.Manufacturer = "rewalo";
             project.ControlPanelInfo.Comments = "A simple mod manager for Among Us. Install and manage mods like TOHE, Town of Us Mira, Better CrewLink, and The Other Roles without the hassle.";
             project.ControlPanelInfo.Readme = "https://github.com/rewalo/BeanModManager/blob/master/README.md";
@@ -48,15 +45,12 @@ namespace Setup
             project.ControlPanelInfo.UrlInfoAbout = "https://github.com/rewalo/BeanModManager";
             project.ControlPanelInfo.UrlUpdateInfo = "https://github.com/rewalo/BeanModManager/releases";
 
-            // Per-machine installation (requires admin/UAC)
-            project.Scope = InstallScope.perMachine;
+                        project.Scope = InstallScope.perMachine;
 
-            // Set default property values (all enabled by default)
-            project.AddProperty(new Property("DESKTOP_SHORTCUT", "1"));
+                        project.AddProperty(new Property("DESKTOP_SHORTCUT", "1"));
             project.AddProperty(new Property("START_MENU_ENTRY", "1"));
 
-            //custom set of standard UI dialogs
-            project.ManagedUI = new ManagedUI();
+                        project.ManagedUI = new ManagedUI();
 
             project.ManagedUI.InstallDialogs.Add<WelcomeDialog>()
                                             .Add<LicenceDialog>()
@@ -69,9 +63,7 @@ namespace Setup
                                            .Add<ProgressDialog>()
                                            .Add<ExitDialog>();
 
-            //project.SourceBaseDir = "<input dir path>";
-            //project.OutDir = "<output dir path>";
-
+                        
             ValidateAssemblyCompatibility();
 
             project.BuildMsi();

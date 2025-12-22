@@ -1,6 +1,6 @@
+using Microsoft.Win32;
 using System;
 using System.IO;
-using Microsoft.Win32;
 
 namespace BeanModManager.Services
 {
@@ -27,9 +27,8 @@ namespace BeanModManager.Services
                     }
                 }
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Error detecting Among Us: {ex.Message}");
             }
 
             var commonPaths = new[]
@@ -69,37 +68,31 @@ namespace BeanModManager.Services
                 return false;
 
             var pathLower = path.ToLower();
-            
+
             if (pathLower.Contains("epic games") || pathLower.Contains("epicgames"))
                 return true;
-            
+
             if (pathLower.Contains("windowsapps") || pathLower.Contains("xboxgames") || pathLower.Contains("xbox games"))
                 return true;
-            
+
             if (pathLower.Contains("microsoft") && pathLower.Contains("store"))
                 return true;
-            
+
             return false;
         }
 
-        /// <summary>
-        /// Determines if the game is Epic/MS Store version, respecting the user's channel selection from onboarding.
-        /// Falls back to path-based detection if no channel preference is stored.
-        /// </summary>
         public static bool IsEpicOrMsStoreVersion(Models.Config config)
         {
-            // First, check if user selected a channel during onboarding
             if (!string.IsNullOrEmpty(config?.GameChannel))
             {
                 return config.GameChannel == "Epic/MS Store";
             }
-            
-            // Fall back to path-based detection if no preference is stored
+
             if (!string.IsNullOrEmpty(config?.AmongUsPath))
             {
                 return IsEpicOrMsStoreVersion(config.AmongUsPath);
             }
-            
+
             return false;
         }
     }

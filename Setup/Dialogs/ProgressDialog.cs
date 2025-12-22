@@ -8,15 +8,8 @@ using WixToolset.Dtf.WindowsInstaller;
 
 namespace Setup.Dialogs
 {
-    /// <summary>
-    /// The standard Installation Progress dialog
-    /// </summary>
-    public partial class ProgressDialog : ManagedForm, IManagedDialog, IProgressDialog // change ManagedForm->Form if you want to show it in designer
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ProgressDialog"/> class.
-        /// </summary>
-        public ProgressDialog()
+                public partial class ProgressDialog : ManagedForm, IManagedDialog, IProgressDialog     {
+                                public ProgressDialog()
         {
             InitializeComponent();
             dialogText.MakeTransparentOn(banner);
@@ -36,8 +29,7 @@ namespace Setup.Dialogs
             banner.Image = Runtime.Session.GetResourceBitmap("WixUI_Bmp_Banner") ??
                            Runtime.Session.GetResourceBitmap("WixSharpUI_Bmp_Banner");
 
-            // Capture INSTALLDIR before installation completes (session may not be available later)
-            Globals.InstallDir = Runtime.Session.Property("INSTALLDIR");
+                        Globals.InstallDir = Runtime.Session.Property("INSTALLDIR");
 
             if (!WindowsIdentity.GetCurrent().IsAdmin() && Uac.IsEnabled())
             {
@@ -54,10 +46,7 @@ namespace Setup.Dialogs
 
         void ResetLayout()
         {
-            // The form controls are properly anchored and will be correctly resized on parent form
-            // resizing. However the initial sizing by WinForm runtime doesn't a do good job with DPI
-            // other than 96. Thus manual resizing is the only reliable option apart from going WPF.
-            float ratio = (float)banner.Image.Width / (float)banner.Image.Height;
+                                                float ratio = (float)banner.Image.Width / (float)banner.Image.Height;
             topPanel.Height = (int)(banner.Width / ratio);
             topBorder.Top = topPanel.Height + 1;
 
@@ -70,11 +59,7 @@ namespace Setup.Dialogs
             waitPrompt.Font = new Font(waitPrompt.Font.Name, fontSize * scaling, FontStyle.Italic);
         }
 
-        /// <summary>
-        /// Called when Shell is changed. It is a good place to initialize the dialog to reflect the MSI session
-        /// (e.g. localize the view).
-        /// </summary>
-        protected override void OnShellChanged()
+                                        protected override void OnShellChanged()
         {
             if (Runtime.Session.IsUninstalling())
             {
@@ -98,16 +83,7 @@ namespace Setup.Dialogs
             this.Localize();
         }
 
-        /// <summary>
-        /// Processes the message.
-        /// </summary>
-        /// <param name="messageType">Type of the message.</param>
-        /// <param name="messageRecord">The message record.</param>
-        /// <param name="buttons">The buttons.</param>
-        /// <param name="icon">The icon.</param>
-        /// <param name="defaultButton">The default button.</param>
-        /// <returns></returns>
-        public override MessageResult ProcessMessage(InstallMessage messageType, Record messageRecord, MessageButtons buttons, MessageIcon icon, MessageDefaultButton defaultButton)
+                                                                                public override MessageResult ProcessMessage(InstallMessage messageType, Record messageRecord, MessageButtons buttons, MessageIcon icon, MessageDefaultButton defaultButton)
         {
             switch (messageType)
             {
@@ -123,9 +99,7 @@ namespace Setup.Dialogs
                     {
                         try
                         {
-                            // see Discussion: https://github.com/oleg-shilo/wixsharp/discussions/1504
-                            //messageRecord[0] - is reserved for FormatString value
-
+                                                        
                             string message = null;
 
                             bool simple = true;
@@ -173,20 +147,14 @@ namespace Setup.Dialogs
                         }
                         catch
                         {
-                            //Catch all, we don't want the installer to crash in an
-                            //attempt to process message.
-                        }
+                                                                                }
                     }
                     break;
             }
             return MessageResult.OK;
         }
 
-        /// <summary>
-        /// Called when MSI execution progress is changed.
-        /// </summary>
-        /// <param name="progressPercentage">The progress percentage.</param>
-        public override void OnProgress(int progressPercentage)
+                                        public override void OnProgress(int progressPercentage)
         {
             progress.Value = progressPercentage;
 
@@ -196,21 +164,13 @@ namespace Setup.Dialogs
             }
         }
 
-        /// <summary>
-        /// Called when MSI execution is complete.
-        /// </summary>
-        public override void OnExecuteComplete()
+                                public override void OnExecuteComplete()
         {
             currentAction.Text = null;
             Shell.GoNext();
         }
 
-        /// <summary>
-        /// Handles the Click event of the cancel control.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="System.EventArgs" /> instance containing the event data.</param>
-        void cancel_Click(object sender, EventArgs e)
+                                                void cancel_Click(object sender, EventArgs e)
         {
             if (Shell.IsDemoMode)
                 Shell.GoNext();

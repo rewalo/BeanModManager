@@ -1,9 +1,9 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Win32;
 
 namespace BeanModManager.Services
 {
@@ -12,35 +12,22 @@ namespace BeanModManager.Services
         public event EventHandler<string> ProgressChanged;
 
         private const int AmongUsAppId = 945360;
-        private const int AmongUsDepotId = 945361; // Depot ID 945361 is used for all mods (All The Roles, The Other Roles, etc.)
-        
-        // Depot download timeout constants
-        private const int MaxDepotWaitTimeSeconds = 600; // 10 minutes max
-        private const int DepotCheckIntervalSeconds = 3; // Check every 3 seconds
-        private const int DepotProgressUpdateIntervalSeconds = 15; // Update progress every 15 seconds
-        private const int SteamConsoleOpenDelayMs = 1000; // Wait 1 second for Steam console to open
-        
-        // Depot manifests for different Among Us versions
-        // v16.0.5 manifest: 1110308242604365209
-        // v15.11.0 manifest: (needs to be found)
+        private const int AmongUsDepotId = 945361;
+        private const int MaxDepotWaitTimeSeconds = 600; private const int DepotCheckIntervalSeconds = 3; private const int DepotProgressUpdateIntervalSeconds = 15; private const int SteamConsoleOpenDelayMs = 1000;
         public string GetDepotManifest(string modId)
         {
-            // All The Roles uses v16.0.5 with depot 945361
             if (modId == "AllTheRoles")
             {
-                return "1110308242604365209"; // v16.0.5
+                return "1110308242604365209";
             }
-            // The Other Roles uses depot 945361 with manifest for v15.11.0 (Feb 23, 2025 version)
             else if (modId == "TheOtherRoles")
             {
-                // Depot ID: 945361
-                // Manifest ID: 5207443046106116882 (v15.11.0)
-                return "5207443046106116882"; // v15.11.0
+                return "5207443046106116882";
             }
-            
-            return "1110308242604365209"; // Default to v16.0.5
+
+            return "1110308242604365209";
         }
-        
+
         public string GetDepotVersion(string modId)
         {
             if (modId == "AllTheRoles")
@@ -49,9 +36,9 @@ namespace BeanModManager.Services
             }
             else if (modId == "TheOtherRoles")
             {
-                return "v15.11.0"; // Version active Feb 23, 2025
+                return "v15.11.0";
             }
-            
+
             return "v16.0.5";
         }
 
@@ -83,9 +70,8 @@ namespace BeanModManager.Services
                     }
                 }
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Error finding Steam path: {ex.Message}");
             }
 
             var commonPaths = new[]
@@ -117,15 +103,13 @@ namespace BeanModManager.Services
             }
 
             var baseDepotPath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"depot_{AmongUsDepotId}");
-            
-            // If modId is provided, use a mod-specific folder to track which mod's depot is downloaded
+
             if (!string.IsNullOrEmpty(modId))
             {
-                // Copy the depot to a mod-specific folder so we can track which mod's version is downloaded
                 var modSpecificPath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"depot_{AmongUsDepotId}_{modId}");
                 return modSpecificPath;
             }
-            
+
             return baseDepotPath;
         }
 
@@ -158,7 +142,6 @@ namespace BeanModManager.Services
                 var depotPath = GetDepotPath(modId);
                 if (string.IsNullOrEmpty(depotPath) || !Directory.Exists(depotPath))
                 {
-                    // Depot doesn't exist, nothing to delete
                     return true;
                 }
 
@@ -170,7 +153,6 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error deleting depot folder: {ex.Message}");
-                //System.Diagnostics.Debug.WriteLine($"Error deleting depot folder: {ex.Message}");
                 return false;
             }
         }
@@ -182,7 +164,6 @@ namespace BeanModManager.Services
                 var baseDepotPath = GetBaseDepotPath();
                 if (string.IsNullOrEmpty(baseDepotPath) || !Directory.Exists(baseDepotPath))
                 {
-                    // Base depot doesn't exist, nothing to delete
                     return true;
                 }
 
@@ -194,7 +175,6 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error deleting base depot folder: {ex.Message}");
-                //System.Diagnostics.Debug.WriteLine($"Error deleting base depot folder: {ex.Message}");
                 return false;
             }
         }
@@ -213,14 +193,12 @@ namespace BeanModManager.Services
                 return false;
             }
 
-            // Check if patch file exists - if it does, download is still in progress
             var steamPath = GetSteamPath();
             if (!string.IsNullOrEmpty(steamPath))
             {
                 var patchFilePath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"state_{AmongUsAppId}_{AmongUsDepotId}.patch");
                 if (File.Exists(patchFilePath))
                 {
-                    // Patch file exists = still downloading
                     return false;
                 }
             }
@@ -257,15 +235,13 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                // Copy command to clipboard
                 try
                 {
                     System.Windows.Forms.Clipboard.SetText(depotCommand);
                     OnProgressChanged("Command copied to clipboard!");
                 }
-                catch //(Exception ex)
+                catch
                 {
-                    //System.Diagnostics.Debug.WriteLine($"Error copying to clipboard: {ex.Message}");
                 }
 
                 OnProgressChanged("Opening Steam console...");
@@ -275,12 +251,10 @@ namespace BeanModManager.Services
                     UseShellExecute = true
                 });
 
-                // Wait a moment for Steam console to open
                 await Task.Delay(SteamConsoleOpenDelayMs).ConfigureAwait(false);
 
                 OnProgressChanged("Paste command in Steam console (Ctrl+V), then press Enter. Waiting for download...");
 
-                // Wait and check for depot
                 int elapsed = 0;
 
                 while (elapsed < MaxDepotWaitTimeSeconds)
@@ -294,7 +268,6 @@ namespace BeanModManager.Services
                         return true;
                     }
 
-                    // Check if patch file exists to show download progress
                     steamPath = GetSteamPath();
                     bool isDownloading = false;
                     if (!string.IsNullOrEmpty(steamPath))
@@ -318,7 +291,6 @@ namespace BeanModManager.Services
                     }
                 }
 
-                // Final check
                 if (IsBaseDepotDownloaded())
                 {
                     OnProgressChanged("Depot downloaded successfully!");
@@ -345,29 +317,25 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                // Check if mod-specific depot already exists and is valid
                 if (!string.IsNullOrEmpty(depotPath) && Directory.Exists(depotPath))
                 {
                     var exePath = Path.Combine(depotPath, "Among Us.exe");
                     if (File.Exists(exePath))
                     {
-                        // Mod-specific depot exists and is valid, use it directly
                         OnProgressChanged("Installing mod files to depot...");
-                        
-                        // Check mod structure to determine where to copy files
+
                         var dllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
                         var hasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
                         var hasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
-                        
+
                         var depotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
                         if (!Directory.Exists(depotPluginsPath))
                         {
                             Directory.CreateDirectory(depotPluginsPath);
                         }
-                        
+
                         if (dllFiles.Any() && !hasBepInExStructure && !hasSubdirectories)
                         {
-                            // DLL-only mod - copy DLLs directly to plugins
                             foreach (var dllFile in dllFiles)
                             {
                                 var fileName = Path.GetFileName(dllFile);
@@ -389,22 +357,18 @@ namespace BeanModManager.Services
                         }
                         else if (hasBepInExStructure)
                         {
-                            // Mod has BepInEx structure - copy entire mod folder (not just BepInEx)
-                            // This ensures any additional files/folders outside BepInEx are also copied
                             CopyDirectoryContents(modStoragePath, depotPath, true);
                         }
                         else
                         {
-                            // Other structure - copy entire mod structure (fallback)
                             CopyDirectoryContents(modStoragePath, depotPath, true);
                         }
-                        
+
                         OnProgressChanged("Mod installed to depot successfully!");
                         return true;
                     }
                 }
 
-                // Mod-specific depot doesn't exist or is invalid, need to copy from base depot
                 var baseDepotPath = GetBaseDepotPath();
                 if (string.IsNullOrEmpty(baseDepotPath) || !Directory.Exists(baseDepotPath))
                 {
@@ -412,7 +376,6 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                // Copy base depot to mod-specific folder
                 if (string.IsNullOrEmpty(depotPath))
                 {
                     depotPath = GetDepotPath(modId);
@@ -426,20 +389,18 @@ namespace BeanModManager.Services
 
                 OnProgressChanged("Installing mod files to depot...");
 
-                // Check mod structure to determine where to copy files
                 var modDllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
                 var modHasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
                 var modHasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
-                
+
                 var modDepotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
                 if (!Directory.Exists(modDepotPluginsPath))
                 {
                     Directory.CreateDirectory(modDepotPluginsPath);
                 }
-                
+
                 if (modDllFiles.Any() && !modHasBepInExStructure && !modHasSubdirectories)
                 {
-                    // DLL-only mod - copy DLLs directly to plugins
                     foreach (var dllFile in modDllFiles)
                     {
                         var fileName = Path.GetFileName(dllFile);
@@ -461,19 +422,15 @@ namespace BeanModManager.Services
                 }
                 else if (modHasBepInExStructure)
                 {
-                    // Mod has BepInEx structure - copy entire mod folder (not just BepInEx)
-                    // This ensures any additional files/folders outside BepInEx are also copied
                     CopyDirectoryContents(modStoragePath, depotPath, true);
                 }
                 else
                 {
-                    // Other structure - copy entire mod structure (fallback)
                     CopyDirectoryContents(modStoragePath, depotPath, true);
                 }
 
                 OnProgressChanged("Mod installed to depot successfully!");
 
-                // Delete base depot after successful installation - mod-specific depot is now ready
                 if (!string.IsNullOrEmpty(baseDepotPath) && Directory.Exists(baseDepotPath))
                 {
                     try
@@ -485,10 +442,9 @@ namespace BeanModManager.Services
                     catch (Exception ex)
                     {
                         OnProgressChanged($"Warning: Could not delete base depot: {ex.Message}");
-                        //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete base depot: {ex.Message}");
                     }
                 }
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -513,7 +469,6 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error deleting Innersloth folder: {ex.Message}");
-                //System.Diagnostics.Debug.WriteLine($"Error deleting Innersloth folder: {ex.Message}");
             }
         }
 
@@ -534,7 +489,6 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                // Check if backup already exists
                 if (Directory.Exists(backupPath))
                 {
                     OnProgressChanged("Backup already exists. Delete the existing backup first if you want to create a new one.");
@@ -549,7 +503,6 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error backing up Innersloth folder: {ex.Message}");
-                //System.Diagnostics.Debug.WriteLine($"Error backing up Innersloth folder: {ex.Message}");
                 return false;
             }
         }
@@ -579,7 +532,6 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error restoring Innersloth folder: {ex.Message}");
-                //System.Diagnostics.Debug.WriteLine($"Error restoring Innersloth folder: {ex.Message}");
                 return false;
             }
         }
@@ -610,9 +562,8 @@ namespace BeanModManager.Services
                     }
                     File.Copy(file, destFile, overwrite);
                 }
-                catch //(Exception ex)
+                catch
                 {
-                    //System.Diagnostics.Debug.WriteLine($"Error copying {file}: {ex.Message}");
                 }
             }
 

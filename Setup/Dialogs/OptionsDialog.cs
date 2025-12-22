@@ -7,15 +7,9 @@ using WixSharp.UI.Forms;
 
 namespace Setup.Dialogs
 {
-    /// <summary>
-    /// Custom dialog for installation options
-    /// </summary>
-    public partial class OptionsDialog : ManagedForm, IManagedDialog
+                public partial class OptionsDialog : ManagedForm, IManagedDialog
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="OptionsDialog"/> class.
-        /// </summary>
-        public OptionsDialog()
+                                public OptionsDialog()
         {
             InitializeComponent();
             label1.MakeTransparentOn(banner);
@@ -27,15 +21,13 @@ namespace Setup.Dialogs
             banner.Image = Runtime.Session.GetResourceBitmap("WixUI_Bmp_Banner") ??
                            Runtime.Session.GetResourceBitmap("WixSharpUI_Bmp_Banner");
 
-            // Set default values (all checked by default)
-            string desktopShortcut = Runtime.Session.Property("DESKTOP_SHORTCUT");
+                        string desktopShortcut = Runtime.Session.Property("DESKTOP_SHORTCUT");
             string startMenuEntry = Runtime.Session.Property("START_MENU_ENTRY");
 
             chkDesktopShortcut.Checked = desktopShortcut.IsEmpty() || desktopShortcut == "1";
             chkStartMenuEntry.Checked = startMenuEntry.IsEmpty() || startMenuEntry == "1";
             
-            // Hide the "Open after install" checkbox - it's now in ExitDialog
-            chkOpenAfterInstall.Visible = false;
+                        chkOpenAfterInstall.Visible = false;
 
             if (banner.Image != null)
                 ResetLayout();
@@ -62,8 +54,7 @@ namespace Setup.Dialogs
 
         void next_Click(object sender, EventArgs e)
         {
-            // Save user choices to MSI properties
-            Runtime.Session["DESKTOP_SHORTCUT"] = chkDesktopShortcut.Checked ? "1" : "0";
+                        Runtime.Session["DESKTOP_SHORTCUT"] = chkDesktopShortcut.Checked ? "1" : "0";
             Runtime.Session["START_MENU_ENTRY"] = chkStartMenuEntry.Checked ? "1" : "0";
 
             Shell.GoNext();

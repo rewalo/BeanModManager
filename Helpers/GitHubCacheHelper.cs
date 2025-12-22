@@ -1,8 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using BeanModManager.Helpers;
 
 namespace BeanModManager.Helpers
 {
@@ -15,7 +12,6 @@ namespace BeanModManager.Helpers
 
         private static string GetCacheFilePath(string cacheKey)
         {
-            // Sanitize cache key to be a valid filename
             var sanitizedKey = string.Join("_", cacheKey.Split(Path.GetInvalidFileNameChars()));
             return Path.Combine(CacheDirectory, $"{sanitizedKey}.json");
         }
@@ -39,9 +35,8 @@ namespace BeanModManager.Helpers
                     return JsonHelper.Deserialize<CacheEntry>(json);
                 }
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Error reading cache for {cacheKey}: {ex.Message}");
             }
 
             return null;
@@ -68,9 +63,8 @@ namespace BeanModManager.Helpers
                 var json = JsonHelper.Serialize(cacheEntry);
                 File.WriteAllText(cachePath, json);
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Error saving cache for {cacheKey}: {ex.Message}");
             }
         }
 
@@ -81,17 +75,15 @@ namespace BeanModManager.Helpers
                 var cache = GetCache(cacheKey);
                 if (cache != null)
                 {
-                    // Update just the timestamp, keep everything else the same
                     cache.LastChecked = DateTime.UtcNow;
-                    
+
                     var cachePath = GetCacheFilePath(cacheKey);
                     var json = JsonHelper.Serialize(cache);
                     File.WriteAllText(cachePath, json);
                 }
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Error updating cache timestamp for {cacheKey}: {ex.Message}");
             }
         }
 
@@ -111,7 +103,6 @@ namespace BeanModManager.Helpers
             {
                 if (string.IsNullOrEmpty(cacheKey))
                 {
-                    // Clear all cache
                     if (Directory.Exists(CacheDirectory))
                     {
                         Directory.Delete(CacheDirectory, true);
@@ -119,7 +110,6 @@ namespace BeanModManager.Helpers
                 }
                 else
                 {
-                    // Clear specific cache
                     var cachePath = GetCacheFilePath(cacheKey);
                     if (File.Exists(cachePath))
                     {
@@ -127,9 +117,8 @@ namespace BeanModManager.Helpers
                     }
                 }
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Error clearing cache: {ex.Message}");
             }
         }
     }

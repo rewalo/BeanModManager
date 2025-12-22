@@ -1,9 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
-using System.Net;
 using System.Threading.Tasks;
-using System.Diagnostics;
 
 namespace BeanModManager.Services
 {
@@ -30,21 +28,19 @@ namespace BeanModManager.Services
                     return true;
                 }
 
-                // Determine which BepInEx version to download based on game channel
-                // Steam/Itch.io uses x86, Epic/MS Store uses x64
                 bool isEpicOrMsStore = !string.IsNullOrEmpty(gameChannel) && gameChannel == "Epic/MS Store";
                 string bepInExUrl = isEpicOrMsStore ? BEPINEX_URL_EPIC : BEPINEX_URL_STEAM;
                 string architecture = isEpicOrMsStore ? "x64" : "x86";
-                
+
                 OnProgressChanged($"Downloading BepInEx ({architecture})...");
 
                 var tempZip = Path.Combine(Path.GetTempPath(), "BepInEx.zip");
-                
+
                 var progress = new Progress<int>(percent =>
                 {
                     OnProgressChanged($"Downloading BepInEx ({architecture})... {percent}%");
                 });
-                
+
                 await HttpDownloadHelper.DownloadFileAsync(bepInExUrl, tempZip, progress).ConfigureAwait(false);
 
                 OnProgressChanged("Extracting BepInEx...");
@@ -69,10 +65,8 @@ namespace BeanModManager.Services
                                 {
                                     File.Delete(destinationPath);
                                 }
-                                catch //(Exception ex)
+                                catch
                                 {
-                                    //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete existing file {destinationPath}: {ex.Message}");
-                                    // Try to overwrite anyway
                                 }
                             }
                             entry.ExtractToFile(destinationPath, true);

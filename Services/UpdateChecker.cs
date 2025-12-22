@@ -1,9 +1,8 @@
+using BeanModManager.Helpers;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -69,7 +68,6 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error checking for updates: {ex.Message}");
-                //System.Diagnostics.Debug.WriteLine($"Update check failed: {ex.Message}");
                 return false;
             }
         }
@@ -85,39 +83,36 @@ namespace BeanModManager.Services
             try
             {
                 var cacheKey = "app_update_latest";
-
-                // Check cache first (1 hour cache)
                 var cache = GitHubCacheHelper.GetCache(cacheKey);
-                if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
-                {
-                    // Use cached data
-                    if (!string.IsNullOrEmpty(cache.CachedData))
-                    {
-                        return JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
-                    }
-                }
 
-                // Fetch from API with ETag
                 string json = null;
                 string etag = cache?.ETag;
-                var result = await HttpDownloadHelper.DownloadStringWithETagAsync(GITHUB_API_URL, etag).ConfigureAwait(false);
-                
-                if (result.NotModified)
+                HttpDownloadHelper.DownloadResult result = null;
+                try
                 {
-                    // 304 Not Modified - use cached data
+                    result = await HttpDownloadHelper.DownloadStringWithETagAsync(GITHUB_API_URL, etag).ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+
+                if (result != null && result.NotModified)
+                {
                     if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
                     {
                         return JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
                     }
-                    return null; // 304 but no cached data
+                    return null;
                 }
 
-                json = result.Content;
-                etag = result.ETag;
+                if (result != null)
+                {
+                    json = result.Content;
+                    etag = result.ETag;
+                }
 
                 if (string.IsNullOrEmpty(json))
                 {
-                    // Fallback to cached data if available
                     if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
                     {
                         return JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
@@ -129,15 +124,13 @@ namespace BeanModManager.Services
 
                 if (release != null)
                 {
-                    // Save to cache
                     GitHubCacheHelper.SaveCache(cacheKey, etag, json, release.tag_name);
                 }
 
                 return release;
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Failed to fetch latest release: {ex.Message}");
                 return null;
             }
         }
@@ -147,13 +140,11 @@ namespace BeanModManager.Services
             if (string.IsNullOrEmpty(versionString))
                 return null;
 
-            // Remove 'v' prefix
             var cleanVersion = versionString.TrimStart('v', 'V');
 
             if (Version.TryParse(cleanVersion, out var version))
                 return version;
 
-            // Try parsing with just major.minor.build (no revision)
             var parts = cleanVersion.Split('.');
             if (parts.Length >= 3 && int.TryParse(parts[0], out var major) &&
                 int.TryParse(parts[1], out var minor) && int.TryParse(parts[2], out var build))

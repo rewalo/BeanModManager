@@ -1,12 +1,10 @@
-﻿using System;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Windows.Forms;
+﻿using BeanModManager.Helpers;
 using BeanModManager.Services;
 using BeanModManager.Themes;
-using BeanModManager.Helpers;
 using Microsoft.WindowsAPICodePack.Dialogs;
+using System;
+using System.Linq;
+using System.Windows.Forms;
 
 namespace BeanModManager.Wizard
 {
@@ -38,7 +36,6 @@ namespace BeanModManager.Wizard
         {
             this.SuspendLayout();
 
-            // Form properties
             this.Text = "Detect Among Us Installation";
             this.Size = new System.Drawing.Size(600, 350);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -47,7 +44,6 @@ namespace BeanModManager.Wizard
             this.StartPosition = FormStartPosition.CenterScreen;
             this.ShowInTaskbar = true;
 
-            // Title label
             var lblTitle = new Label
             {
                 Text = "Detect Among Us Installation",
@@ -57,11 +53,10 @@ namespace BeanModManager.Wizard
             };
             this.Controls.Add(lblTitle);
 
-            // Description label
             var lblDescription = new Label
             {
                 Text = "We'll try to automatically detect your Among Us installation.\n" +
-                       "If detection fails, you can browse for it manually.",
+           "If detection fails, you can browse for it manually.",
                 Font = new System.Drawing.Font("Segoe UI", 9F),
                 AutoSize = false,
                 Size = new System.Drawing.Size(560, 50),
@@ -69,7 +64,6 @@ namespace BeanModManager.Wizard
             };
             this.Controls.Add(lblDescription);
 
-            // Path label
             var lblPath = new Label
             {
                 Text = "Among Us Path:",
@@ -79,7 +73,6 @@ namespace BeanModManager.Wizard
             };
             this.Controls.Add(lblPath);
 
-            // Path textbox
             var txtPath = new TextBox
             {
                 Size = new System.Drawing.Size(400, 25),
@@ -88,7 +81,6 @@ namespace BeanModManager.Wizard
             };
             this.Controls.Add(txtPath);
 
-            // Browse button
             var paletteInit = ThemeManager.Current;
             var btnBrowse = new Button
             {
@@ -132,7 +124,6 @@ namespace BeanModManager.Wizard
                 }
                 catch
                 {
-                    // Fallback to standard folder browser
                     using (var dialog = new FolderBrowserDialog())
                     {
                         if (dialog.ShowDialog() == DialogResult.OK)
@@ -156,7 +147,6 @@ namespace BeanModManager.Wizard
             };
             this.Controls.Add(btnBrowse);
 
-            // Status label
             var lblStatus = new Label
             {
                 Text = "",
@@ -167,7 +157,6 @@ namespace BeanModManager.Wizard
             };
             this.Controls.Add(lblStatus);
 
-            // Buttons panel - use TableLayoutPanel for better layout
             var buttonPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
@@ -219,12 +208,10 @@ namespace BeanModManager.Wizard
                 this.DialogResult = System.Windows.Forms.DialogResult.Retry;
             };
 
-            buttonPanel.Controls.Add(new Panel(), 0, 0); // Spacer
-            buttonPanel.Controls.Add(btnBack, 1, 0);
+            buttonPanel.Controls.Add(new Panel(), 0, 0); buttonPanel.Controls.Add(btnBack, 1, 0);
             buttonPanel.Controls.Add(btnNext, 2, 0);
             this.Controls.Add(buttonPanel);
 
-            // Store references for updates
             var controlRefs = new ControlRefs { TxtPath = txtPath, BtnNext = btnNext, LblStatus = lblStatus };
             this.Tag = controlRefs;
 
@@ -239,7 +226,7 @@ namespace BeanModManager.Wizard
         {
             var detectedPath = AmongUsDetector.DetectAmongUsPath();
             var controls = this.Tag as ControlRefs;
-            
+
             var palette = ThemeManager.Current;
             if (!string.IsNullOrEmpty(detectedPath) && AmongUsDetector.ValidateAmongUsPath(detectedPath))
             {
@@ -248,12 +235,12 @@ namespace BeanModManager.Wizard
                 IsEpicOrMsStore = AmongUsDetector.IsEpicOrMsStoreVersion(detectedPath);
                 controls.BtnNext.Enabled = true;
                 controls.LblStatus.Text = "Among Us detected automatically!";
-                controls.LblStatus.ForeColor = palette.SuccessButtonColor; 
+                controls.LblStatus.ForeColor = palette.SuccessButtonColor;
             }
             else
             {
                 controls.LblStatus.Text = "Could not auto-detect Among Us. Please browse for it manually.";
-                controls.LblStatus.ForeColor = palette.WarningButtonColor; 
+                controls.LblStatus.ForeColor = palette.WarningButtonColor;
             }
         }
 
@@ -263,8 +250,7 @@ namespace BeanModManager.Wizard
             var palette = ThemeManager.Current;
             controls.LblStatus.Text = message;
             controls.BtnNext.Enabled = !string.IsNullOrEmpty(SelectedPath);
-            
-            // Set color based on message type
+
             if (message.Contains("successfully") || message.Contains("detected"))
             {
                 controls.LblStatus.ForeColor = palette.SuccessButtonColor;
@@ -291,26 +277,22 @@ namespace BeanModManager.Wizard
             var palette = ThemeManager.Current;
             this.BackColor = palette.WindowBackColor;
             this.ForeColor = palette.PrimaryTextColor;
-            
-            // Apply theme to button panel
+
             var buttonPanel = this.Controls.OfType<TableLayoutPanel>().FirstOrDefault();
             if (buttonPanel != null)
             {
                 buttonPanel.BackColor = palette.SurfaceColor;
             }
-            
-            // Style labels
+
             var labels = this.Controls.OfType<Label>().ToList();
             foreach (var lbl in labels)
             {
                 if (lbl.Text.Contains("Detect") && lbl.Font.Bold)
                 {
-                    // Title - use heading color
                     lbl.ForeColor = palette.HeadingTextColor;
                 }
                 else if (lbl.Text.Contains("Among Us Path:"))
                 {
-                    // Field label - use secondary text color
                     lbl.ForeColor = palette.SecondaryTextColor;
                 }
                 else if (lbl.Text.Contains("Status") || lbl.Text.Contains("detected") || lbl.Text.Contains("Could not"))
@@ -330,8 +312,7 @@ namespace BeanModManager.Wizard
                     lbl.ForeColor = palette.PrimaryTextColor;
                 }
             }
-            
-            // Style textbox
+
             var textBoxes = this.Controls.OfType<TextBox>().ToList();
             foreach (var txt in textBoxes)
             {
@@ -339,15 +320,14 @@ namespace BeanModManager.Wizard
                 txt.ForeColor = palette.InputTextColor;
                 txt.BorderStyle = BorderStyle.FixedSingle;
             }
-            
-            // Style buttons
+
             var buttons = this.Controls.OfType<Button>().ToList();
             foreach (var btn in buttons)
             {
                 btn.UseVisualStyleBackColor = false;
                 btn.FlatStyle = FlatStyle.Flat;
                 btn.FlatAppearance.BorderSize = 0;
-                
+
                 if (btn.Text == "Next")
                 {
                     btn.BackColor = palette.PrimaryButtonColor;

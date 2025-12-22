@@ -7,15 +7,8 @@ using WixSharp.UI.Forms;
 
 namespace Setup.Dialogs
 {
-    /// <summary>
-    /// The standard Setup Type dialog
-    /// </summary>
-    public partial class SetupTypeDialog : ManagedForm, IManagedDialog // change ManagedForm->Form if you want to show it in designer
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SetupTypeDialog"/> class.
-        /// </summary>
-        public SetupTypeDialog()
+                public partial class SetupTypeDialog : ManagedForm, IManagedDialog     {
+                                public SetupTypeDialog()
         {
             InitializeComponent();
             label1.MakeTransparentOn(banner);
@@ -83,10 +76,7 @@ namespace Setup.Dialogs
 
         void ResetLayout()
         {
-            // The form controls are properly anchored and will be correctly resized on parent form
-            // resizing. However the initial sizing by WinForm runtime doesn't a do good job with DPI
-            // other than 96. Thus manual resizing is the only reliable option apart from going WPF.
-            float ratio = (float)banner.Image.Width / (float)banner.Image.Height;
+                                                float ratio = (float)banner.Image.Width / (float)banner.Image.Height;
             topPanel.Height = (int)(banner.Width / ratio);
             topBorder.Top = topPanel.Height + 1;
 

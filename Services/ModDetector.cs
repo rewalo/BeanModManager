@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using BeanModManager.Models;
 
 namespace BeanModManager.Services
 {
@@ -11,8 +9,7 @@ namespace BeanModManager.Services
         public static List<InstalledModInfo> DetectInstalledMods(string amongUsPath, string modsFolder = null)
         {
             var installedMods = new List<InstalledModInfo>();
-            
-            // If modsFolder is provided, use it; otherwise fall back to Among Us path (for backward compatibility)
+
             if (string.IsNullOrEmpty(modsFolder))
             {
                 if (string.IsNullOrEmpty(amongUsPath) || !Directory.Exists(amongUsPath))
@@ -21,7 +18,7 @@ namespace BeanModManager.Services
                 }
                 modsFolder = Path.Combine(amongUsPath, "Mods");
             }
-            
+
             if (Directory.Exists(modsFolder))
             {
                 var toheModPath = Path.Combine(modsFolder, "TOHE");
@@ -87,7 +84,7 @@ namespace BeanModManager.Services
                         });
                     }
                 }
-                
+
                 var atrModPath = Path.Combine(modsFolder, "AllTheRoles");
                 if (Directory.Exists(atrModPath))
                 {
@@ -137,7 +134,6 @@ namespace BeanModManager.Services
                 }
             }
 
-            // Only check plugins path if amongUsPath is provided and valid
             if (string.IsNullOrEmpty(amongUsPath) || !Directory.Exists(amongUsPath))
             {
                 return installedMods;
@@ -281,7 +277,6 @@ namespace BeanModManager.Services
         {
             try
             {
-                // Read version from DLL file metadata
                 var fileInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(dllPath);
                 if (!string.IsNullOrEmpty(fileInfo.FileVersion))
                 {
@@ -292,9 +287,8 @@ namespace BeanModManager.Services
                     return fileInfo.ProductVersion;
                 }
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Error reading DLL version from {dllPath}: {ex.Message}");
             }
             return null;
         }
@@ -312,9 +306,8 @@ namespace BeanModManager.Services
             if (!Directory.Exists(corePath))
                 return false;
 
-            // Check for standard BepInEx.dll or bleeding edge BepInEx.Core.dll
             return File.Exists(Path.Combine(corePath, "BepInEx.dll")) ||
-                   File.Exists(Path.Combine(corePath, "BepInEx.Core.dll"));
+       File.Exists(Path.Combine(corePath, "BepInEx.Core.dll"));
         }
     }
 

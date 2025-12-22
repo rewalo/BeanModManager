@@ -6,16 +6,9 @@ namespace Setup.Dialogs
 {
     partial class ExitDialog
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
-        private System.ComponentModel.IContainer components = null;
+                                private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
-        protected override void Dispose(bool disposing)
+                                        protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
             {
@@ -26,11 +19,7 @@ namespace Setup.Dialogs
 
         #region Windows Form Designer generated code
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
-        private void InitializeComponent()
+                                        private void InitializeComponent()
         {
             this.imgPanel = new System.Windows.Forms.Panel();
             this.textPanel = new System.Windows.Forms.Panel();
@@ -51,10 +40,7 @@ namespace Setup.Dialogs
             this.bottomPanel.SuspendLayout();
             this.tableLayoutPanel1.SuspendLayout();
             this.SuspendLayout();
-            // 
-            // imgPanel
-            // 
-            this.imgPanel.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+                                                this.imgPanel.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.imgPanel.Controls.Add(this.textPanel);
@@ -63,10 +49,7 @@ namespace Setup.Dialogs
             this.imgPanel.Name = "imgPanel";
             this.imgPanel.Size = new System.Drawing.Size(494, 312);
             this.imgPanel.TabIndex = 8;
-            // 
-            // textPanel
-            // 
-            this.textPanel.BackColor = System.Drawing.Color.Transparent;
+                                                this.textPanel.BackColor = System.Drawing.Color.Transparent;
             this.textPanel.Controls.Add(this.chkStartBeanModManager);
             this.textPanel.Controls.Add(this.title);
             this.textPanel.Controls.Add(this.description);
@@ -74,10 +57,7 @@ namespace Setup.Dialogs
             this.textPanel.Name = "textPanel";
             this.textPanel.Size = new System.Drawing.Size(292, 289);
             this.textPanel.TabIndex = 8;
-            // 
-            // chkStartBeanModManager
-            // 
-            this.chkStartBeanModManager.AutoSize = true;
+                                                this.chkStartBeanModManager.AutoSize = true;
             this.chkStartBeanModManager.Checked = true;
             this.chkStartBeanModManager.CheckState = System.Windows.Forms.CheckState.Checked;
             this.chkStartBeanModManager.Location = new System.Drawing.Point(7, 121);
@@ -87,10 +67,7 @@ namespace Setup.Dialogs
             this.chkStartBeanModManager.Text = "Start Bean Mod Manager";
             this.chkStartBeanModManager.UseVisualStyleBackColor = true;
             this.chkStartBeanModManager.Visible = false;
-            // 
-            // title
-            // 
-            this.title.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+                                                this.title.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.title.BackColor = System.Drawing.Color.Transparent;
             this.title.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -99,10 +76,7 @@ namespace Setup.Dialogs
             this.title.Size = new System.Drawing.Size(286, 61);
             this.title.TabIndex = 6;
             this.title.Text = "[ExitDialogTitle]";
-            // 
-            // description
-            // 
-            this.description.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+                                                this.description.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.description.BackColor = System.Drawing.Color.Transparent;
@@ -111,10 +85,7 @@ namespace Setup.Dialogs
             this.description.Size = new System.Drawing.Size(285, 201);
             this.description.TabIndex = 7;
             this.description.Text = "[ExitDialogDescription]";
-            // 
-            // image
-            // 
-            this.image.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+                                                this.image.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left)));
             this.image.Location = new System.Drawing.Point(0, 0);
             this.image.Name = "image";
@@ -122,10 +93,7 @@ namespace Setup.Dialogs
             this.image.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
             this.image.TabIndex = 4;
             this.image.TabStop = false;
-            // 
-            // bottomPanel
-            // 
-            this.bottomPanel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+                                                this.bottomPanel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.bottomPanel.BackColor = System.Drawing.SystemColors.Control;
             this.bottomPanel.Controls.Add(this.viewLog);
@@ -135,10 +103,7 @@ namespace Setup.Dialogs
             this.bottomPanel.Name = "bottomPanel";
             this.bottomPanel.Size = new System.Drawing.Size(494, 49);
             this.bottomPanel.TabIndex = 5;
-            // 
-            // viewLog
-            // 
-            this.viewLog.Anchor = System.Windows.Forms.AnchorStyles.Left;
+                                                this.viewLog.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.viewLog.AutoSize = true;
             this.viewLog.BackColor = System.Drawing.Color.Transparent;
             this.viewLog.Location = new System.Drawing.Point(16, 17);
@@ -148,10 +113,7 @@ namespace Setup.Dialogs
             this.viewLog.TabStop = true;
             this.viewLog.Text = "[ViewLog]";
             this.viewLog.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.viewLog_LinkClicked);
-            // 
-            // tableLayoutPanel1
-            // 
-            this.tableLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+                                                this.tableLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.tableLayoutPanel1.ColumnCount = 5;
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
@@ -167,10 +129,7 @@ namespace Setup.Dialogs
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.Size = new System.Drawing.Size(491, 43);
             this.tableLayoutPanel1.TabIndex = 7;
-            // 
-            // back
-            // 
-            this.back.Anchor = System.Windows.Forms.AnchorStyles.Right;
+                                                this.back.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.back.AutoSize = true;
             this.back.Enabled = false;
             this.back.Location = new System.Drawing.Point(174, 8);
@@ -180,10 +139,7 @@ namespace Setup.Dialogs
             this.back.TabIndex = 0;
             this.back.Text = "[WixUIBack]";
             this.back.UseVisualStyleBackColor = true;
-            // 
-            // next
-            // 
-            this.next.Anchor = System.Windows.Forms.AnchorStyles.Right;
+                                                this.next.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.next.AutoSize = true;
             this.next.Location = new System.Drawing.Point(271, 8);
             this.next.MinimumSize = new System.Drawing.Size(75, 0);
@@ -193,10 +149,7 @@ namespace Setup.Dialogs
             this.next.Text = "[WixUIFinish]";
             this.next.UseVisualStyleBackColor = true;
             this.next.Click += new System.EventHandler(this.finish_Click);
-            // 
-            // cancel
-            // 
-            this.cancel.Anchor = System.Windows.Forms.AnchorStyles.Right;
+                                                this.cancel.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.cancel.AutoSize = true;
             this.cancel.Enabled = false;
             this.cancel.Location = new System.Drawing.Point(386, 8);
@@ -206,20 +159,14 @@ namespace Setup.Dialogs
             this.cancel.TabIndex = 0;
             this.cancel.Text = "[WixUICancel]";
             this.cancel.UseVisualStyleBackColor = true;
-            // 
-            // border1
-            // 
-            this.border1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+                                                this.border1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.border1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.border1.Location = new System.Drawing.Point(0, 0);
             this.border1.Name = "border1";
             this.border1.Size = new System.Drawing.Size(494, 1);
             this.border1.TabIndex = 9;
-            // 
-            // ExitDialog
-            // 
-            this.BackColor = System.Drawing.Color.White;
+                                                this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(494, 361);
             this.Controls.Add(this.imgPanel);
             this.Controls.Add(this.bottomPanel);

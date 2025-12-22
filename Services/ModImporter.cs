@@ -1,9 +1,7 @@
+using BeanModManager.Helpers;
 using System;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
-using BeanModManager.Models;
-using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -11,13 +9,6 @@ namespace BeanModManager.Services
     {
         public event EventHandler<string> ProgressChanged;
 
-        /// <summary>
-        /// Imports a mod from a DLL file, directory, or ZIP file
-        /// </summary>
-        /// <param name="sourcePath">Path to DLL file, directory, or ZIP file</param>
-        /// <param name="modName">Name for the custom mod (if null, will be derived from source)</param>
-        /// <param name="modStoragePath">Destination path where the mod should be stored</param>
-        /// <returns>True if import was successful</returns>
         public bool ImportMod(string sourcePath, string modName, string modStoragePath)
         {
             try
@@ -238,7 +229,7 @@ namespace BeanModManager.Services
             foreach (var file in Directory.GetFiles(sourceDir))
             {
                 var fileName = Path.GetFileName(file);
-                
+
                 if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -258,7 +249,7 @@ namespace BeanModManager.Services
             foreach (var dir in Directory.GetDirectories(sourceDir))
             {
                 var dirName = Path.GetFileName(dir);
-                
+
                 if (dirName.Equals("temp", StringComparison.OrdinalIgnoreCase) ||
                     dirName.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
                     dirName.Equals("obj", StringComparison.OrdinalIgnoreCase) ||

@@ -1,9 +1,9 @@
+using BeanModManager.Helpers;
+using BeanModManager.Themes;
 using System;
+using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using BeanModManager.Themes;
-using BeanModManager.Helpers;
-using System.Drawing;
 
 namespace BeanModManager.Wizard
 {
@@ -21,19 +21,17 @@ namespace BeanModManager.Wizard
         private void WizardSelectChannelDialog_HandleCreated(object sender, EventArgs e)
         {
             ApplyDarkMode();
-            // Force reapply theme after dark mode to ensure buttons keep their colors
             this.BeginInvoke(new Action(() =>
-            {
-                ApplyTheme();
-                this.Invalidate(true);
-            }));
+{
+    ApplyTheme();
+    this.Invalidate(true);
+}));
         }
 
         private void InitializeComponent(bool isEpicOrMsStore, string initialChannel)
         {
             this.SuspendLayout();
 
-            // Form properties
             this.Text = "Select Game Channel";
             this.Size = new System.Drawing.Size(600, 350);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -42,7 +40,6 @@ namespace BeanModManager.Wizard
             this.StartPosition = FormStartPosition.CenterScreen;
             this.ShowInTaskbar = true;
 
-            // Title label
             var lblTitle = new Label
             {
                 Text = "Select Game Channel",
@@ -52,12 +49,11 @@ namespace BeanModManager.Wizard
             };
             this.Controls.Add(lblTitle);
 
-            // Description label
             var lblDescription = new Label
             {
                 Text = isEpicOrMsStore
-                    ? "We detected an Epic Games or Microsoft Store installation.\nPlease confirm your game channel:"
-                    : "Please select your game channel:",
+        ? "We detected an Epic Games or Microsoft Store installation.\nPlease confirm your game channel:"
+        : "Please select your game channel:",
                 Font = new System.Drawing.Font("Segoe UI", 9F),
                 AutoSize = false,
                 Size = new System.Drawing.Size(560, 50),
@@ -65,7 +61,6 @@ namespace BeanModManager.Wizard
             };
             this.Controls.Add(lblDescription);
 
-            // Radio buttons
             var rbSteam = new RadioButton
             {
                 Text = "Steam / Itch.io",
@@ -93,7 +88,6 @@ namespace BeanModManager.Wizard
             rbSteam.Checked = preferredChannel != "Epic/MS Store";
             rbEpic.Checked = preferredChannel == "Epic/MS Store";
 
-            // Buttons panel - use TableLayoutPanel for better layout
             var buttonPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
@@ -108,7 +102,7 @@ namespace BeanModManager.Wizard
             buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
             var paletteInit = ThemeManager.Current;
-            
+
             var btnNext = new Button
             {
                 Text = "Next",
@@ -137,8 +131,7 @@ namespace BeanModManager.Wizard
             btnBack.FlatAppearance.BorderColor = paletteInit.SecondaryButtonColor;
             btnBack.Click += (s, e) => { this.DialogResult = System.Windows.Forms.DialogResult.Retry; };
 
-            buttonPanel.Controls.Add(new Panel(), 0, 0); // Spacer
-            buttonPanel.Controls.Add(btnBack, 1, 0);
+            buttonPanel.Controls.Add(new Panel(), 0, 0); buttonPanel.Controls.Add(btnBack, 1, 0);
             buttonPanel.Controls.Add(btnNext, 2, 0);
             this.Controls.Add(buttonPanel);
 
@@ -154,46 +147,40 @@ namespace BeanModManager.Wizard
             var palette = ThemeManager.Current;
             this.BackColor = palette.WindowBackColor;
             this.ForeColor = palette.PrimaryTextColor;
-            
-            // Apply theme to button panel
+
             var buttonPanel = this.Controls.OfType<TableLayoutPanel>().FirstOrDefault();
             if (buttonPanel != null)
             {
                 buttonPanel.BackColor = palette.SurfaceColor;
             }
-            
-            // Style labels
+
             var labels = this.Controls.OfType<Label>().ToList();
             foreach (var lbl in labels)
             {
                 if (lbl.Text.Contains("Select Game Channel") && lbl.Font.Bold)
                 {
-                    // Title - use heading color
                     lbl.ForeColor = palette.HeadingTextColor;
                 }
                 else
                 {
-                    // Description - use primary text color
                     lbl.ForeColor = palette.PrimaryTextColor;
                 }
             }
-            
-            // Style radio buttons
+
             var radioButtons = this.Controls.OfType<RadioButton>().ToList();
             foreach (var rb in radioButtons)
             {
                 rb.ForeColor = palette.PrimaryTextColor;
                 rb.BackColor = Color.Transparent;
             }
-            
-            // Style buttons
+
             var buttons = this.Controls.OfType<Button>().ToList();
             foreach (var btn in buttons)
             {
                 btn.UseVisualStyleBackColor = false;
                 btn.FlatStyle = FlatStyle.Flat;
                 btn.FlatAppearance.BorderSize = 0;
-                
+
                 if (btn.Text == "Next")
                 {
                     btn.BackColor = palette.PrimaryButtonColor;

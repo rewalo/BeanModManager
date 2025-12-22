@@ -34,16 +34,13 @@ namespace BeanModManager.Helpers
 
             try
             {
-                // Enable dark mode for window chrome (title bar, borders)
                 int darkMode = enable ? 1 : 0;
                 DwmSetWindowAttribute(form.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
 
-                // Set window theme for all child controls
                 ApplyThemeToControl(form, enable);
             }
             catch
             {
-                // Silently fail if API not available
             }
         }
 
@@ -61,10 +58,8 @@ namespace BeanModManager.Helpers
             }
             catch
             {
-                // Silently fail
             }
 
-            // Recursively apply to children
             foreach (Control child in control.Controls)
             {
                 ApplyThemeToControl(child, darkMode);
@@ -75,12 +70,10 @@ namespace BeanModManager.Helpers
         {
             try
             {
-                // Enable dark mode support at app level
                 SetPreferredAppMode(PreferredAppModeAllowDark);
             }
             catch
             {
-                // Silently fail if API not available
             }
         }
     }

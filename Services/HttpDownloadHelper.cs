@@ -1,10 +1,9 @@
 using System;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Net;
-using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -71,7 +70,6 @@ namespace BeanModManager.Services
         {
             using (var request = new HttpRequestMessage(HttpMethod.Get, url))
             {
-                // Add If-None-Match header if ETag is provided
                 if (!string.IsNullOrEmpty(etag))
                 {
                     request.Headers.TryAddWithoutValidation("If-None-Match", etag);
@@ -79,7 +77,6 @@ namespace BeanModManager.Services
 
                 using (var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false))
                 {
-                    // Handle 304 Not Modified - return null to indicate no change
                     if (response.StatusCode == HttpStatusCode.NotModified)
                     {
                         return new DownloadResult { NotModified = true };
@@ -109,7 +106,6 @@ namespace BeanModManager.Services
         {
             if (response?.Headers?.ETag != null)
             {
-                // ETag header value includes quotes, we need to remove them
                 var etagValue = response.Headers.ETag.ToString();
                 if (etagValue.StartsWith("\"") && etagValue.EndsWith("\""))
                 {
@@ -119,8 +115,7 @@ namespace BeanModManager.Services
             }
             return null;
         }
-        
-        // Synchronous version for constructor use (blocks thread)
+
         public static string DownloadString(string url)
         {
             return DownloadStringAsync(url).GetAwaiter().GetResult();

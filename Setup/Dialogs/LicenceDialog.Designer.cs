@@ -8,16 +8,9 @@ namespace Setup.Dialogs
 {
     partial class LicenceDialog
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
-        private System.ComponentModel.IContainer components = null;
+                                private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
-        protected override void Dispose(bool disposing)
+                                        protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
             {
@@ -28,11 +21,7 @@ namespace Setup.Dialogs
 
         #region Windows Form Designer generated code
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
-        private void InitializeComponent()
+                                        private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
@@ -59,34 +48,22 @@ namespace Setup.Dialogs
             this.tableLayoutPanel1.SuspendLayout();
             this.middlePanel.SuspendLayout();
             this.SuspendLayout();
-            // 
-            // contextMenuStrip1
-            // 
-            this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+                                                this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.copyToolStripMenuItem});
             this.contextMenuStrip1.Name = "contextMenuStrip1";
             this.contextMenuStrip1.Size = new System.Drawing.Size(103, 26);
-            // 
-            // copyToolStripMenuItem
-            // 
-            this.copyToolStripMenuItem.Name = "copyToolStripMenuItem";
+                                                this.copyToolStripMenuItem.Name = "copyToolStripMenuItem";
             this.copyToolStripMenuItem.Size = new System.Drawing.Size(102, 22);
             this.copyToolStripMenuItem.Text = "[Copy]";
             this.copyToolStripMenuItem.Click += new System.EventHandler(this.copyToolStripMenuItem_Click);
-            // 
-            // topBorder
-            // 
-            this.topBorder.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+                                                this.topBorder.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.topBorder.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.topBorder.Location = new System.Drawing.Point(0, 58);
             this.topBorder.Name = "topBorder";
             this.topBorder.Size = new System.Drawing.Size(494, 1);
             this.topBorder.TabIndex = 7;
-            // 
-            // agreement
-            // 
-            this.agreement.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+                                                this.agreement.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
             | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.agreement.BackColor = System.Drawing.Color.White;
@@ -98,10 +75,7 @@ namespace Setup.Dialogs
             this.agreement.Size = new System.Drawing.Size(470, 199);
             this.agreement.TabIndex = 5;
             this.agreement.Text = "";
-            // 
-            // topPanel
-            // 
-            this.topPanel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+                                                this.topPanel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.topPanel.Controls.Add(this.label2);
             this.topPanel.Controls.Add(this.titleLbl);
@@ -110,20 +84,14 @@ namespace Setup.Dialogs
             this.topPanel.Name = "topPanel";
             this.topPanel.Size = new System.Drawing.Size(494, 58);
             this.topPanel.TabIndex = 3;
-            // 
-            // label2
-            // 
-            this.label2.AutoSize = true;
+                                                this.label2.AutoSize = true;
             this.label2.BackColor = System.Drawing.Color.Transparent;
             this.label2.Location = new System.Drawing.Point(19, 31);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(164, 13);
             this.label2.TabIndex = 1;
             this.label2.Text = "[AdvancedWelcomeEulaDlgTitle]";
-            // 
-            // titleLbl
-            // 
-            this.titleLbl.AutoSize = true;
+                                                this.titleLbl.AutoSize = true;
             this.titleLbl.BackColor = System.Drawing.Color.Transparent;
             this.titleLbl.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.titleLbl.Location = new System.Drawing.Point(11, 8);
@@ -131,10 +99,7 @@ namespace Setup.Dialogs
             this.titleLbl.Size = new System.Drawing.Size(163, 13);
             this.titleLbl.TabIndex = 1;
             this.titleLbl.Text = "[LicenseAgreementDlgTitle]";
-            // 
-            // banner
-            // 
-            this.banner.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+                                                this.banner.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
             | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.banner.BackColor = System.Drawing.Color.White;
@@ -144,10 +109,7 @@ namespace Setup.Dialogs
             this.banner.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
             this.banner.TabIndex = 0;
             this.banner.TabStop = false;
-            // 
-            // accepted
-            // 
-            this.accepted.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+                                                this.accepted.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.accepted.BackColor = System.Drawing.Color.Transparent;
             this.accepted.Location = new System.Drawing.Point(14, 219);
@@ -157,10 +119,7 @@ namespace Setup.Dialogs
             this.accepted.Text = "[LicenseAgreementDlgLicenseAcceptedCheckBox]";
             this.accepted.UseVisualStyleBackColor = false;
             this.accepted.CheckedChanged += new System.EventHandler(this.accepted_CheckedChanged);
-            // 
-            // bottomPanel
-            // 
-            this.bottomPanel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
+                                                this.bottomPanel.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.bottomPanel.BackColor = System.Drawing.SystemColors.Control;
             this.bottomPanel.Controls.Add(this.tableLayoutPanel1);
@@ -169,10 +128,7 @@ namespace Setup.Dialogs
             this.bottomPanel.Name = "bottomPanel";
             this.bottomPanel.Size = new System.Drawing.Size(494, 49);
             this.bottomPanel.TabIndex = 2;
-            // 
-            // tableLayoutPanel1
-            // 
-            this.tableLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+                                                this.tableLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.tableLayoutPanel1.ColumnCount = 6;
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle());
@@ -190,10 +146,7 @@ namespace Setup.Dialogs
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel1.Size = new System.Drawing.Size(491, 43);
             this.tableLayoutPanel1.TabIndex = 7;
-            // 
-            // cancel
-            // 
-            this.cancel.Anchor = System.Windows.Forms.AnchorStyles.Right;
+                                                this.cancel.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.cancel.AutoSize = true;
             this.cancel.Location = new System.Drawing.Point(402, 10);
             this.cancel.Name = "cancel";
@@ -202,10 +155,7 @@ namespace Setup.Dialogs
             this.cancel.Text = "[WixUICancel]";
             this.cancel.UseVisualStyleBackColor = true;
             this.cancel.Click += new System.EventHandler(this.cancel_Click);
-            // 
-            // print
-            // 
-            this.print.Anchor = System.Windows.Forms.AnchorStyles.Right;
+                                                this.print.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.print.AutoSize = true;
             this.print.Location = new System.Drawing.Point(140, 10);
             this.print.Name = "print";
@@ -214,10 +164,7 @@ namespace Setup.Dialogs
             this.print.Text = "[WixUIPrint]";
             this.print.UseVisualStyleBackColor = true;
             this.print.Click += new System.EventHandler(this.print_Click);
-            // 
-            // back
-            // 
-            this.back.Anchor = System.Windows.Forms.AnchorStyles.Right;
+                                                this.back.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.back.AutoSize = true;
             this.back.Location = new System.Drawing.Point(222, 10);
             this.back.Name = "back";
@@ -226,10 +173,7 @@ namespace Setup.Dialogs
             this.back.Text = "[WixUIBack]";
             this.back.UseVisualStyleBackColor = true;
             this.back.Click += new System.EventHandler(this.back_Click);
-            // 
-            // next
-            // 
-            this.next.Anchor = System.Windows.Forms.AnchorStyles.Right;
+                                                this.next.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.next.AutoSize = true;
             this.next.Enabled = false;
             this.next.Location = new System.Drawing.Point(305, 10);
@@ -239,19 +183,13 @@ namespace Setup.Dialogs
             this.next.Text = "[WixUINext]";
             this.next.UseVisualStyleBackColor = true;
             this.next.Click += new System.EventHandler(this.next_Click);
-            // 
-            // border1
-            // 
-            this.border1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+                                                this.border1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.border1.Dock = System.Windows.Forms.DockStyle.Top;
             this.border1.Location = new System.Drawing.Point(0, 0);
             this.border1.Name = "border1";
             this.border1.Size = new System.Drawing.Size(494, 1);
             this.border1.TabIndex = 6;
-            // 
-            // middlePanel
-            // 
-            this.middlePanel.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+                                                this.middlePanel.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
             | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.middlePanel.Controls.Add(this.agreement);
@@ -260,10 +198,7 @@ namespace Setup.Dialogs
             this.middlePanel.Name = "middlePanel";
             this.middlePanel.Size = new System.Drawing.Size(494, 251);
             this.middlePanel.TabIndex = 8;
-            // 
-            // LicenceDialog
-            // 
-            this.ClientSize = new System.Drawing.Size(494, 361);
+                                                this.ClientSize = new System.Drawing.Size(494, 361);
             this.Controls.Add(this.middlePanel);
             this.Controls.Add(this.topBorder);
             this.Controls.Add(this.topPanel);

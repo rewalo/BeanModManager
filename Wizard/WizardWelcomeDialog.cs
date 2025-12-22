@@ -1,9 +1,8 @@
+using BeanModManager.Helpers;
+using BeanModManager.Themes;
 using System;
-using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using BeanModManager.Themes;
-using BeanModManager.Helpers;
 
 namespace BeanModManager.Wizard
 {
@@ -19,19 +18,17 @@ namespace BeanModManager.Wizard
         private void WizardWelcomeDialog_HandleCreated(object sender, EventArgs e)
         {
             ApplyDarkMode();
-            // Force reapply theme after dark mode to ensure buttons keep their colors
             this.BeginInvoke(new Action(() =>
-            {
-                ApplyTheme();
-                this.Invalidate(true);
-            }));
+{
+    ApplyTheme();
+    this.Invalidate(true);
+}));
         }
 
         private void InitializeComponent()
         {
             this.SuspendLayout();
 
-            // Form properties
             this.Text = "Welcome to Bean Mod Manager";
             this.Size = new System.Drawing.Size(600, 450);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -41,7 +38,6 @@ namespace BeanModManager.Wizard
             this.ShowInTaskbar = true;
             this.TopMost = false;
 
-            // Title label
             var lblTitle = new Label
             {
                 Text = "Welcome to Bean Mod Manager!",
@@ -51,15 +47,14 @@ namespace BeanModManager.Wizard
             };
             this.Controls.Add(lblTitle);
 
-            // Description label
             var lblDescription = new Label
             {
                 Text = "This wizard will help you set up Bean Mod Manager for the first time.\n\n" +
-                       "We'll help you:\n" +
-                       "• Detect your Among Us installation\n" +
-                       "• Configure your game channel (Steam/Epic)\n" +
-                       "• Install BepInEx (required for mods)\n\n" +
-                       "Click Next to continue.",
+           "We'll help you:\n" +
+           "• Detect your Among Us installation\n" +
+           "• Configure your game channel (Steam/Epic)\n" +
+           "• Install BepInEx (required for mods)\n\n" +
+           "Click Next to continue.",
                 Font = new System.Drawing.Font("Segoe UI", 10F),
                 AutoSize = false,
                 Size = new System.Drawing.Size(560, 250),
@@ -67,7 +62,6 @@ namespace BeanModManager.Wizard
             };
             this.Controls.Add(lblDescription);
 
-            // Buttons panel - use TableLayoutPanel for better layout
             var buttonPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
@@ -82,7 +76,7 @@ namespace BeanModManager.Wizard
             buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
             var palette = ThemeManager.Current;
-            
+
             var btnNext = new Button
             {
                 Text = "Next",
@@ -95,8 +89,8 @@ namespace BeanModManager.Wizard
             };
             btnNext.FlatAppearance.BorderSize = 0;
             btnNext.FlatAppearance.BorderColor = palette.PrimaryButtonColor;
-            btnNext.Click += (s, e) => 
-            { 
+            btnNext.Click += (s, e) =>
+            {
                 this.DialogResult = System.Windows.Forms.DialogResult.OK;
             };
 
@@ -112,13 +106,12 @@ namespace BeanModManager.Wizard
             };
             btnCancel.FlatAppearance.BorderSize = 0;
             btnCancel.FlatAppearance.BorderColor = palette.SecondaryButtonColor;
-            btnCancel.Click += (s, e) => 
-            { 
+            btnCancel.Click += (s, e) =>
+            {
                 this.DialogResult = System.Windows.Forms.DialogResult.Cancel;
             };
 
-            buttonPanel.Controls.Add(new Panel(), 0, 0); // Spacer
-            buttonPanel.Controls.Add(btnCancel, 1, 0);
+            buttonPanel.Controls.Add(new Panel(), 0, 0); buttonPanel.Controls.Add(btnCancel, 1, 0);
             buttonPanel.Controls.Add(btnNext, 2, 0);
             this.Controls.Add(buttonPanel);
 
@@ -134,38 +127,33 @@ namespace BeanModManager.Wizard
             var palette = ThemeManager.Current;
             this.BackColor = palette.WindowBackColor;
             this.ForeColor = palette.PrimaryTextColor;
-            
-            // Apply theme to button panel
+
             var buttonPanel = this.Controls.OfType<TableLayoutPanel>().FirstOrDefault();
             if (buttonPanel != null)
             {
                 buttonPanel.BackColor = palette.SurfaceColor;
             }
-            
-            // Style labels - find by text or position
+
             var labels = this.Controls.OfType<Label>().ToList();
             foreach (var lbl in labels)
             {
                 if (lbl.Text.Contains("Welcome") && lbl.Font.Bold)
                 {
-                    // Title - use heading color
                     lbl.ForeColor = palette.HeadingTextColor;
                 }
                 else
                 {
-                    // Description - use primary text color
                     lbl.ForeColor = palette.PrimaryTextColor;
                 }
             }
-            
-            // Style buttons
+
             var buttons = this.Controls.OfType<Button>().ToList();
             foreach (var btn in buttons)
             {
                 btn.UseVisualStyleBackColor = false;
                 btn.FlatStyle = FlatStyle.Flat;
                 btn.FlatAppearance.BorderSize = 0;
-                
+
                 if (btn.Text == "Next")
                 {
                     btn.BackColor = palette.PrimaryButtonColor;

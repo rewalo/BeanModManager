@@ -1,18 +1,14 @@
+using BeanModManager.Helpers;
+using BeanModManager.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using BeanModManager.Helpers;
-using BeanModManager.Models;
 
 namespace BeanModManager
 {
-    /// <summary>
-    /// Standalone script to populate mod-registry.json with cache data (ETags and release info)
-    /// Run this periodically to update the registry cache
-    /// </summary>
     class PopulateRegistryCache
     {
         private static readonly HttpClient _httpClient = new HttpClient();
@@ -26,14 +22,14 @@ namespace BeanModManager
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "BeanModManager-CachePopulator");
         }
 
-        public         static async Task Main(string[] args)
+        public static async Task Main(string[] args)
         {
             Console.WriteLine("=== Mod Cache Populator ===");
             Console.WriteLine("This script will fetch release data for all mods and create/update mod-cache.json.\n");
 
             var registryPath = "mod-registry.json";
             var cachePath = "mod-cache.json";
-            
+
             if (args.Length > 0)
             {
                 registryPath = args[0];
@@ -60,7 +56,6 @@ namespace BeanModManager
                 return;
             }
 
-            // Load existing cache file if it exists
             var cache = new ModCache
             {
                 version = "1.0",
@@ -91,7 +86,6 @@ namespace BeanModManager
             Console.WriteLine("Starting to fetch release data...\n");
             Console.WriteLine("(This may take a few minutes depending on rate limits)\n");
 
-            // Process mods sequentially to avoid hitting rate limits too quickly
             foreach (var mod in registry.mods)
             {
                 if (string.IsNullOrEmpty(mod.githubOwner) || string.IsNullOrEmpty(mod.githubRepo))
@@ -102,10 +96,8 @@ namespace BeanModManager
                 }
 
                 await UpdateModCache(mod, cache);
-                
-                // Small delay to avoid rate limiting (60 requests/hour = ~1 per minute)
-                // But we can go faster since we're using ETags
-                await Task.Delay(1000); // 1 second delay between requests
+
+                await Task.Delay(1000);
             }
 
             Console.WriteLine($"\n=== Summary ===");
@@ -115,11 +107,9 @@ namespace BeanModManager
             Console.WriteLine($"⏭  Skipped: {_skippedCount}");
             Console.WriteLine($"Total processed: {_successCount + _notModifiedCount + _failCount + _skippedCount}");
 
-            // Save cache file
             var cacheJson = JsonHelper.Serialize(cache);
             var backupPath = cachePath + ".backup";
-            
-            // Create backup if cache file exists
+
             if (File.Exists(cachePath))
             {
                 File.Copy(cachePath, backupPath, true);
@@ -137,16 +127,14 @@ namespace BeanModManager
             try
             {
                 var apiUrl = $"https://api.github.com/repos/{mod.githubOwner}/{mod.githubRepo}/releases/latest";
-                
+
                 Console.Write($"Fetching: {mod.name} ({mod.githubOwner}/{mod.githubRepo})... ");
 
-                // Get existing cache entry if available
                 cache.mods.TryGetValue(mod.id, out var existingCacheEntry);
                 string existingETag = existingCacheEntry?.cachedETag;
 
                 using (var request = new HttpRequestMessage(HttpMethod.Get, apiUrl))
                 {
-                    // Use existing ETag if available
                     if (!string.IsNullOrEmpty(existingETag))
                     {
                         request.Headers.TryAddWithoutValidation("If-None-Match", existingETag);
@@ -176,13 +164,12 @@ namespace BeanModManager
 
                         if (release != null && !string.IsNullOrEmpty(release.tag_name))
                         {
-                            // Update or create cache entry
                             cache.mods[mod.id] = new ModCacheEntry
                             {
                                 cachedETag = etag,
                                 cachedReleaseData = content,
                                 cachedLatestVersion = release.tag_name,
-                                lastChecked = DateTime.UtcNow.ToString("o") // ISO 8601 format
+                                lastChecked = DateTime.UtcNow.ToString("o")
                             };
 
                             var etagPreview = etag != null && etag.Length > 20 ? etag.Substring(0, 20) + "..." : etag;
@@ -214,7 +201,6 @@ namespace BeanModManager
             if (response?.Headers?.ETag != null)
             {
                 var etagValue = response.Headers.ETag.ToString();
-                // ETag header value includes quotes, we need to remove them
                 if (etagValue.StartsWith("\"") && etagValue.EndsWith("\""))
                 {
                     return etagValue.Substring(1, etagValue.Length - 2);
@@ -224,7 +210,6 @@ namespace BeanModManager
             return null;
         }
 
-        // Simple class to deserialize GitHub release
         class GitHubRelease
         {
             public string tag_name { get; set; }

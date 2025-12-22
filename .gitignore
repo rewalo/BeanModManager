@@ -1,0 +1,15 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+.idea/
+*.lock.json
+.vs/
+*.user
+.qodo
+Properties/
+*.exe
+*.dll
+
+.fake

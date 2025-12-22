@@ -1,13 +1,11 @@
+using BeanModManager.Helpers;
+using BeanModManager.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
-using BeanModManager.Models;
-using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -37,16 +35,12 @@ namespace BeanModManager.Services
                     Directory.CreateDirectory(extractToPath);
                 }
 
-                //System.Diagnostics.Debug.WriteLine($"Extracting to: {extractToPath}");
-                //System.Diagnostics.Debug.WriteLine($"Download URL: {version.DownloadUrl}");
 
-                // Check if this is a direct DLL download
                 var downloadUrlLower = version.DownloadUrl.ToLower();
                 bool isDirectDll = downloadUrlLower.EndsWith(".dll");
 
                 if (isDirectDll)
                 {
-                    // Direct DLL download - no extraction needed
                     var fileName = Path.GetFileName(version.DownloadUrl);
                     if (string.IsNullOrEmpty(fileName))
                     {
@@ -67,13 +61,12 @@ namespace BeanModManager.Services
                     {
                         if (File.Exists(destinationPath))
                         {
-                            try 
-                            { 
-                                File.Delete(destinationPath); 
-                            } 
-                            catch //(Exception deleteEx)
+                            try
                             {
-                                //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete partial download {destinationPath}: {deleteEx.Message}");
+                                File.Delete(destinationPath);
+                            }
+                            catch
+                            {
                             }
                         }
                         throw new Exception($"Download failed: {ex.Message}", ex);
@@ -81,7 +74,6 @@ namespace BeanModManager.Services
                 }
                 else
                 {
-                    // ZIP file download
                     var tempZipPath = Path.Combine(Path.GetTempPath(), $"mod_{Guid.NewGuid()}.zip");
 
                     var progress = new Progress<int>(percent =>
@@ -97,13 +89,12 @@ namespace BeanModManager.Services
                     {
                         if (File.Exists(tempZipPath))
                         {
-                            try 
-                            { 
-                                File.Delete(tempZipPath); 
-                            } 
-                            catch //(Exception deleteEx)
+                            try
                             {
-                                //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete temp ZIP {tempZipPath}: {deleteEx.Message}");
+                                File.Delete(tempZipPath);
+                            }
+                            catch
+                            {
                             }
                         }
                         throw new Exception($"Download failed: {ex.Message}", ex);
@@ -114,13 +105,12 @@ namespace BeanModManager.Services
                     {
                         if (File.Exists(tempZipPath))
                         {
-                            try 
-                            { 
-                                File.Delete(tempZipPath); 
-                            } 
-                            catch //(Exception deleteEx)
+                            try
                             {
-                                //System.Diagnostics.Debug.WriteLine($"Warning: Could not delete invalid ZIP {tempZipPath}: {deleteEx.Message}");
+                                File.Delete(tempZipPath);
+                            }
+                            catch
+                            {
                             }
                         }
                         throw new Exception("Downloaded file is corrupted or incomplete. Please try again.");
@@ -136,13 +126,12 @@ namespace BeanModManager.Services
                     {
                         if (Directory.Exists(extractToPath))
                         {
-                            try 
-                            { 
-                                Directory.Delete(extractToPath, true); 
-                            } 
-                            catch //(Exception deleteEx)
+                            try
                             {
-                                //System.Diagnostics.Debug.WriteLine($"Warning: Could not clean up extract directory {extractToPath}: {deleteEx.Message}");
+                                Directory.Delete(extractToPath, true);
+                            }
+                            catch
+                            {
                             }
                         }
                         throw new Exception($"Extraction failed: {ex.Message}", ex);
@@ -164,164 +153,133 @@ namespace BeanModManager.Services
 
                 OnProgressChanged($"{mod.Name} downloaded successfully!");
 
-                // Download dependencies if specified
-                //System.Diagnostics.Debug.WriteLine($"Dependencies check: dependencies={dependencies?.Count ?? 0}, null={dependencies == null}");
                 var downloadableDependencies = dependencies?
-                    .Where(d => string.IsNullOrEmpty(d.modId))
-                    .ToList();
+.Where(d => string.IsNullOrEmpty(d.modId))
+.ToList();
 
                 if (downloadableDependencies != null && downloadableDependencies.Any())
                 {
-                    //System.Diagnostics.Debug.WriteLine($"Downloading {downloadableDependencies.Count} dependencies for {mod.Name}...");
                     OnProgressChanged($"Downloading dependencies for {mod.Name}...");
-                    
-                    // Dependencies go in the same folder as the mod files
-                    // For DLL-only mods: same folder as mod DLL
-                    // For full mods: BepInEx/plugins within mod storage
+
                     string dependencyPath = extractToPath;
-                    
-                    // Check if this is a DLL-only mod
+
                     downloadUrlLower = version.DownloadUrl.ToLower();
                     isDirectDll = downloadUrlLower.EndsWith(".dll");
-                    
+
                     if (!isDirectDll)
                     {
-                        // Full mod structure - dependencies go in BepInEx/plugins
                         dependencyPath = Path.Combine(extractToPath, "BepInEx", "plugins");
                         if (!Directory.Exists(dependencyPath))
                         {
                             Directory.CreateDirectory(dependencyPath);
                         }
                     }
-                    // For DLL-only mods, dependencies go directly in extractToPath (same folder as mod DLL)
-                    
+
                     foreach (var dependency in downloadableDependencies)
                     {
                         try
                         {
                             OnProgressChanged($"Downloading {dependency.name}...");
-                            
+
                             string downloadUrl = dependency.downloadUrl;
-                            
-                            // If dependency has GitHub repo info, fetch release DLL
+
                             if (!string.IsNullOrEmpty(dependency.githubOwner) && !string.IsNullOrEmpty(dependency.githubRepo))
                             {
-                                //System.Diagnostics.Debug.WriteLine($"Fetching release for {dependency.name} from {dependency.githubOwner}/{dependency.githubRepo}");
                                 try
                                 {
                                     string apiUrl;
                                     string cacheKey;
-                                    // If version is specified, fetch that specific version, otherwise use latest
                                     var requiredVersion = dependency.GetRequiredVersion();
                                     if (!string.IsNullOrEmpty(requiredVersion))
                                     {
-                                        // Try to find release by tag name (version)
                                         apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/tags/{requiredVersion}";
                                         cacheKey = $"dep_{dependency.githubOwner}_{dependency.githubRepo}_tag_{requiredVersion}";
-                                        //System.Diagnostics.Debug.WriteLine($"Fetching specific version {requiredVersion} for {dependency.name}");
                                     }
                                     else
                                     {
                                         apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/latest";
                                         cacheKey = $"dep_{dependency.githubOwner}_{dependency.githubRepo}_latest";
-                                        //System.Diagnostics.Debug.WriteLine($"Fetching latest release for {dependency.name}");
                                     }
-                                    
-                                    // Check cache first (1 hour cache)
+
                                     var cache = GitHubCacheHelper.GetCache(cacheKey);
                                     GitHubRelease release = null;
-                                    
+
                                     if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
                                     {
-                                        // Use cached data
                                         if (!string.IsNullOrEmpty(cache.CachedData))
                                         {
                                             release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
                                         }
                                     }
-                                    
+
                                     if (release == null)
                                     {
-                                        // Fetch from API with ETag
                                         string etag = cache?.ETag;
                                         var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
-                                        
+
                                         if (result.NotModified)
                                         {
-                                            // 304 Not Modified - use cached data and update timestamp to extend cache validity
                                             if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
                                             {
-                                                // Update cache timestamp since we successfully checked (even though nothing changed)
                                                 GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
-                                                
+
                                                 release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
                                             }
                                         }
                                         else if (!string.IsNullOrEmpty(result.Content))
                                         {
                                             release = JsonHelper.Deserialize<GitHubRelease>(result.Content);
-                                            
-                                            // Save to cache
+
                                             if (release != null)
                                             {
                                                 GitHubCacheHelper.SaveCache(cacheKey, result.ETag, result.Content, release.tag_name);
                                             }
                                         }
                                     }
-                                    
+
                                     if (release == null)
                                     {
-                                        //System.Diagnostics.Debug.WriteLine($"No release data available for {dependency.name}");
                                         continue;
                                     }
 
                                     if (release != null && release.assets != null)
                                     {
-                                        //System.Diagnostics.Debug.WriteLine($"Found {release.assets.Count} assets in release");
-                                        // Look for DLL file matching the fileName
                                         var dllAsset = release.assets.FirstOrDefault(a =>
-                                            !string.IsNullOrEmpty(a.name) &&
-                                            a.name.Equals(dependency.fileName, StringComparison.OrdinalIgnoreCase));
+!string.IsNullOrEmpty(a.name) &&
+a.name.Equals(dependency.fileName, StringComparison.OrdinalIgnoreCase));
 
                                         if (dllAsset == null)
                                         {
-                                            //System.Diagnostics.Debug.WriteLine($"Exact match not found for {dependency.fileName}, trying any DLL");
-                                            // Fallback: look for any DLL file
                                             dllAsset = release.assets.FirstOrDefault(a =>
-                                                !string.IsNullOrEmpty(a.name) &&
-                                                a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+!string.IsNullOrEmpty(a.name) &&
+a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
                                         }
 
                                         if (dllAsset != null)
                                         {
                                             downloadUrl = dllAsset.browser_download_url;
-                                            //System.Diagnostics.Debug.WriteLine($"Found DLL: {dllAsset.name} -> {downloadUrl}");
                                         }
                                         else
                                         {
-                                            //System.Diagnostics.Debug.WriteLine($"No DLL asset found in release");
                                         }
                                     }
                                 }
                                 catch (Exception ex)
                                 {
-                                    //System.Diagnostics.Debug.WriteLine($"Error fetching dependency {dependency.name}: {ex.Message}");
                                     OnProgressChanged($"Warning: Failed to fetch release for {dependency.name}: {ex.Message}");
-                                    continue; // Skip if we can't get the URL
+                                    continue;
                                 }
                             }
                             else
                             {
-                                //System.Diagnostics.Debug.WriteLine($"Dependency {dependency.name} has no GitHub info, using downloadUrl: {downloadUrl}");
                             }
-                            
+
                             if (string.IsNullOrEmpty(downloadUrl))
                             {
-                                //System.Diagnostics.Debug.WriteLine($"No download URL available for {dependency.name}");
                                 OnProgressChanged($"Warning: No download URL available for {dependency.name}");
                                 continue;
                             }
-                            
+
                             var fileName = dependency.fileName ?? Path.GetFileName(downloadUrl);
                             if (string.IsNullOrEmpty(fileName))
                             {
@@ -345,19 +303,18 @@ namespace BeanModManager.Services
             catch (Exception ex)
             {
                 OnProgressChanged($"Error downloading {mod.Name}: {ex.Message}");
-                
+
                 if (Directory.Exists(extractToPath))
                 {
                     try
                     {
                         Directory.Delete(extractToPath, true);
                     }
-                    catch //(Exception cleanupEx)
+                    catch
                     {
-                        //System.Diagnostics.Debug.WriteLine($"Warning: Could not clean up extract directory {extractToPath}: {cleanupEx.Message}");
                     }
                 }
-                
+
                 return false;
             }
         }
@@ -379,7 +336,7 @@ namespace BeanModManager.Services
             try
             {
                 archive = ZipFile.OpenRead(zipPath);
-                
+
                 if (archive.Entries.Count == 0)
                 {
                     throw new InvalidDataException("ZIP file contains no entries");
@@ -393,29 +350,26 @@ namespace BeanModManager.Services
                     var dllEntry = dllEntries.First();
                     var destinationPath = Path.Combine(extractPath, dllEntry.Name);
                     var destinationDir = Path.GetDirectoryName(destinationPath);
-                    
+
                     if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
                     {
                         Directory.CreateDirectory(destinationDir);
                     }
-                    
+
                     dllEntry.ExtractToFile(destinationPath, true);
                 }
                 else
                 {
                     string rootPrefix = "";
-                    
-                    // For nested packages, find the BepInEx folder recursively
+
                     if (packageType == "nested")
                     {
                         rootPrefix = FindNestedBepInExPrefix(archive.Entries);
                         if (!string.IsNullOrEmpty(rootPrefix))
                         {
-                            //System.Diagnostics.Debug.WriteLine($"Detected nested BepInEx structure, using prefix: {rootPrefix}");
                         }
                     }
-                    
-                    // If no nested prefix found, try to detect single root folder (existing logic)
+
                     if (string.IsNullOrEmpty(rootPrefix))
                     {
                         var rootFolders = archive.Entries
@@ -431,7 +385,6 @@ namespace BeanModManager.Services
                             if (firstEntry != null && firstEntry.FullName.StartsWith(rootFolders[0] + "/"))
                             {
                                 rootPrefix = rootFolders[0] + "/";
-                                //System.Diagnostics.Debug.WriteLine($"Detected root folder in ZIP: {rootFolders[0]}");
                             }
                         }
                     }
@@ -449,11 +402,10 @@ namespace BeanModManager.Services
                             relativePath = relativePath.Substring(rootPrefix.Length);
                         }
 
-                        // Check if this entry should be excluded
                         var entryName = Path.GetFileName(relativePath);
                         var entryDir = Path.GetDirectoryName(relativePath);
                         var topLevelDir = relativePath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-                        
+
                         bool shouldSkip = false;
                         if (!string.IsNullOrEmpty(entryName))
                         {
@@ -463,10 +415,9 @@ namespace BeanModManager.Services
                         {
                             shouldSkip = dontInclude.Any(item => string.Equals(item, topLevelDir, StringComparison.OrdinalIgnoreCase));
                         }
-                        
+
                         if (shouldSkip)
                         {
-                            //System.Diagnostics.Debug.WriteLine($"Skipping {relativePath} (in dontInclude list)");
                             continue;
                         }
 
@@ -491,7 +442,7 @@ namespace BeanModManager.Services
             }
             catch (InvalidDataException)
             {
-                throw; // Re-throw InvalidDataException as-is
+                throw;
             }
             catch (Exception ex)
             {
@@ -505,33 +456,27 @@ namespace BeanModManager.Services
 
         private string FindNestedBepInExPrefix(IEnumerable<ZipArchiveEntry> entries)
         {
-            // Find entries that contain BepInEx in their path
             var bepInExEntries = entries
-                .Where(e => !string.IsNullOrEmpty(e.FullName) && 
-                           e.FullName.IndexOf("BepInEx", StringComparison.OrdinalIgnoreCase) >= 0)
-                .ToList();
+    .Where(e => !string.IsNullOrEmpty(e.FullName) &&
+               e.FullName.IndexOf("BepInEx", StringComparison.OrdinalIgnoreCase) >= 0)
+    .ToList();
 
             if (!bepInExEntries.Any())
                 return null;
 
-            // Find the common prefix that leads to BepInEx
-            // Example: "TownOfUs-1.0.0/TownOfUs-1.0.0/BepInEx/plugins/..." 
-            // Should return "TownOfUs-1.0.0/TownOfUs-1.0.0/"
-            
+
             var firstBepInExEntry = bepInExEntries.First();
             var fullPath = firstBepInExEntry.FullName;
             var bepInExIndex = fullPath.IndexOf("BepInEx", StringComparison.OrdinalIgnoreCase);
-            
+
             if (bepInExIndex <= 0)
                 return null;
 
-            // Get the path up to (but not including) BepInEx
             var prefix = fullPath.Substring(0, bepInExIndex);
-            
-            // Verify that all BepInEx entries share this prefix
-            bool allSharePrefix = bepInExEntries.All(e => 
-                e.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
-            
+
+            bool allSharePrefix = bepInExEntries.All(e =>
+    e.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+
             if (allSharePrefix)
             {
                 return prefix;
@@ -565,9 +510,8 @@ namespace BeanModManager.Services
 
                 return true;
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"ZIP validation failed: {ex.Message}");
                 return false;
             }
         }

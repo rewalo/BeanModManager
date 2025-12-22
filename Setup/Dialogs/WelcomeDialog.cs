@@ -8,15 +8,8 @@ using WixSharp.UI.Forms;
 
 namespace Setup.Dialogs
 {
-    /// <summary>
-    /// The standard Welcome dialog
-    /// </summary>
-    public partial class WelcomeDialog : ManagedForm, IManagedDialog // change ManagedForm->Form if you want to show it in designer
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="WelcomeDialog"/> class.
-        /// </summary>
-        public WelcomeDialog()
+                public partial class WelcomeDialog : ManagedForm, IManagedDialog     {
+                                public WelcomeDialog()
         {
             InitializeComponent();
         }
@@ -32,10 +25,7 @@ namespace Setup.Dialogs
 
         void ResetLayout()
         {
-            // The form controls are properly anchored and will be correctly resized on parent form
-            // resizing. However the initial sizing by WinForm runtime doesn't do good job with DPI
-            // other than 96. Thus manual resizing is the only reliable option apart from going WPF.
-
+                                    
             var bHeight = (int)(next.Height * 2.3);
 
             var upShift = bHeight - bottomPanel.Height;

@@ -1,10 +1,10 @@
+using BeanModManager.Models;
+using BeanModManager.Themes;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using BeanModManager.Models;
-using BeanModManager.Themes;
 
 namespace BeanModManager.Controls
 {
@@ -35,7 +35,6 @@ namespace BeanModManager.Controls
             UpdatePalette();
             ThemeManager.ThemeChanged += ThemeManager_ThemeChanged;
 
-            // Custom scrollbar
             _vScrollBar = new VScrollBar
             {
                 Dock = DockStyle.Right,
@@ -77,7 +76,7 @@ namespace BeanModManager.Controls
             _allMods = mods ?? new List<Mod>();
             _config = config;
             _isInstalledView = isInstalledView;
-            
+
             UpdateScrollbar();
             UpdateVisibleCards();
         }
@@ -85,17 +84,15 @@ namespace BeanModManager.Controls
         public void RefreshCards()
         {
             if (_isUpdating) return;
-            
-            // Reuse existing cards, just update their data
+
             foreach (var kvp in _visibleCards.ToList())
             {
                 var index = kvp.Key;
                 var card = kvp.Value;
-                
+
                 if (index >= 0 && index < _allMods.Count)
                 {
                     var mod = _allMods[index];
-                    // Card data is already bound, just ensure it's visible
                     card.Visible = true;
                 }
                 else
@@ -103,7 +100,7 @@ namespace BeanModManager.Controls
                     card.Visible = false;
                 }
             }
-            
+
             Invalidate();
         }
 
@@ -149,7 +146,7 @@ namespace BeanModManager.Controls
             CalculateCardsPerRow();
             var totalRows = (int)Math.Ceiling(_allMods.Count / (double)_cardsPerRow);
             var visibleRows = (int)Math.Ceiling((Height - (_cardSpacing * 2)) / (double)(_cardHeight + _cardSpacing));
-            
+
             if (totalRows <= visibleRows)
             {
                 _vScrollBar.Visible = false;
@@ -168,7 +165,6 @@ namespace BeanModManager.Controls
         {
             if (_allMods == null || _allMods.Count == 0)
             {
-                // Hide all cards
                 foreach (var card in _visibleCards.Values)
                 {
                     card.Visible = false;
@@ -184,11 +180,10 @@ namespace BeanModManager.Controls
                 CalculateCardsPerRow();
                 var visibleRows = (int)Math.Ceiling((Height - (_cardSpacing * 2)) / (double)(_cardHeight + _cardSpacing));
                 var scrollOffset = _vScrollBar.Visible ? _vScrollBar.Value : 0;
-                
+
                 _firstVisibleIndex = scrollOffset * _cardsPerRow;
                 _lastVisibleIndex = Math.Min(_allMods.Count - 1, _firstVisibleIndex + (visibleRows * _cardsPerRow) - 1);
 
-                // Hide cards that are no longer visible
                 var visibleIndices = new HashSet<int>();
                 for (int i = _firstVisibleIndex; i <= _lastVisibleIndex; i++)
                 {
@@ -203,7 +198,6 @@ namespace BeanModManager.Controls
                     }
                 }
 
-                // Show/create cards for visible items
                 for (int i = _firstVisibleIndex; i <= _lastVisibleIndex; i++)
                 {
                     if (i >= _allMods.Count) break;
@@ -211,26 +205,24 @@ namespace BeanModManager.Controls
                     var mod = _allMods[i];
                     var row = (i / _cardsPerRow) - scrollOffset;
                     var col = i % _cardsPerRow;
-                    
+
                     var x = _cardSpacing + (col * (_cardWidth + _cardSpacing));
                     var y = _cardSpacing + (row * (_cardHeight + _cardSpacing));
 
                     ModCard card;
                     if (!_visibleCards.TryGetValue(i, out card))
                     {
-                        // Try to reuse from cache
                         if (!_cardCache.TryGetValue(mod.Id, out card))
                         {
-                            // Create new card
                             var version = mod.Versions?.FirstOrDefault();
                             card = new ModCard(mod, version, _config, _isInstalledView);
-                            card.SelectionChanged += (sender, selected) => SelectionChanged?.Invoke(sender as ModCard, selected);
+                            card.SelectionChanged += (sender, selected) => SelectionChanged?.Invoke(sender, selected);
                             _cardCache[mod.Id] = card;
                         }
-                        
+
                         card.Size = new Size(_cardWidth, _cardHeight);
                         _visibleCards[i] = card;
-                        
+
                         if (!Controls.Contains(card))
                         {
                             Controls.Add(card);

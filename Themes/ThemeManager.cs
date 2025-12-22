@@ -95,8 +95,6 @@ namespace BeanModManager.Themes
         {
             if (variant == ThemeVariant.Dark)
             {
-                // Dark: make header, filters, and main surface effectively the same tone so nothing looks like
-                // a separate dark bar. Differences only for cards and very subtle elements.
                 return new ThemePalette
                 {
                     Variant = ThemeVariant.Dark,
@@ -113,11 +111,11 @@ namespace BeanModManager.Themes
                     MutedTextColor = Color.FromArgb(145, 155, 178),
                     LinkColor = Color.FromArgb(120, 185, 255),
                     LinkActiveColor = Color.FromArgb(147, 205, 255),
-                    FilterBarBackground = Color.FromArgb(26, 32, 45), // same plane as content
+                    FilterBarBackground = Color.FromArgb(26, 32, 45),
                     InputBackColor = Color.FromArgb(40, 49, 69),
                     InputTextColor = Color.FromArgb(230, 235, 250),
                     InputBorderColor = Color.FromArgb(62, 73, 96),
-                    FooterBackColor = Color.FromArgb(30, 37, 52),      // only slightly different from card
+                    FooterBackColor = Color.FromArgb(30, 37, 52),
                     StatusStripBackColor = Color.FromArgb(24, 30, 42),
                     StatusStripTextColor = Color.FromArgb(200, 210, 232),
                     ProgressBackColor = Color.FromArgb(42, 52, 72),
@@ -142,11 +140,10 @@ namespace BeanModManager.Themes
                 };
             }
 
-            // Light: soften toward a cream but pull it closer to white so it doesn't feel too yellow.
             return new ThemePalette
             {
                 Variant = ThemeVariant.Light,
-                WindowBackColor = Color.FromArgb(249, 246, 240),      // slightly closer to white than before
+                WindowBackColor = Color.FromArgb(249, 246, 240),
                 SurfaceColor = Color.FromArgb(252, 249, 244),
                 SurfaceAltColor = Color.FromArgb(244, 241, 236),
                 CardBackground = Color.FromArgb(252, 249, 244),
@@ -159,7 +156,7 @@ namespace BeanModManager.Themes
                 MutedTextColor = Color.FromArgb(148, 154, 170),
                 LinkColor = Color.FromArgb(0, 122, 204),
                 LinkActiveColor = Color.FromArgb(0, 92, 170),
-                FilterBarBackground = Color.FromArgb(252, 249, 244),   // match page plane
+                FilterBarBackground = Color.FromArgb(252, 249, 244),
                 InputBackColor = Color.White,
                 InputTextColor = Color.FromArgb(32, 38, 45),
                 InputBorderColor = Color.FromArgb(210, 215, 225),
@@ -180,9 +177,9 @@ namespace BeanModManager.Themes
                 WarningButtonTextColor = Color.FromArgb(88, 60, 10),
                 NeutralButtonColor = Color.FromArgb(236, 239, 245),
                 NeutralButtonTextColor = Color.FromArgb(60, 72, 96),
-                FeaturedBadgeFill = Color.FromArgb(255, 220, 140),  // richer, darker gold/amber fill
-                FeaturedBadgeBorder = Color.FromArgb(255, 193, 7),   // keep border lighter
-                FeaturedBadgeTextColor = Color.FromArgb(140, 90, 20), // dark brown/amber text for contrast
+                FeaturedBadgeFill = Color.FromArgb(255, 220, 140),
+                FeaturedBadgeBorder = Color.FromArgb(255, 193, 7),
+                FeaturedBadgeTextColor = Color.FromArgb(140, 90, 20),
                 ScrollbarTrackColor = Color.FromArgb(232, 228, 220),
                 ScrollbarThumbColor = Color.FromArgb(188, 184, 172)
             };

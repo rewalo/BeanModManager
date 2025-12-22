@@ -1,9 +1,9 @@
+using BeanModManager.Helpers;
+using BeanModManager.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using BeanModManager.Models;
-using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -60,7 +60,7 @@ namespace BeanModManager.Services
                 Directory.CreateDirectory(modStoragePath);
 
                 string modContentRoot = modPath;
-                
+
                 var directBepInEx = Path.Combine(modPath, "BepInEx");
                 if (!Directory.Exists(directBepInEx))
                 {
@@ -76,7 +76,7 @@ namespace BeanModManager.Services
                         if (subdirs.Length == 1)
                         {
                             var singleDir = subdirs[0];
-                            if (Directory.Exists(Path.Combine(singleDir, "BepInEx")) || 
+                            if (Directory.Exists(Path.Combine(singleDir, "BepInEx")) ||
                                 Directory.GetFiles(singleDir, "*", SearchOption.AllDirectories).Any())
                             {
                                 modContentRoot = singleDir;
@@ -85,48 +85,45 @@ namespace BeanModManager.Services
                         }
                     }
                 }
-                
+
                 OnProgressChanged("Copying mod files to storage...");
-                
+
                 dontInclude = dontInclude ?? new List<string>();
-                
+
                 foreach (var dir in Directory.GetDirectories(modContentRoot))
                 {
                     var dirName = Path.GetFileName(dir);
-                    
+
                     if (dontInclude.Any(item => string.Equals(item, dirName, StringComparison.OrdinalIgnoreCase)))
                     {
-                        //System.Diagnostics.Debug.WriteLine($"Skipping directory {dirName} (in dontInclude list)");
                         continue;
                     }
-                    
+
                     var targetDir = Path.Combine(modStoragePath, dirName);
                     CopyDirectoryContents(dir, targetDir, true, dontInclude);
                 }
-                
+
                 foreach (var file in Directory.GetFiles(modContentRoot))
                 {
                     var fileName = Path.GetFileName(file);
                     var fileNameLower = fileName.ToLower();
-                    
+
                     if (fileNameLower.EndsWith(".zip"))
                         continue;
-                    
+
                     if (dontInclude.Any(item => string.Equals(item, fileName, StringComparison.OrdinalIgnoreCase)))
                     {
-                        //System.Diagnostics.Debug.WriteLine($"Skipping file {fileName} (in dontInclude list)");
                         continue;
                     }
-                    
+
                     var targetFile = Path.Combine(modStoragePath, fileName);
                     try
                     {
                         File.Copy(file, targetFile, true);
                         OnProgressChanged($"Copied {fileName}");
                     }
-                    catch //(Exception ex)
+                    catch
                     {
-                        //System.Diagnostics.Debug.WriteLine($"Warning: Could not copy file {fileName}: {ex.Message}");
                         OnProgressChanged($"Warning: Could not copy {fileName}");
                     }
                 }
@@ -159,19 +156,17 @@ namespace BeanModManager.Services
             foreach (var file in Directory.GetFiles(sourceDir))
             {
                 var fileName = Path.GetFileName(file);
-                
+
                 if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
-                
-                // Skip files in dontInclude list
+
                 if (dontInclude.Any(item => string.Equals(item, fileName, StringComparison.OrdinalIgnoreCase)))
                 {
-                    //System.Diagnostics.Debug.WriteLine($"Skipping file {fileName} (in dontInclude list)");
                     continue;
                 }
-                
+
                 var destFile = Path.Combine(destDir, fileName);
                 try
                 {
@@ -179,7 +174,6 @@ namespace BeanModManager.Services
                 }
                 catch
                 {
-                    //System.Diagnostics.Debug.WriteLine($"Error copying {file} after retries");
                 }
             }
 
@@ -190,13 +184,12 @@ namespace BeanModManager.Services
                 {
                     continue;
                 }
-                
+
                 if (dontInclude.Any(item => string.Equals(item, dirName, StringComparison.OrdinalIgnoreCase)))
                 {
-                    //System.Diagnostics.Debug.WriteLine($"Skipping directory {dirName} (in dontInclude list)");
                     continue;
                 }
-                
+
                 var destSubDir = Path.Combine(destDir, dirName);
                 CopyDirectoryContents(dir, destSubDir, overwrite, dontInclude);
             }
@@ -210,13 +203,12 @@ namespace BeanModManager.Services
                 OnProgressChanged($"Uninstalling {mod.Name}...");
 
                 bool modFolderRemoved = false;
-                
-                // Use provided modStoragePath, or construct from amongUsPath for backward compatibility
+
                 if (string.IsNullOrEmpty(modStoragePath))
                 {
                     modStoragePath = Path.Combine(amongUsPath, "Mods", mod.Id);
                 }
-                
+
                 var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
                 if (!Directory.Exists(pluginsPath))
                 {
@@ -233,7 +225,7 @@ namespace BeanModManager.Services
                             OnProgressChanged($"Warning: Could not remove mod folder: {ex.Message}");
                         }
                     }
-                    
+
                     OnProgressChanged($"{mod.Name} uninstalled!");
                     return modFolderRemoved;
                 }
@@ -242,7 +234,7 @@ namespace BeanModManager.Services
 
                 var modFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var modFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                
+
                 if (Directory.Exists(modStoragePath))
                 {
                     var modDllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.AllDirectories);
@@ -251,7 +243,7 @@ namespace BeanModManager.Services
                         var fileName = Path.GetFileName(dllFile);
                         modFiles.Add(fileName);
                     }
-                    
+
                     var modStorageFolders = Directory.GetDirectories(modStoragePath, "*", SearchOption.AllDirectories);
                     foreach (var folder in modStorageFolders)
                     {
@@ -274,7 +266,7 @@ namespace BeanModManager.Services
                         }
                     }
                 }
-                
+
                 var modIdLower = mod.Id.ToLower();
                 var modNameLower = mod.Name.ToLower();
 
@@ -284,10 +276,10 @@ namespace BeanModManager.Services
                     var fileName = Path.GetFileName(dll);
                     var fileNameLower = fileName.ToLower();
                     bool shouldRemove = modFiles.Contains(fileName);
-                    
+
                     if (!shouldRemove)
                     {
-                        shouldRemove = fileNameLower.Contains(modIdLower) || 
+                        shouldRemove = fileNameLower.Contains(modIdLower) ||
                                        fileNameLower.Contains(modNameLower.Replace(":", "").Replace(" ", ""));
                     }
 
@@ -303,7 +295,6 @@ namespace BeanModManager.Services
                                     File.Delete(dll);
                                     removedAny = true;
                                     OnProgressChanged($"Removed {fileName}");
-                                    //System.Diagnostics.Debug.WriteLine($"Deleted DLL: {dll}");
                                     break;
                                 }
                                 catch (IOException)
@@ -316,22 +307,19 @@ namespace BeanModManager.Services
                                 }
                             }
                         }
-                        catch //(Exception ex)
+                        catch
                         {
-                            //System.Diagnostics.Debug.WriteLine($"Error deleting {dll}: {ex.Message}");
                         }
                     }
                 }
 
                 keepFiles = keepFiles ?? new List<string>();
-                
+
                 foreach (var folderName in modFolders)
                 {
-                    // Check if this folder should be kept
                     bool shouldKeep = false;
                     foreach (var keepPath in keepFiles)
                     {
-                        // Normalize paths for comparison (handle both "plugins/LevelImposter" and "LevelImposter")
                         var normalizedKeep = keepPath.Replace("plugins/", "").Replace("plugins\\", "").TrimStart('/', '\\');
                         if (string.Equals(folderName, normalizedKeep, StringComparison.OrdinalIgnoreCase) ||
                             keepPath.EndsWith(folderName, StringComparison.OrdinalIgnoreCase))
@@ -340,13 +328,13 @@ namespace BeanModManager.Services
                             break;
                         }
                     }
-                    
+
                     if (shouldKeep)
                     {
                         OnProgressChanged($"Preserving {folderName} folder (in keepFiles list)");
                         continue;
                     }
-                    
+
                     var pluginFolder = Path.Combine(pluginsPath, folderName);
                     if (Directory.Exists(pluginFolder))
                     {
@@ -356,14 +344,12 @@ namespace BeanModManager.Services
                             removedAny = true;
                             OnProgressChanged($"Removed {folderName} folder");
                         }
-                        catch //(Exception ex)
+                        catch
                         {
-                            //System.Diagnostics.Debug.WriteLine($"Error deleting folder {pluginFolder}: {ex.Message}");
                         }
                     }
                 }
-                
-                // Clean up hat bundles and other asset files that might remain
+
                 CleanupLeftoverAssets(pluginsPath, mod, keepFiles);
 
                 if (Directory.Exists(modStoragePath))
@@ -396,15 +382,14 @@ namespace BeanModManager.Services
                             removedAny = true;
                             OnProgressChanged($"Removed {specialFolderName} folder");
                         }
-                        catch //(Exception ex)
+                        catch
                         {
-                            //System.Diagnostics.Debug.WriteLine($"Error deleting special folder {specialFolderPath}: {ex.Message}");
                         }
                     }
                 }
 
                 bool success = modFolderRemoved || removedAny;
-                
+
                 if (success)
                 {
                     OnProgressChanged($"{mod.Name} uninstalled!");
@@ -413,7 +398,7 @@ namespace BeanModManager.Services
                 {
                     OnProgressChanged($"No files found to remove for {mod.Name}");
                 }
-                
+
                 return success;
             }
             catch (Exception ex)
@@ -434,21 +419,18 @@ namespace BeanModManager.Services
                 var modIdLower = mod.Id.ToLower();
                 var modNameLower = mod.Name.ToLower().Replace(":", "").Replace(" ", "");
 
-                // Clean up hat bundles and other asset files
                 var assetExtensions = new[] { ".bundle", ".asset", ".png", ".jpg", ".jpeg" };
                 var allFiles = Directory.GetFiles(pluginsPath, "*", SearchOption.AllDirectories);
-                
+
                 foreach (var file in allFiles)
                 {
                     var fileName = Path.GetFileName(file);
                     var fileNameLower = fileName.ToLower();
                     var extension = Path.GetExtension(fileNameLower);
-                    
-                    // Skip if it's a DLL (already handled)
+
                     if (extension == ".dll")
                         continue;
-                    
-                    // Check if file should be kept
+
                     bool shouldKeep = false;
                     var relativePath = file.Substring(pluginsPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     foreach (var keepPath in keepFiles)
@@ -460,20 +442,17 @@ namespace BeanModManager.Services
                             break;
                         }
                     }
-                    
+
                     if (shouldKeep)
                         continue;
-                    
-                    // Check if file belongs to this mod
+
                     bool belongsToMod = false;
-                    
-                    // Check by mod ID or name in filename
+
                     if (fileNameLower.Contains(modIdLower) || fileNameLower.Contains(modNameLower))
                     {
                         belongsToMod = true;
                     }
-                    
-                    // Check by directory structure - if file is in a folder that matches mod ID/name
+
                     var fileDir = Path.GetDirectoryName(file);
                     if (fileDir != null && fileDir.StartsWith(pluginsPath, StringComparison.OrdinalIgnoreCase))
                     {
@@ -488,20 +467,15 @@ namespace BeanModManager.Services
                             }
                         }
                     }
-                    
-                    // Also check for common asset file patterns that might be leftover
+
                     if (!belongsToMod && assetExtensions.Contains(extension))
                     {
-                        // Check if it's in a folder that was already deleted or doesn't match any installed mod
-                        // This is a heuristic - we'll be conservative and only delete if we're confident
                         var parentDir = Path.GetDirectoryName(file);
                         if (parentDir != null && !Directory.Exists(Path.Combine(parentDir, "..", "..", mod.Id)))
                         {
-                            // This is a more aggressive cleanup - only for asset files
-                            // We'll skip this for now to be safe, but the structure is here
                         }
                     }
-                    
+
                     if (belongsToMod)
                     {
                         try
@@ -511,14 +485,12 @@ namespace BeanModManager.Services
                         }
                         catch
                         {
-                            // Ignore errors deleting assets
                         }
                     }
                 }
             }
             catch
             {
-                // Ignore errors during asset cleanup
             }
         }
 

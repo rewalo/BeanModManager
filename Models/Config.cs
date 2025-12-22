@@ -1,10 +1,10 @@
+using BeanModManager.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using BeanModManager.Helpers;
 
 namespace BeanModManager.Models
 {
@@ -60,9 +60,8 @@ namespace BeanModManager.Models
                     }
                 }
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Error loading config: {ex.Message}");
             }
 
             return new Config();
@@ -85,19 +84,19 @@ namespace BeanModManager.Models
                 }
 
                 var json = JsonHelper.Serialize(this);
-                
+
                 const int MaxSaveRetries = 5;
                 const int InitialRetryDelayMs = 100;
                 var tempPath = ConfigPath + ".tmp";
                 int retries = MaxSaveRetries;
                 int delay = InitialRetryDelayMs;
-                
+
                 while (retries > 0)
                 {
                     try
                     {
                         File.WriteAllText(tempPath, json);
-                        
+
                         if (File.Exists(ConfigPath))
                         {
                             File.Delete(ConfigPath);
@@ -113,9 +112,8 @@ namespace BeanModManager.Models
                     }
                 }
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Error saving config: {ex.Message}");
             }
             finally
             {
@@ -137,19 +135,19 @@ namespace BeanModManager.Models
                     }
 
                     var json = JsonHelper.Serialize(this);
-                    
+
                     const int MaxSaveRetries = 5;
                     const int InitialRetryDelayMs = 100;
                     var tempPath = ConfigPath + ".tmp";
                     int retries = MaxSaveRetries;
                     int delay = InitialRetryDelayMs;
-                    
+
                     while (retries > 0)
                     {
                         try
                         {
                             File.WriteAllText(tempPath, json);
-                            
+
                             if (File.Exists(ConfigPath))
                             {
                                 File.Delete(ConfigPath);
@@ -161,14 +159,13 @@ namespace BeanModManager.Models
                         {
                             retries--;
                             Thread.Sleep(delay);
-                            delay *= 2; // Exponential backoff
+                            delay *= 2;
                         }
                     }
                 });
             }
-            catch //(Exception ex)
+            catch
             {
-                //System.Diagnostics.Debug.WriteLine($"Error saving config: {ex.Message}");
             }
             finally
             {
@@ -179,7 +176,7 @@ namespace BeanModManager.Models
         public void AddInstalledMod(string modId, string version)
         {
             InstalledMods.RemoveAll(m => m.ModId == modId);
-            
+
             if (!string.IsNullOrEmpty(version))
             {
                 InstalledMods.Add(new InstalledMod { ModId = modId, Version = version });

@@ -1,7 +1,7 @@
-using System;
-using System.Windows.Forms;
 using BeanModManager.Models;
 using BeanModManager.Services;
+using System;
+using System.Windows.Forms;
 
 namespace BeanModManager.Wizard
 {

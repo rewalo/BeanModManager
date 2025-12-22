@@ -25,7 +25,7 @@ namespace BeanModManager.Models
         public List<string> incompatibilities { get; set; }
         public string packageType { get; set; }
         public List<string> dontInclude { get; set; }
-        public List<string> keepFiles { get; set; } // Files/folders to preserve during uninstall (e.g., "plugins/LevelImposter")
+        public List<string> keepFiles { get; set; }
         public bool featured { get; set; }
         public string executableName { get; set; }
     }
@@ -46,7 +46,7 @@ namespace BeanModManager.Models
         public string githubRepo { get; set; }
         public bool optional { get; set; }
         public string requiredVersion { get; set; }
-        
+
         public string GetRequiredVersion()
         {
             return !string.IsNullOrEmpty(requiredVersion) ? requiredVersion : null;

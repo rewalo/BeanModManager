@@ -1,9 +1,8 @@
+using BeanModManager.Themes;
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using BeanModManager.Themes;
 
 namespace BeanModManager.Controls
 {
@@ -18,7 +17,6 @@ namespace BeanModManager.Controls
             UpdatePalette();
             ThemeManager.ThemeChanged += ThemeManager_ThemeChanged;
 
-            // Timer to refresh scrollbars periodically
             _scrollbarRefreshTimer = new Timer { Interval = 100, Enabled = true };
             _scrollbarRefreshTimer.Tick += (s, e) =>
             {
@@ -51,14 +49,13 @@ namespace BeanModManager.Controls
         {
             base.OnHandleCreated(e);
             UpdatePalette();
-            // Delay scrollbar painting slightly to ensure control is fully initialized
             BeginInvoke(new Action(() =>
-            {
-                if (IsHandleCreated && Visible)
-                {
-                    InvalidateScrollbars();
-                }
-            }));
+{
+    if (IsHandleCreated && Visible)
+    {
+        InvalidateScrollbars();
+    }
+}));
         }
 
         protected override void OnVisibleChanged(EventArgs e)
@@ -66,14 +63,13 @@ namespace BeanModManager.Controls
             base.OnVisibleChanged(e);
             if (Visible && IsHandleCreated)
             {
-                // Delay scrollbar refresh to ensure control is fully laid out
                 BeginInvoke(new Action(() =>
-                {
-                    if (IsHandleCreated && Visible)
-                    {
-                        InvalidateScrollbars();
-                    }
-                }));
+{
+    if (IsHandleCreated && Visible)
+    {
+        InvalidateScrollbars();
+    }
+}));
             }
         }
 
@@ -172,13 +168,11 @@ namespace BeanModManager.Controls
             int x = Width - scrollbarWidth;
             int y = 0;
 
-            // Draw track
             using (var trackBrush = new SolidBrush(_palette.ScrollbarTrackColor))
             {
                 g.FillRectangle(trackBrush, x, y, scrollbarWidth, scrollbarHeight);
             }
 
-            // Draw thumb
             if (VerticalScroll.Maximum > 0)
             {
                 int trackHeight = scrollbarHeight;
@@ -209,13 +203,11 @@ namespace BeanModManager.Controls
             int x = 0;
             int y = Height - scrollbarHeight;
 
-            // Draw track
             using (var trackBrush = new SolidBrush(_palette.ScrollbarTrackColor))
             {
                 g.FillRectangle(trackBrush, x, y, scrollbarWidth, scrollbarHeight);
             }
 
-            // Draw thumb
             if (HorizontalScroll.Maximum > 0)
             {
                 int trackWidth = scrollbarWidth;
