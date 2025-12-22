@@ -127,6 +127,18 @@ jobs:
     # --------------------------------------------
     # Decode signing cert
     # --------------------------------------------
+    - name: Validate code signing secrets
+      shell: pwsh
+      run: |
+        if ("${{ secrets.CODESIGN_PFX }}" -eq "") {
+          Write-Error "Missing GitHub Actions secret: CODESIGN_PFX (base64-encoded .pfx). Set it in repo Settings -> Secrets and variables -> Actions."
+          exit 1
+        }
+        if ("${{ secrets.CODESIGN_PASSWORD }}" -eq "") {
+          Write-Error "Missing GitHub Actions secret: CODESIGN_PASSWORD. Set it in repo Settings -> Secrets and variables -> Actions."
+          exit 1
+        }
+
     - name: Locate signtool.exe
       shell: pwsh
       run: |
@@ -158,7 +170,12 @@ jobs:
     - name: Decode code signing certificate
       shell: pwsh
       run: |
-        $bytes = [Convert]::FromBase64String("${{ secrets.CODESIGN_PFX }}")
+        $b64 = "${{ secrets.CODESIGN_PFX }}"
+        $bytes = [Convert]::FromBase64String($b64)
+        if (-not $bytes -or $bytes.Length -lt 64) {
+          Write-Error "CODESIGN_PFX decoded to an unexpectedly small payload. Ensure the secret is the full base64 of the .pfx file."
+          exit 1
+        }
         [IO.File]::WriteAllBytes("codesign.pfx", $bytes)
 
     # --------------------------------------------
