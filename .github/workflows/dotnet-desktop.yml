@@ -1,0 +1,112 @@
+name: Bean Mod Manager Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    env:
+      SOLUTION: BeanModManager.sln
+      MSI_PATH: Setup/Bean Mod Manager.msi
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # --------------------------------------------
+    # Extract version from tag (v1.5.7 → 1.5.7)
+    # --------------------------------------------
+    - name: Get version from tag
+      id: version
+      run: |
+        $version = "${{ github.ref_name }}".TrimStart("v")
+        echo "VERSION=$version" >> $env:GITHUB_ENV
+        echo "Version: $version"
+
+    # --------------------------------------------
+    # Setup .NET
+    # --------------------------------------------
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    # --------------------------------------------
+    # Restore & Build (inject version)
+    # --------------------------------------------
+    - name: Restore
+      run: dotnet restore $env:SOLUTION
+
+    - name: Build
+      run: |
+        dotnet build $env:SOLUTION `
+          -c Release `
+          -p:Version=$env:VERSION `
+          -p:AssemblyVersion=$env:VERSION `
+          -p:FileVersion=$env:VERSION
+
+    # --------------------------------------------
+    # Verify MSI exists
+    # --------------------------------------------
+    - name: Verify MSI
+      run: |
+        if (!(Test-Path "$env:MSI_PATH")) {
+          Write-Error "MSI not found at $env:MSI_PATH"
+        }
+
+    # --------------------------------------------
+    # Decode signing cert
+    # --------------------------------------------
+    - name: Decode code signing certificate
+      run: |
+        $bytes = [Convert]::FromBase64String("${{ secrets.CODESIGN_PFX }}")
+        [IO.File]::WriteAllBytes("codesign.pfx", $bytes)
+
+    # --------------------------------------------
+    # Sign EXE(s)
+    # --------------------------------------------
+    - name: Sign Bean Mod Manager EXE
+      run: |
+        signtool sign `
+          /f codesign.pfx `
+          /p "${{ secrets.CODESIGN_PASSWORD }}" `
+          /fd sha256 `
+          /tr http://timestamp.digicert.com `
+          /td sha256 `
+          **/BeanModManager.exe
+
+    # --------------------------------------------
+    # Sign MSI (CRITICAL for SmartScreen)
+    # --------------------------------------------
+    - name: Sign MSI
+      run: |
+        signtool sign `
+          /f codesign.pfx `
+          /p "${{ secrets.CODESIGN_PASSWORD }}" `
+          /fd sha256 `
+          /tr http://timestamp.digicert.com `
+          /td sha256 `
+          "$env:MSI_PATH"
+
+    # --------------------------------------------
+    # Cleanup cert
+    # --------------------------------------------
+    - name: Cleanup cert
+      run: Remove-Item codesign.pfx
+
+    # --------------------------------------------
+    # Create GitHub Release
+    # --------------------------------------------
+    - name: Publish Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: Bean Mod Manager v${{ env.VERSION }}
+        tag_name: v${{ env.VERSION }}
+        files: |
+          ${{ env.MSI_PATH }}
