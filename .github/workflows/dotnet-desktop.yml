@@ -27,8 +27,8 @@ jobs:
       shell: pwsh
       run: |
         $version = "${{ github.ref_name }}".TrimStart("v")
-        Write-Host "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
-        Write-Host "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$version"
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version"
         Write-Host "Version: $version"
 
     # --------------------------------------------
@@ -135,13 +135,13 @@ jobs:
         $msiSource = "$env:MSI_PATH"
         $msiDest = "BeanModManager-$version-Installer.msi"
         Copy-Item -Path $msiSource -Destination $msiDest
-        Write-Host "msi-file=$msiDest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "msi-file=$msiDest"
         
         # Rename and copy portable EXE
         $exeSource = "publish/portable/BeanModManager.exe"
         $exeDest = "BeanModManager-$version-Portable.exe"
         Copy-Item -Path $exeSource -Destination $exeDest
-        Write-Host "exe-file=$exeDest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "exe-file=$exeDest"
         
         Write-Host "Prepared files: $msiDest, $exeDest"
 
@@ -189,8 +189,8 @@ jobs:
         $msiHash = (Get-FileHash -Path $msiFile -Algorithm SHA256).Hash.ToLower()
         $exeHash = (Get-FileHash -Path $exeFile -Algorithm SHA256).Hash.ToLower()
         
-        Write-Host "msi-hash=$msiHash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-        Write-Host "exe-hash=$exeHash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "msi-hash=$msiHash"
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "exe-hash=$exeHash"
         
         Write-Host "MSI SHA256: $msiHash"
         Write-Host "EXE SHA256: $exeHash"
@@ -207,7 +207,7 @@ jobs:
         if ($LASTEXITCODE -ne 0) {
           $prevTag = ""
         }
-        Write-Host "prev-tag=$prevTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "prev-tag=$prevTag"
         Write-Host "Previous tag: $prevTag"
 
     # --------------------------------------------
