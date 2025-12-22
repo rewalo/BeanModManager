@@ -127,7 +127,31 @@ jobs:
     # --------------------------------------------
     # Decode signing cert
     # --------------------------------------------
+    - name: Locate signtool.exe
+      shell: pwsh
+      run: |
+        $candidates = @()
+        $kitsRoot = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
+        if (Test-Path $kitsRoot) {
+          $candidates += Get-ChildItem -Path $kitsRoot -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue
+        }
+        $candidates += Get-ChildItem -Path "${env:ProgramFiles(x86)}\Microsoft SDKs" -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue
+
+        $signtool = $candidates |
+          Sort-Object FullName -Descending |
+          Select-Object -First 1
+
+        if (-not $signtool) {
+          Write-Error "signtool.exe not found on runner."
+          exit 1
+        }
+
+        Write-Host "Found signtool: $($signtool.FullName)"
+        Add-Content -Path $env:GITHUB_PATH -Value $signtool.Directory.FullName
+        signtool /?
+
     - name: Decode code signing certificate
+      shell: pwsh
       run: |
         $bytes = [Convert]::FromBase64String("${{ secrets.CODESIGN_PFX }}")
         [IO.File]::WriteAllBytes("codesign.pfx", $bytes)
