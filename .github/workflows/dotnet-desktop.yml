@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
 
+# Required for creating GitHub Releases with the built-in GITHUB_TOKEN
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: windows-latest
@@ -358,3 +362,5 @@ jobs:
           ${{ steps.prepare-files.outputs.exe-file }}
         draft: false
         prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
