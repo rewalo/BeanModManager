@@ -16,6 +16,7 @@ namespace BeanModManager.Models
         public bool AutoUpdateMods { get; set; }
         public bool ShowBetaVersions { get; set; }
         public List<string> SelectedMods { get; set; }
+        public List<ModPack> Modpacks { get; set; }
         public string ThemePreference { get; set; }
         public bool FirstLaunchWizardCompleted { get; set; }
         public bool WizardDetectedAmongUs { get; set; }
@@ -34,6 +35,7 @@ namespace BeanModManager.Models
         {
             InstalledMods = new List<InstalledMod>();
             SelectedMods = new List<string>();
+            Modpacks = new List<ModPack>();
             DataPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "BeanModManager");
@@ -54,6 +56,8 @@ namespace BeanModManager.Models
                             config.InstalledMods = new List<InstalledMod>();
                         if (config.SelectedMods == null)
                             config.SelectedMods = new List<string>();
+                        if (config.Modpacks == null)
+                            config.Modpacks = new List<ModPack>();
                         if (string.IsNullOrWhiteSpace(config.ThemePreference))
                             config.ThemePreference = "Dark";
                         return config;
@@ -212,4 +216,3 @@ namespace BeanModManager.Models
         public string Name { get; set; }
     }
 }
-

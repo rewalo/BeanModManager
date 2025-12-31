@@ -102,6 +102,7 @@ namespace BeanModManager
                         RefreshModCards();
                         _suppressSkeletonOnRefresh = false;
 
+                        RefreshModpacksUiAfterModsLoaded();
                         UpdateStats();
                         UpdateHeaderInfo();
                     });
@@ -149,6 +150,7 @@ namespace BeanModManager
                         panelInstalled?.ResumeLayout(true);
                         panelStore?.ResumeLayout(true);
                     }
+                    RefreshModpacksUiAfterModsLoaded();
                     UpdateStats();
                     UpdateHeaderInfo();
 

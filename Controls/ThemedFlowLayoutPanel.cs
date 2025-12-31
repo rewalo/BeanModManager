@@ -1,3 +1,4 @@
+using BeanModManager.Helpers;
 using BeanModManager.Themes;
 using System;
 using System.Drawing;
@@ -43,12 +44,14 @@ namespace BeanModManager.Controls
             UpdatePalette();
             Invalidate();
             InvalidateScrollbars();
+            ApplyNativeScrollbarTheme();
         }
 
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
             UpdatePalette();
+            ApplyNativeScrollbarTheme();
             BeginInvoke(new Action(() =>
 {
     if (IsHandleCreated && Visible)
@@ -63,6 +66,7 @@ namespace BeanModManager.Controls
             base.OnVisibleChanged(e);
             if (Visible && IsHandleCreated)
             {
+                ApplyNativeScrollbarTheme();
                 BeginInvoke(new Action(() =>
 {
     if (IsHandleCreated && Visible)
@@ -70,6 +74,20 @@ namespace BeanModManager.Controls
         InvalidateScrollbars();
     }
 }));
+            }
+        }
+
+        private void ApplyNativeScrollbarTheme()
+        {
+            if (!IsHandleCreated)
+                return;
+
+            try
+            {
+                DarkModeHelper.ApplyThemeToControl(this, ThemeManager.CurrentVariant == ThemeVariant.Dark);
+            }
+            catch
+            {
             }
         }
 

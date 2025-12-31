@@ -1,10 +1,10 @@
-﻿using Microsoft.Win32;
+﻿using BeanModManager.Helpers;
+using Microsoft.Win32;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {

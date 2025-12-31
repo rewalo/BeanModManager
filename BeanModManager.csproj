@@ -75,6 +75,7 @@
     <Compile Include="Helpers\FileSystemHelper.cs" />
     <Compile Include="Helpers\GitHubCacheHelper.cs" />
     <Compile Include="Helpers\PathCompatibilityHelper.cs" />
+    <Compile Include="Helpers\PromptDialog.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -100,6 +101,7 @@
     <Compile Include="Models\Mod.cs" />
     <Compile Include="Models\Config.cs" />
     <Compile Include="Models\ModCache.cs" />
+    <Compile Include="Models\ModPack.cs" />
     <Compile Include="Models\ModRegistry.cs" />
     <Compile Include="Themes\ThemeManager.cs" />
     <Compile Include="Services\AmongUsDetector.cs" />

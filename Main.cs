@@ -58,6 +58,138 @@ namespace BeanModManager
         private volatile bool _isInitialLoadInProgress = false;
         private bool _suppressStorePanelUpdates = false;
 
+        private TabPage _tabModpacks;
+        private Button _btnSidebarModpacks;
+        private ListView _lvModpacks;
+        private Label _lblModpackTitle;
+        private Label _lblModpackModCount;
+        private Button _btnModpackPlay;
+        private ContextMenuStrip _ctxModpackList;
+        private ContextMenuStrip _ctxInPackList;
+        private ContextMenuStrip _ctxInstalledList;
+        private Button _btnModpackNew;
+        private ListView _lvModpackMods;
+        private bool _isApplyingModpackSelection;
+        private ListView _lvInstalledMods;
+        private Button _btnAddToModpack;
+        private Button _btnRemoveFromModpack;
+        private Panel _modpacksLeftOuter;
+        private Panel _modpacksRightOuter;
+        private Control _modpacksEditor;
+        private Panel _modpacksListOuter;
+        private Panel _modpacksListInner;
+        private Panel _inPackListOuter;
+        private Panel _inPackListInner;
+        private Panel _installedListOuter;
+        private Panel _installedListInner;
+
+        private void RefreshModpacksUiAfterModsLoaded()
+        {
+            if (_lvModpacks == null || _tabModpacks == null)
+                return;
+
+            RefreshModpacksList();
+            RefreshModpackDetails();
+        }
+
+        private sealed class ThemedToolStripRenderer : ToolStripProfessionalRenderer
+        {
+            public ThemedToolStripRenderer(ProfessionalColorTable table) : base(table)
+            {
+                RoundedEdges = false;
+            }
+
+            protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+            {
+                if (e?.ToolStrip == null)
+                    return;
+
+                var rect = new Rectangle(Point.Empty, e.ToolStrip.Size);
+                rect.Width -= 1;
+                rect.Height -= 1;
+
+                using (var pen = new Pen(ThemeManager.Current.CardBorderColor))
+                {
+                    e.Graphics.DrawRectangle(pen, rect);
+                }
+            }
+
+            protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+            {
+                if (e?.Item == null)
+                    return;
+
+                var bounds = new Rectangle(6, e.Item.ContentRectangle.Top + (e.Item.ContentRectangle.Height / 2), e.Item.ContentRectangle.Width - 12, 1);
+                using (var pen = new Pen(ThemeManager.Current.CardBorderColor))
+                {
+                    e.Graphics.DrawLine(pen, bounds.Left, bounds.Top, bounds.Right, bounds.Top);
+                }
+            }
+        }
+
+        private sealed class ThemedMenuColorTable : ProfessionalColorTable
+        {
+            private readonly Color _bg;
+            private readonly Color _border;
+            private readonly Color _itemSelected;
+            private readonly Color _itemPressed;
+
+            public ThemedMenuColorTable(Color bg, Color border, Color itemSelected, Color itemPressed)
+            {
+                _bg = bg;
+                _border = border;
+                _itemSelected = itemSelected;
+                _itemPressed = itemPressed;
+
+                UseSystemColors = false;
+            }
+
+            public override Color ToolStripDropDownBackground => _bg;
+            public override Color MenuBorder => _border;
+            public override Color MenuItemBorder => _border;
+            public override Color MenuItemSelected => _itemSelected;
+            public override Color MenuItemPressedGradientBegin => _itemPressed;
+            public override Color MenuItemPressedGradientMiddle => _itemPressed;
+            public override Color MenuItemPressedGradientEnd => _itemPressed;
+
+            public override Color ImageMarginGradientBegin => _bg;
+            public override Color ImageMarginGradientMiddle => _bg;
+            public override Color ImageMarginGradientEnd => _bg;
+        }
+
+        private void ApplyThemeToContextMenu(ContextMenuStrip ctx)
+        {
+            if (ctx == null)
+                return;
+
+            var palette = ThemeManager.Current;
+            var isDark = ThemeManager.CurrentVariant == ThemeVariant.Dark;
+
+            var bg = palette.SurfaceColor;
+            var border = palette.CardBorderColor;
+            var hover = isDark ? Color.FromArgb(50, 55, 65) : Color.FromArgb(235, 238, 244);
+            var pressed = isDark ? Color.FromArgb(60, 66, 78) : Color.FromArgb(225, 229, 238);
+
+            ctx.ShowImageMargin = false; ctx.ShowCheckMargin = false;
+            ctx.RenderMode = ToolStripRenderMode.Professional;
+            ctx.Renderer = new ThemedToolStripRenderer(new ThemedMenuColorTable(bg, border, hover, pressed));
+            ctx.BackColor = bg;
+            ctx.ForeColor = palette.PrimaryTextColor;
+            ctx.Font = new Font("Segoe UI", 9F);
+
+            foreach (ToolStripItem item in ctx.Items)
+            {
+                item.BackColor = bg;
+                item.ForeColor = palette.PrimaryTextColor;
+
+                if (item is ToolStripMenuItem mi)
+                {
+                    mi.Font = ctx.Font;
+                }
+            }
+        }
+
+
         public Main()
         {
             InitializeComponent();
@@ -67,6 +199,7 @@ namespace BeanModManager
 
             InitializeUiPerformanceTweaks();
             _config = Config.Load();
+            EnsureModpacksInitialized();
 
             if (!_config.FirstLaunchWizardCompleted)
             {
@@ -87,6 +220,8 @@ namespace BeanModManager
 
             this.KeyPreview = true;
             this.KeyDown += Main_KeyDown;
+
+            InitializeModpacksUi();
 
             UpdateSidebarSelection();
             UpdateStats();
@@ -142,6 +277,1511 @@ namespace BeanModManager
                     RefreshModCards();
                 }
             };
+        }
+
+        private void EnsureModpacksInitialized()
+        {
+            if (_config == null)
+                return;
+
+            if (_config.Modpacks == null)
+                _config.Modpacks = new List<ModPack>();
+        }
+
+        private void InitializeModpacksUi()
+        {
+            if (tabControl == null || sidebarButtons == null)
+                return;
+
+            _tabModpacks = new TabPage
+            {
+                Text = "Modpacks",
+                Padding = new Padding(10)
+            };
+
+            var storeTab = tabControl.TabPages[1]; var settingsTab = tabControl.TabPages[2];
+            tabControl.TabPages.Remove(storeTab);
+            tabControl.TabPages.Remove(settingsTab);
+
+            tabControl.TabPages.Add(_tabModpacks);
+            tabControl.TabPages.Add(storeTab);
+            tabControl.TabPages.Add(settingsTab);
+
+            _btnSidebarModpacks = new Button
+            {
+                BackColor = Color.Transparent,
+                Dock = DockStyle.Top,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Regular, GraphicsUnit.Point, 0),
+                ForeColor = Color.FromArgb(90, 90, 110),
+                Margin = new Padding(0),
+                Padding = new Padding(16, 0, 0, 0),
+                Size = new Size(203, 40),
+                Text = "Modpacks",
+                TextAlign = ContentAlignment.MiddleLeft,
+                UseVisualStyleBackColor = false
+            };
+            _btnSidebarModpacks.FlatAppearance.BorderSize = 0;
+            _btnSidebarModpacks.FlatAppearance.MouseOverBackColor = Color.FromArgb(240, 242, 247);
+            _btnSidebarModpacks.Click += btnSidebarModpacks_Click;
+
+            sidebarButtons.Controls.Add(_btnSidebarModpacks);
+
+            if (btnSidebarLaunchVanilla != null) sidebarButtons.Controls.SetChildIndex(btnSidebarLaunchVanilla, 0);
+            if (btnSidebarSettings != null) sidebarButtons.Controls.SetChildIndex(btnSidebarSettings, 1);
+            if (btnSidebarStore != null) sidebarButtons.Controls.SetChildIndex(btnSidebarStore, 2);
+            sidebarButtons.Controls.SetChildIndex(_btnSidebarModpacks, 3);
+            if (btnSidebarInstalled != null) sidebarButtons.Controls.SetChildIndex(btnSidebarInstalled, 4);
+
+            sidebarButtons.Height += 40;
+
+            BuildModpacksTabContent();
+        }
+
+        private void BuildModpacksTabContent()
+        {
+            if (_tabModpacks == null)
+                return;
+
+            var palette = ThemeManager.Current;
+
+            Button MakeActionButton(string text, bool primary = false, bool danger = false, bool success = false)
+            {
+                var btn = new Button
+                {
+                    Text = text,
+                    AutoSize = false,
+                    Width = 120,
+                    Height = 36,
+                    FlatStyle = FlatStyle.Flat,
+                    Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold),
+                    Margin = new Padding(0, 0, 10, 0),
+                    Padding = new Padding(6, 0, 6, 0),
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    UseVisualStyleBackColor = false
+                };
+                btn.FlatAppearance.BorderSize = 0;
+
+                if (success)
+                {
+                    btn.BackColor = palette.SuccessButtonColor;
+                    btn.ForeColor = palette.SuccessButtonTextColor;
+                }
+                else if (danger)
+                {
+                    btn.BackColor = palette.DangerButtonColor;
+                    btn.ForeColor = palette.DangerButtonTextColor;
+                }
+                else if (primary)
+                {
+                    btn.BackColor = palette.PrimaryButtonColor;
+                    btn.ForeColor = palette.PrimaryButtonTextColor;
+                }
+                else
+                {
+                    btn.BackColor = palette.NeutralButtonColor;
+                    btn.ForeColor = palette.NeutralButtonTextColor;
+                }
+
+                return btn;
+            }
+
+            var root = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 1,
+                Padding = new Padding(16)
+            };
+            root.BackColor = palette.WindowBackColor;
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            var split = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                Orientation = Orientation.Vertical,
+                SplitterWidth = 8
+            };
+            ConfigureModpacksSplitContainerSizing(split);
+
+            _modpacksLeftOuter = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0),
+                BackColor = palette.SurfaceColor
+            };
+            var leftPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(8),
+                BackColor = palette.SurfaceColor
+            };
+            var leftLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            leftLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            var headerBar = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 56,
+                Padding = new Padding(12),
+                BackColor = palette.SurfaceAltColor,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+
+            var headerRow = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                ColumnCount = 2,
+                RowCount = 1
+            };
+            headerRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            headerRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            var headerLabel = new Label
+            {
+                AutoSize = true,
+                Text = "Modpacks",
+                Font = new Font("Segoe UI Semibold", 12F, FontStyle.Bold),
+                ForeColor = palette.HeadingTextColor,
+                Margin = new Padding(0, 6, 0, 0)
+            };
+            _btnModpackNew = MakeActionButton("New modpack", primary: true);
+            _btnModpackNew.Click += (s, e) => CreateNewModpack(empty: true);
+            headerRow.Controls.Add(headerLabel, 0, 0);
+            headerRow.Controls.Add(_btnModpackNew, 1, 0);
+            headerBar.Controls.Add(headerRow);
+
+            _lvModpacks = new ListView
+            {
+                Dock = DockStyle.Fill,
+                View = View.Details,
+                FullRowSelect = true,
+                HideSelection = false,
+                MultiSelect = false,
+                BorderStyle = BorderStyle.None,
+                GridLines = false
+            };
+            _lvModpacks.Columns.Add("Name", 200, HorizontalAlignment.Left);
+            _lvModpacks.SelectedIndexChanged += (s, e) => RefreshModpackDetails();
+            _lvModpacks.DoubleClick += (s, e) => PlaySelectedModpack();
+            InitializeModpacksListView(_lvModpacks, isPackList: true);
+
+            _modpacksListOuter = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(1),
+                BackColor = palette.CardBorderColor,
+                Margin = new Padding(0)
+            };
+            _modpacksListInner = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0),
+                BackColor = palette.CardBackground,
+                Margin = new Padding(0)
+            };
+            _modpacksListInner.Controls.Add(_lvModpacks);
+            _modpacksListOuter.Controls.Add(_modpacksListInner);
+
+            leftLayout.Controls.Add(headerBar, 0, 0);
+            leftLayout.Controls.Add(_modpacksListOuter, 0, 1);
+            leftPanel.Controls.Add(leftLayout);
+            _modpacksLeftOuter.Controls.Add(leftPanel);
+
+            _modpacksRightOuter = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0),
+                BackColor = palette.SurfaceColor
+            };
+            var rightPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(8, 8, 0, 8),
+                BackColor = palette.SurfaceColor
+            };
+            var rightLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            rightLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            rightLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            var titleBar = new Panel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = new Padding(12, 12, 12, 10),
+                BackColor = palette.SurfaceAltColor,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+
+            var titleRow = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                ColumnCount = 2,
+                RowCount = 1
+            };
+            titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            _lblModpackTitle = new Label
+            {
+                AutoSize = true,
+                Font = new Font("Segoe UI Semibold", 12F, FontStyle.Bold),
+                ForeColor = palette.HeadingTextColor,
+                Text = "Select a modpack",
+                Margin = new Padding(0, 4, 0, 0)
+            };
+            _btnModpackPlay = MakeActionButton("Play", success: true);
+            _btnModpackPlay.Click += (s, e) => PlaySelectedModpack();
+            titleRow.Controls.Add(_lblModpackTitle, 0, 0);
+            titleRow.Controls.Add(_btnModpackPlay, 1, 0);
+
+            _lblModpackModCount = new Label
+            {
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = palette.SecondaryTextColor,
+                Text = "",
+                Margin = new Padding(0, 2, 0, 0)
+            };
+
+            var titleBarLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            titleBarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            titleBarLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            titleBarLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            titleBarLayout.Controls.Add(titleRow, 0, 0);
+            titleBarLayout.Controls.Add(_lblModpackModCount, 0, 1);
+            titleBar.Controls.Add(titleBarLayout);
+
+            _lvModpackMods = new ListView
+            {
+                Dock = DockStyle.Fill,
+                View = View.Details,
+                FullRowSelect = true,
+                HideSelection = false,
+                MultiSelect = true,
+                BorderStyle = BorderStyle.None,
+                GridLines = false
+            };
+            _lvModpackMods.Columns.Add("Mod Name", 280, HorizontalAlignment.Left);
+            InitializeModpacksListView(_lvModpackMods, isPackList: false);
+            _lvModpackMods.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Delete && _lvModpackMods.SelectedItems.Count > 0)
+                {
+                    RemoveSelectedModsFromPack();
+                }
+            };
+
+            var editor = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 2,
+                Margin = new Padding(0)
+            };
+            _modpacksEditor = editor;
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            editor.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            editor.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            var lblInPack = new Label
+            {
+                AutoSize = true,
+                Text = "In modpack",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = palette.SecondaryTextColor,
+                Padding = new Padding(0, 0, 0, 6)
+            };
+            var lblInstalled = new Label
+            {
+                AutoSize = true,
+                Text = "Installed mods",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = palette.SecondaryTextColor,
+                Padding = new Padding(0, 0, 0, 6)
+            };
+
+            _lvInstalledMods = new ListView
+            {
+                Dock = DockStyle.Fill,
+                View = View.Details,
+                FullRowSelect = true,
+                HideSelection = false,
+                MultiSelect = true,
+                BorderStyle = BorderStyle.None,
+                GridLines = false
+            };
+            _lvInstalledMods.Columns.Add("Mod Name", 280, HorizontalAlignment.Left);
+            InitializeModpacksListView(_lvInstalledMods, isPackList: false);
+
+            _inPackListOuter = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(1),
+                BackColor = palette.CardBorderColor,
+                Margin = new Padding(0)
+            };
+            _inPackListInner = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0),
+                BackColor = palette.CardBackgroundInstalled,
+                Margin = new Padding(0)
+            };
+            _inPackListInner.Controls.Add(_lvModpackMods);
+            _inPackListOuter.Controls.Add(_inPackListInner);
+
+            _installedListOuter = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(1),
+                BackColor = palette.CardBorderColor,
+                Margin = new Padding(0)
+            };
+            _installedListInner = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0),
+                BackColor = palette.CardBackgroundInstalled,
+                Margin = new Padding(0)
+            };
+            _installedListInner.Controls.Add(_lvInstalledMods);
+            _installedListOuter.Controls.Add(_installedListInner);
+
+            AttachModpackContextMenus();
+
+            var buttonsMid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3
+            };
+            buttonsMid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            buttonsMid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            buttonsMid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            buttonsMid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+
+            var buttonsMidInner = new FlowLayoutPanel
+            {
+                AutoSize = true,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                Anchor = AnchorStyles.None
+            };
+            _btnAddToModpack = MakeActionButton("← Add");
+            _btnAddToModpack.Margin = new Padding(0, 0, 0, 10);
+            _btnAddToModpack.Click += (s, e) => AddSelectedInstalledModsToModpack();
+
+            _btnRemoveFromModpack = MakeActionButton("Remove →");
+            _btnRemoveFromModpack.Click += (s, e) => RemoveSelectedModsFromPack();
+
+            buttonsMidInner.Controls.Add(_btnAddToModpack);
+            buttonsMidInner.Controls.Add(_btnRemoveFromModpack);
+            buttonsMid.Controls.Add(new Panel(), 0, 0);
+            buttonsMid.Controls.Add(buttonsMidInner, 0, 1);
+            buttonsMid.Controls.Add(new Panel(), 0, 2);
+
+            editor.Controls.Add(lblInPack, 0, 0);
+            editor.Controls.Add(new Label { AutoSize = true, Text = "", Padding = new Padding(0, 0, 0, 6) }, 1, 0);
+            editor.Controls.Add(lblInstalled, 2, 0);
+            editor.Controls.Add(_inPackListOuter, 0, 1);
+            editor.Controls.Add(buttonsMid, 1, 1);
+            editor.Controls.Add(_installedListOuter, 2, 1);
+
+            rightLayout.Controls.Add(titleBar, 0, 0);
+            rightLayout.Controls.Add(editor, 0, 1);
+            rightPanel.Controls.Add(rightLayout);
+
+            _modpacksRightOuter.Controls.Add(rightPanel);
+            split.Panel1.Controls.Add(_modpacksLeftOuter);
+            split.Panel2.Controls.Add(_modpacksRightOuter);
+            root.Controls.Add(split);
+
+            _tabModpacks.Controls.Add(root);
+
+            RefreshModpacksList();
+            RefreshModpackDetails();
+        }
+
+        private void InitializeModpacksListView(ListView lv, bool isPackList)
+        {
+            if (lv == null)
+                return;
+
+            lv.OwnerDraw = true;
+            lv.HeaderStyle = ColumnHeaderStyle.None;
+            lv.BorderStyle = BorderStyle.None;
+            lv.GridLines = false;
+            lv.FullRowSelect = true;
+
+            var rowHeight = isPackList ? 36 : 32;
+            var il = new ImageList();
+            il.ImageSize = new Size(1, rowHeight);
+            il.Images.Add(new Bitmap(1, rowHeight));
+            lv.SmallImageList = il;
+
+            if (lv.View == View.Details)
+            {
+                void ResizeColumns()
+                {
+                    if (lv.IsDisposed || lv.Columns.Count < 1)
+                        return;
+                    var total = lv.ClientSize.Width;
+                    if (total <= 0)
+                        return;
+                    lv.Columns[0].Width = Math.Max(80, total);
+                }
+                lv.SizeChanged += (s, e) => ResizeColumns();
+                ResizeColumns();
+            }
+
+            lv.DrawColumnHeader += (s, e) =>
+            {
+                e.DrawDefault = false;
+            };
+
+            lv.DrawItem += (s, e) =>
+            {
+                var palette = ThemeManager.Current;
+                var selectedBg = ThemeManager.CurrentVariant == ThemeVariant.Dark
+                    ? Color.FromArgb(45, 50, 60)
+                    : Color.FromArgb(240, 242, 247);
+
+                var rowBg = isPackList ? palette.CardBackground : palette.CardBackgroundInstalled;
+                var bg = e.Item.Selected ? selectedBg : rowBg;
+
+                var fullRowBounds = new Rectangle(0, e.Bounds.Top, lv.ClientSize.Width, e.Bounds.Height);
+                using (var brush = new SolidBrush(bg))
+                {
+                    e.Graphics.FillRectangle(brush, fullRowBounds);
+                }
+
+                var leftText = e.Item.Text ?? "";
+                var rightText = (e.Item.SubItems.Count > 1 ? e.Item.SubItems[1].Text : "") ?? "";
+
+                var leftBounds = new Rectangle(fullRowBounds.Left + 12, fullRowBounds.Top, fullRowBounds.Width - 24, fullRowBounds.Height);
+                var rightBounds = new Rectangle(fullRowBounds.Left + 12, fullRowBounds.Top, fullRowBounds.Width - 24, fullRowBounds.Height);
+
+                var leftColor = palette.PrimaryTextColor;
+                var rightColor = palette.SecondaryTextColor;
+
+                if (!isPackList && string.Equals(rightText, "Installed", StringComparison.OrdinalIgnoreCase))
+                {
+                    rightColor = palette.MutedTextColor;
+                }
+
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    leftText,
+                    lv.Font,
+                    leftBounds,
+                    leftColor,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+                if (!string.IsNullOrEmpty(rightText))
+                {
+                    TextRenderer.DrawText(
+                        e.Graphics,
+                        rightText,
+                        lv.Font,
+                        rightBounds,
+                        rightColor,
+                        TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                }
+            };
+
+            lv.DrawSubItem += (s, e) =>
+            {
+                e.DrawDefault = false;
+            };
+        }
+
+        private Button CreatePrimaryButton(string text)
+        {
+            var btn = new Button
+            {
+                Text = text,
+                AutoSize = true,
+                FlatStyle = FlatStyle.Flat,
+                Margin = new Padding(0, 0, 8, 0),
+                Padding = new Padding(10, 4, 10, 4)
+            };
+            btn.FlatAppearance.BorderSize = 0;
+            return btn;
+        }
+
+        private Button CreateSecondaryButton(string text)
+        {
+            var btn = new Button
+            {
+                Text = text,
+                AutoSize = true,
+                FlatStyle = FlatStyle.Flat,
+                Margin = new Padding(0, 0, 8, 0),
+                Padding = new Padding(10, 4, 10, 4)
+            };
+            btn.FlatAppearance.BorderSize = 0;
+            return btn;
+        }
+
+        private Button CreateDangerButton(string text)
+        {
+            var btn = new Button
+            {
+                Text = text,
+                AutoSize = true,
+                FlatStyle = FlatStyle.Flat,
+                Margin = new Padding(0, 0, 8, 0),
+                Padding = new Padding(10, 4, 10, 4)
+            };
+            btn.FlatAppearance.BorderSize = 0;
+            return btn;
+        }
+
+        private void ConfigureModpacksSplitContainerSizing(SplitContainer split)
+        {
+            if (split == null)
+                return;
+
+            split.Panel1MinSize = 80;
+            split.Panel2MinSize = 80;
+
+            void Clamp()
+            {
+                if (split.IsDisposed)
+                    return;
+
+                const int desiredLeftMin = 260;
+                const int desiredRightMin = 380;
+
+                int total = split.ClientSize.Width;
+                if (total <= 0)
+                    return;
+
+                int leftMin = desiredLeftMin;
+                int rightMin = desiredRightMin;
+
+                if (leftMin + rightMin > total)
+                {
+                    int relaxed = Math.Max(120, (total - split.SplitterWidth) / 3);
+                    leftMin = Math.Min(desiredLeftMin, Math.Max(80, relaxed));
+                    rightMin = Math.Min(desiredRightMin, Math.Max(80, relaxed));
+
+                    if (leftMin + rightMin > total)
+                    {
+                        leftMin = Math.Max(60, (total - split.SplitterWidth) / 2);
+                        rightMin = Math.Max(60, (total - split.SplitterWidth) / 2);
+                    }
+                }
+
+                try
+                {
+                    split.Panel1MinSize = leftMin;
+                    split.Panel2MinSize = rightMin;
+                }
+                catch
+                {
+                    return;
+                }
+
+                int min = split.Panel1MinSize;
+                int max = total - split.Panel2MinSize;
+                if (max < min)
+                    return;
+
+                int desiredDistance = (int)(total * 0.35);
+                int clamped = Math.Max(min, Math.Min(max, desiredDistance));
+
+                try
+                {
+                    split.SplitterDistance = clamped;
+                }
+                catch
+                {
+                }
+            }
+
+            split.HandleCreated += (s, e) =>
+{
+    if (!split.IsDisposed)
+    {
+        split.BeginInvoke(new Action(Clamp));
+    }
+};
+            split.SizeChanged += (s, e) => Clamp();
+        }
+
+        private void btnSidebarModpacks_Click(object sender, EventArgs e)
+        {
+            if (tabControl != null && tabControl.SelectedIndex != 1)
+            {
+                tabControl.SelectedIndex = 1;
+            }
+        }
+
+        private ModPack GetSelectedModpack()
+        {
+            if (_config?.Modpacks == null || _lvModpacks == null)
+                return null;
+
+            if (_lvModpacks.SelectedItems.Count == 0)
+                return null;
+
+            var selectedItem = _lvModpacks.SelectedItems[0];
+            var packId = selectedItem?.Tag as string;
+            if (string.IsNullOrWhiteSpace(packId))
+                return null;
+
+            return _config.Modpacks.FirstOrDefault(p => string.Equals(p.Id, packId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void RefreshModpacksList()
+        {
+            if (_lvModpacks == null || _config?.Modpacks == null)
+                return;
+
+            var packs = _config.Modpacks
+                .Where(p => p != null && !string.IsNullOrWhiteSpace(p.Id))
+                .OrderBy(p => p.Name ?? "", StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var previouslySelectedId = (GetSelectedModpack()?.Id ?? "").Trim();
+
+            _lvModpacks.BeginUpdate();
+            try
+            {
+                _lvModpacks.Items.Clear();
+                foreach (var p in packs)
+                {
+                    var count = p.ModIds?.Distinct(StringComparer.OrdinalIgnoreCase).Count() ?? 0;
+                    var item = new ListViewItem(p.Name ?? "Unnamed");
+                    item.Tag = p.Id;
+                    item.ImageIndex = 0;
+                    item.SubItems.Add($"{count} mods");
+                    _lvModpacks.Items.Add(item);
+                }
+            }
+            finally
+            {
+                _lvModpacks.EndUpdate();
+            }
+
+            if (!string.IsNullOrEmpty(previouslySelectedId))
+            {
+                foreach (ListViewItem item in _lvModpacks.Items)
+                {
+                    if (item.Tag is string id && string.Equals(id, previouslySelectedId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        item.Selected = true;
+                        item.EnsureVisible();
+                        break;
+                    }
+                }
+            }
+
+            if (_lvModpacks.SelectedItems.Count == 0 && _lvModpacks.Items.Count > 0)
+            {
+                _lvModpacks.Items[0].Selected = true;
+                _lvModpacks.FocusedItem = _lvModpacks.Items[0];
+                _lvModpacks.Items[0].EnsureVisible();
+                _lvModpacks.Select();
+            }
+
+            RefreshModpackDetails();
+        }
+
+        private void RefreshModpackDetails()
+        {
+            var pack = GetSelectedModpack();
+            var palette = ThemeManager.Current;
+
+            if (_lblModpackTitle != null)
+            {
+                _lblModpackTitle.ForeColor = palette.HeadingTextColor;
+                _lblModpackTitle.Text = pack == null ? "Select a modpack" : (pack.Name ?? "Unnamed");
+            }
+
+            if (_lblModpackModCount != null)
+            {
+                _lblModpackModCount.ForeColor = palette.SecondaryTextColor;
+                if (pack == null)
+                {
+                    _lblModpackModCount.Text = "";
+                }
+                else
+                {
+                    var count = pack.ModIds?.Distinct(StringComparer.OrdinalIgnoreCase).Count() ?? 0;
+                    _lblModpackModCount.Text = $"{count} mod{(count != 1 ? "s" : "")}";
+                }
+            }
+
+            var enabled = pack != null;
+            if (_btnModpackPlay != null) _btnModpackPlay.Enabled = enabled;
+            if (_btnAddToModpack != null) _btnAddToModpack.Enabled = enabled;
+            if (_btnRemoveFromModpack != null) _btnRemoveFromModpack.Enabled = enabled;
+            if (_modpacksEditor != null) _modpacksEditor.Visible = enabled;
+
+            if (_lvModpackMods == null)
+                return;
+
+            _lvModpackMods.BeginUpdate();
+            try
+            {
+                _lvModpackMods.Items.Clear();
+                if (pack != null)
+                {
+                    var ids = (pack.ModIds ?? new List<string>())
+    .Where(id => !string.IsNullOrWhiteSpace(id))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .Select(id => id.Trim())
+    .ToList();
+
+                    var sortedIds = ids
+                        .Select(id =>
+                        {
+                            var mod = _availableMods?.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase));
+                            var name = mod?.Name ?? id;
+                            var categoryOrder = GetCategorySortOrder(mod?.Category);
+                            var isMissing = mod == null;
+                            return new { Id = id, Mod = mod, Name = name, CategoryOrder = categoryOrder, IsMissing = isMissing };
+                        })
+                        .OrderBy(x => x.IsMissing ? 1 : 0)
+                        .ThenBy(x => x.CategoryOrder)
+                        .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                        .Select(x => x.Id)
+                        .ToList();
+
+                    foreach (var id in sortedIds)
+                    {
+                        var mod = _availableMods?.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase));
+                        var name = mod?.Name ?? id;
+                        var status = (mod == null) ? "Missing" : (mod.IsInstalled ? "Installed" : "Not installed");
+
+                        var item = new ListViewItem(name);
+                        item.Tag = id;
+                        item.ImageIndex = 0;
+                        item.SubItems.Add(status);
+                        if (!string.Equals(status, "Installed", StringComparison.OrdinalIgnoreCase))
+                        {
+                            item.ForeColor = palette.MutedTextColor;
+                        }
+                        _lvModpackMods.Items.Add(item);
+                    }
+                }
+            }
+            finally
+            {
+                _lvModpackMods.EndUpdate();
+            }
+
+            RefreshInstalledModsForModpack();
+        }
+
+        private void CreateNewModpack(bool empty)
+        {
+            var name = GetNextModpackName("New Modpack");
+
+            var pack = new ModPack
+            {
+                Name = name
+            };
+
+            pack.ModIds = new List<string>();
+
+            _config.Modpacks.Add(pack);
+            _config.Save();
+            RefreshModpacksList();
+            SelectModpackById(pack.Id);
+            RefreshModpackDetails();
+            UpdateStatus($"Saved modpack: {pack.Name}");
+        }
+
+        private string GetNextModpackName(string baseName)
+        {
+            baseName = string.IsNullOrWhiteSpace(baseName) ? "New Modpack" : baseName.Trim();
+            var existing = new HashSet<string>(
+                (_config?.Modpacks ?? new List<ModPack>())
+                    .Where(p => p != null && !string.IsNullOrWhiteSpace(p.Name))
+                    .Select(p => p.Name.Trim()),
+                StringComparer.OrdinalIgnoreCase);
+
+            if (!existing.Contains(baseName))
+                return baseName;
+
+            for (int i = 1; i < 9999; i++)
+            {
+                var candidate = $"{baseName} {i}";
+                if (!existing.Contains(candidate))
+                    return candidate;
+            }
+
+            return $"{baseName} {DateTime.Now:HHmmss}";
+        }
+
+        private void RenameSelectedModpack()
+        {
+            var pack = GetSelectedModpack();
+            if (pack == null)
+                return;
+
+            var name = PromptDialog.Show("Rename Modpack", "New name:", initialValue: pack.Name ?? "");
+            if (string.IsNullOrWhiteSpace(name))
+                return;
+
+            pack.Name = name.Trim();
+            pack.UpdatedUtcTicks = DateTime.UtcNow.Ticks;
+            _config.Save();
+            RefreshModpacksList();
+            SelectModpackById(pack.Id);
+            RefreshModpackDetails();
+            UpdateStatus($"Renamed modpack to: {pack.Name}");
+        }
+
+        private void DeleteSelectedModpack()
+        {
+            var pack = GetSelectedModpack();
+            if (pack == null)
+                return;
+
+            var result = MessageBox.Show(
+                $"Delete modpack \"{pack.Name}\"?",
+                "Delete Modpack",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            _config.Modpacks.RemoveAll(p => string.Equals(p.Id, pack.Id, StringComparison.OrdinalIgnoreCase));
+            _config.Save();
+            RefreshModpacksList();
+            RefreshModpackDetails();
+            UpdateStatus($"Deleted modpack: {pack.Name}");
+        }
+
+        private void RefreshInstalledModsForModpack()
+        {
+            if (_lvInstalledMods == null)
+                return;
+
+            var pack = GetSelectedModpack();
+            if (pack == null || _availableMods == null)
+            {
+                _lvInstalledMods.Items.Clear();
+                return;
+            }
+
+            var existing = new HashSet<string>((pack.ModIds ?? new List<string>())
+                .Where(x => !string.IsNullOrWhiteSpace(x)), StringComparer.OrdinalIgnoreCase);
+
+            var installed = _availableMods
+    .Where(m => m != null && !string.IsNullOrWhiteSpace(m.Id))
+    .Where(m => m.IsInstalled)
+    .Where(m => !existing.Contains(m.Id))
+    .OrderBy(m => GetCategorySortOrder(m.Category))
+    .ThenBy(m => m.Name ?? m.Id, StringComparer.OrdinalIgnoreCase)
+    .ToList();
+
+            _lvInstalledMods.BeginUpdate();
+            try
+            {
+                _lvInstalledMods.Items.Clear();
+                foreach (var m in installed)
+                {
+                    var item = new ListViewItem(m.Name ?? m.Id);
+                    item.Tag = m.Id;
+                    item.ImageIndex = 0;
+                    item.SubItems.Add("Installed");
+                    _lvInstalledMods.Items.Add(item);
+                }
+            }
+            finally
+            {
+                _lvInstalledMods.EndUpdate();
+            }
+        }
+
+        private void AddSelectedInstalledModsToModpack()
+        {
+            var pack = GetSelectedModpack();
+            if (pack == null || _lvInstalledMods == null)
+                return;
+
+            var selectedIds = _lvInstalledMods.SelectedItems
+                .Cast<ListViewItem>()
+                .Select(i => i.Tag as string)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!selectedIds.Any())
+                return;
+
+            if (pack.ModIds == null)
+                pack.ModIds = new List<string>();
+
+            var packIds = new HashSet<string>(pack.ModIds.Where(x => !string.IsNullOrWhiteSpace(x)), StringComparer.OrdinalIgnoreCase);
+            var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var skippedMissingDeps = new List<string>();
+            var skippedConflicts = new List<string>();
+
+            var queue = new Queue<string>(selectedIds);
+            while (queue.Count > 0)
+            {
+                var id = (queue.Dequeue() ?? "").Trim();
+                if (string.IsNullOrWhiteSpace(id))
+                    continue;
+                if (packIds.Contains(id))
+                    continue;
+
+                var mod = FindModById(id);
+                if (mod != null)
+                {
+                    if (!EnsureDependenciesInstalled(mod, showMessage: false))
+                    {
+                        skippedMissingDeps.Add(mod.Name ?? mod.Id);
+                        continue;
+                    }
+
+                    var conflictId = FindIncompatibilityAgainstSet(mod, packIds.Concat(added));
+                    if (!string.IsNullOrWhiteSpace(conflictId))
+                    {
+                        var conflictName = FindModById(conflictId)?.Name ?? conflictId;
+                        skippedConflicts.Add($"{mod.Name ?? mod.Id} ↔ {conflictName}");
+                        continue;
+                    }
+                }
+
+                pack.ModIds.Add(id);
+                packIds.Add(id);
+                added.Add(id);
+
+                if (mod != null)
+                {
+                    var deps = _modStore?.GetDependencies(mod.Id);
+                    if (deps != null)
+                    {
+                        foreach (var dep in deps)
+                        {
+                            var depId = dep?.modId;
+                            if (string.IsNullOrWhiteSpace(depId))
+                                continue;
+                            var depMod = FindModById(depId);
+                            if (depMod != null && depMod.IsInstalled && !packIds.Contains(depId))
+                            {
+                                queue.Enqueue(depId);
+                            }
+                        }
+                    }
+                }
+            }
+
+            pack.UpdatedUtcTicks = DateTime.UtcNow.Ticks;
+            _config.Save();
+            RefreshModpackDetails();
+            RefreshInstalledModsForModpack();
+            RefreshModpacksList();
+            if (added.Count > 0)
+            {
+                UpdateStatus($"Added {added.Count} mods to {pack.Name}");
+            }
+
+            if (skippedMissingDeps.Any() || skippedConflicts.Any())
+            {
+                var parts = new List<string>();
+                if (skippedMissingDeps.Any())
+                {
+                    parts.Add("Some mods were not added because required dependencies are not installed:\n- " +
+                              string.Join("\n- ", skippedMissingDeps.Distinct().Take(12)) +
+                              (skippedMissingDeps.Distinct().Count() > 12 ? "\n- ..." : ""));
+                }
+                if (skippedConflicts.Any())
+                {
+                    parts.Add("Some mods were not added due to incompatibilities:\n- " +
+                              string.Join("\n- ", skippedConflicts.Distinct().Take(12)) +
+                              (skippedConflicts.Distinct().Count() > 12 ? "\n- ..." : ""));
+                }
+
+                MessageBox.Show(string.Join("\n\n", parts), "Modpack requirements",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private string FindIncompatibilityAgainstSet(Mod mod, IEnumerable<string> otherIds)
+        {
+            if (mod == null || otherIds == null)
+                return null;
+
+            foreach (var otherId in otherIds)
+            {
+                if (string.IsNullOrWhiteSpace(otherId) || string.Equals(otherId, mod.Id, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (mod.Incompatibilities != null && mod.Incompatibilities.Any(id =>
+                        string.Equals(id, otherId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return otherId;
+                }
+
+                var otherMod = FindModById(otherId);
+                if (otherMod?.Incompatibilities != null && otherMod.Incompatibilities.Any(id =>
+                        string.Equals(id, mod.Id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return otherId;
+                }
+            }
+
+            return null;
+        }
+
+        private void AttachModpackContextMenus()
+        {
+            if (_lvModpacks == null || _lvModpackMods == null || _lvInstalledMods == null)
+                return;
+
+            _ctxModpackList?.Dispose();
+            _ctxInPackList?.Dispose();
+            _ctxInstalledList?.Dispose();
+
+            _ctxModpackList = new ContextMenuStrip();
+            var miPlay = new ToolStripMenuItem("Play");
+            miPlay.Click += (s, e) => PlaySelectedModpack();
+            var miRename = new ToolStripMenuItem("Rename modpack");
+            miRename.Click += (s, e) => RenameSelectedModpack();
+            var miDelete = new ToolStripMenuItem("Delete modpack");
+            miDelete.Click += (s, e) => DeleteSelectedModpack();
+            _ctxModpackList.Items.AddRange(new ToolStripItem[] { miPlay, new ToolStripSeparator(), miRename, miDelete });
+
+            _ctxInPackList = new ContextMenuStrip();
+            var miRemove = new ToolStripMenuItem("Remove from modpack");
+            miRemove.Click += (s, e) => RemoveSelectedModsFromPack();
+            _ctxInPackList.Items.Add(miRemove);
+
+            _ctxInstalledList = new ContextMenuStrip();
+            var miAdd = new ToolStripMenuItem("Add to modpack");
+            miAdd.Click += (s, e) => AddSelectedInstalledModsToModpack();
+            _ctxInstalledList.Items.Add(miAdd);
+
+            _lvModpacks.ContextMenuStrip = null;
+            _lvModpackMods.ContextMenuStrip = null;
+            _lvInstalledMods.ContextMenuStrip = null;
+
+            _lvModpacks.MouseUp -= LvModpacks_MouseUp;
+            _lvModpackMods.MouseUp -= LvModpackMods_MouseUp;
+            _lvInstalledMods.MouseUp -= LvInstalledMods_MouseUp;
+            _lvModpacks.MouseDown -= LvModpacks_MouseDown;
+            _lvModpackMods.MouseDown -= LvModpackMods_MouseDown;
+            _lvInstalledMods.MouseDown -= LvInstalledMods_MouseDown;
+            _lvModpacks.MouseClick -= LvModpacks_MouseClick;
+            _lvModpackMods.MouseClick -= LvModpackMods_MouseClick;
+            _lvInstalledMods.MouseClick -= LvInstalledMods_MouseClick;
+
+            _lvModpacks.MouseClick += LvModpacks_MouseClick;
+            _lvModpackMods.MouseClick += LvModpackMods_MouseClick;
+            _lvInstalledMods.MouseClick += LvInstalledMods_MouseClick;
+
+            _ctxModpackList.Opening += (s, e) =>
+            {
+                var hasPack = GetSelectedModpack() != null;
+                miPlay.Enabled = hasPack;
+                miRename.Enabled = hasPack;
+                miDelete.Enabled = hasPack;
+            };
+            _ctxInPackList.Opening += (s, e) =>
+            {
+                miRemove.Enabled = _lvModpackMods.SelectedItems.Count > 0;
+            };
+            _ctxInstalledList.Opening += (s, e) =>
+            {
+                miAdd.Enabled = _lvInstalledMods.SelectedItems.Count > 0;
+            };
+        }
+
+        private void EnsureSelectUnderMouse(ListView lv, MouseEventArgs e)
+        {
+            if (lv == null) return;
+            var hit = lv.HitTest(e.Location);
+            if (hit?.Item != null)
+            {
+                hit.Item.Selected = true;
+                lv.FocusedItem = hit.Item;
+            }
+        }
+
+        private void LvModpacks_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right) return;
+            EnsureSelectUnderMouse(_lvModpacks, e);
+            _ctxModpackList?.Show(_lvModpacks, e.Location);
+        }
+
+        private void LvModpacks_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right) return;
+            EnsureSelectUnderMouse(_lvModpacks, e);
+            _ctxModpackList?.Show(_lvModpacks, e.Location);
+        }
+
+        private void LvModpacks_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right) return;
+            EnsureSelectUnderMouse(_lvModpacks, e);
+            if (_ctxModpackList != null)
+            {
+                _ctxModpackList.Show(_lvModpacks, e.Location);
+            }
+        }
+
+        private void LvModpackMods_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right) return;
+            EnsureSelectUnderMouse(_lvModpackMods, e);
+            _ctxInPackList?.Show(_lvModpackMods, e.Location);
+        }
+
+        private void LvModpackMods_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right) return;
+            EnsureSelectUnderMouse(_lvModpackMods, e);
+            _ctxInPackList?.Show(_lvModpackMods, e.Location);
+        }
+
+        private void LvModpackMods_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right) return;
+            EnsureSelectUnderMouse(_lvModpackMods, e);
+            if (_ctxInPackList != null)
+            {
+                _ctxInPackList.Show(_lvModpackMods, e.Location);
+            }
+        }
+
+        private void LvInstalledMods_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right) return;
+            EnsureSelectUnderMouse(_lvInstalledMods, e);
+            _ctxInstalledList?.Show(_lvInstalledMods, e.Location);
+        }
+
+        private void LvInstalledMods_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right) return;
+            EnsureSelectUnderMouse(_lvInstalledMods, e);
+            _ctxInstalledList?.Show(_lvInstalledMods, e.Location);
+        }
+
+        private void LvInstalledMods_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right) return;
+            EnsureSelectUnderMouse(_lvInstalledMods, e);
+            if (_ctxInstalledList != null)
+            {
+                _ctxInstalledList.Show(_lvInstalledMods, e.Location);
+            }
+        }
+
+        private void RemoveSelectedModsFromPack()
+        {
+            var pack = GetSelectedModpack();
+            if (pack == null || _lvModpackMods == null)
+                return;
+
+            if (pack.ModIds == null || pack.ModIds.Count == 0)
+                return;
+
+            var selectedIds = _lvModpackMods.SelectedItems
+                .Cast<ListViewItem>()
+                .Select(i => i.Tag as string)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .ToList();
+
+            if (!selectedIds.Any())
+                return;
+
+            var toRemove = new HashSet<string>(selectedIds, StringComparer.OrdinalIgnoreCase);
+            var remaining = (pack.ModIds ?? new List<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Where(id => !toRemove.Contains(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var blockers = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase); foreach (var modId in remaining)
+            {
+                var deps = _modStore?.GetDependencies(modId);
+                if (deps == null) continue;
+                foreach (var dep in deps)
+                {
+                    var depId = dep?.modId;
+                    if (string.IsNullOrWhiteSpace(depId)) continue;
+                    if (!toRemove.Contains(depId)) continue;
+
+                    var dependentName = FindModById(modId)?.Name ?? modId;
+                    if (!blockers.TryGetValue(depId, out var list))
+                    {
+                        list = new List<string>();
+                        blockers[depId] = list;
+                    }
+                    list.Add(dependentName);
+                }
+            }
+
+            if (blockers.Any())
+            {
+                var lines = new List<string>();
+                foreach (var kvp in blockers.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    var depName = FindModById(kvp.Key)?.Name ?? kvp.Key;
+                    var dependents = kvp.Value.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+                    lines.Add($"{depName} is required by: {string.Join(", ", dependents)}");
+                }
+
+                MessageBox.Show(
+                    "Can't remove required mods from this modpack.\n\n" + string.Join("\n", lines),
+                    "Dependency Required",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            pack.ModIds.RemoveAll(id => selectedIds.Any(sel => string.Equals(sel, id, StringComparison.OrdinalIgnoreCase)));
+            pack.UpdatedUtcTicks = DateTime.UtcNow.Ticks;
+            _config.Save();
+            RefreshModpackDetails();
+            RefreshInstalledModsForModpack();
+            RefreshModpacksList();
+            UpdateStatus($"Removed {selectedIds.Count} mods from {pack.Name}");
+        }
+
+        private class AddModListItem
+        {
+            public string ModId { get; }
+            public string Name { get; }
+            public bool IsInstalled { get; }
+            public bool AlreadyInPack { get; }
+
+            public AddModListItem(string modId, string name, bool isInstalled, bool alreadyInPack)
+            {
+                ModId = modId ?? "";
+                Name = name ?? modId ?? "";
+                IsInstalled = isInstalled;
+                AlreadyInPack = alreadyInPack;
+            }
+
+            public override string ToString()
+            {
+                if (AlreadyInPack)
+                    return $"{Name}  (in pack)";
+                return IsInstalled ? $"{Name}  (installed)" : $"{Name}";
+            }
+        }
+
+        private void SelectModpackById(string id)
+        {
+            if (_lvModpacks == null || string.IsNullOrWhiteSpace(id))
+                return;
+
+            foreach (ListViewItem item in _lvModpacks.Items)
+            {
+                if (item.Tag is string itemId && string.Equals(itemId, id, StringComparison.OrdinalIgnoreCase))
+                {
+                    item.Selected = true;
+                    item.EnsureVisible();
+                    break;
+                }
+            }
+        }
+
+        private async void PlaySelectedModpack()
+        {
+            var pack = GetSelectedModpack();
+            if (pack == null)
+                return;
+
+            if (!EnsureAmongUsPathSet())
+                return;
+
+            if (_availableMods == null)
+            {
+                MessageBox.Show("Mods are still loading. Please try again in a moment.", "Please wait",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var mods = (pack.ModIds ?? new List<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => _availableMods.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase)))
+                .Where(m => m != null && m.IsInstalled)
+                .ToList();
+
+            if (!mods.Any())
+            {
+                MessageBox.Show("This modpack has no installed mods to launch.\n\nAdd mods to the modpack first.",
+                    "No Mods in Modpack", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                var expanded = ExpandModsWithDependencies(mods);
+
+                var expandedIds = expanded.Select(m => m.Id).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                foreach (var m in expanded)
+                {
+                    var conflictId = FindIncompatibilityAgainstSet(m, expandedIds);
+                    if (!string.IsNullOrWhiteSpace(conflictId))
+                    {
+                        var conflictName = FindModById(conflictId)?.Name ?? conflictId;
+                        MessageBox.Show($"{m.Name ?? m.Id} cannot be combined with {conflictName}.",
+                            "Incompatible Mods", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+
+                await LaunchModsAsync(expanded);
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "Dependency Missing",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void ApplySelectedModpack(bool replaceSelection)
+        {
+            var pack = GetSelectedModpack();
+            if (pack == null)
+                return;
+
+            ApplyModpack(pack, replaceSelection);
+        }
+
+        private void ApplyModpack(ModPack pack, bool replaceSelection, bool switchToInstalledAfterApply = true)
+        {
+            if (pack == null || _availableMods == null)
+                return;
+
+            var desired = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!replaceSelection)
+            {
+                foreach (var id in _selectedModIds)
+                {
+                    if (!string.IsNullOrWhiteSpace(id))
+                        desired.Add(id);
+                }
+            }
+            foreach (var id in (pack.ModIds ?? new List<string>()))
+            {
+                if (!string.IsNullOrWhiteSpace(id))
+                    desired.Add(id);
+            }
+
+            var missingOrSkipped = new List<string>();
+
+            _isApplyingModpackSelection = true;
+            try
+            {
+                if (replaceSelection)
+                {
+                    _selectedModIds.Clear();
+                    _bulkSelectedModIds.Clear();
+                }
+
+                var orderedIds = desired
+                    .Select(id => new
+                    {
+                        Id = id,
+                        Name = _availableMods.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase))?.Name ?? id
+                    })
+                    .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(x => x.Id)
+                    .ToList();
+
+                foreach (var id in orderedIds)
+                {
+                    var mod = _availableMods.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase));
+                    if (mod == null)
+                    {
+                        missingOrSkipped.Add(id);
+                        continue;
+                    }
+
+                    HandleModSelectionChanged(mod, null, true, false);
+                    if (!_selectedModIds.Contains(mod.Id))
+                    {
+                        if (!mod.IsInstalled)
+                        {
+                            missingOrSkipped.Add($"{mod.Name} (not installed)");
+                        }
+                        else
+                        {
+                            missingOrSkipped.Add($"{mod.Name} (skipped)");
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                _isApplyingModpackSelection = false;
+            }
+
+            PersistSelectedMods();
+            UpdateBulkActionToolbar(true);
+            UpdateLaunchButtonsState();
+            RefreshModCardsDebounced();
+            RefreshModpackDetails();
+
+            if (switchToInstalledAfterApply && tabControl != null)
+            {
+                tabControl.SelectedIndex = 0;
+            }
+            UpdateStatus($"Applied modpack: {pack.Name}");
+
+            if (missingOrSkipped.Any())
+            {
+                MessageBox.Show(
+                    "Some mods could not be selected:\n\n" + string.Join("\n", missingOrSkipped.Distinct()),
+                    "Modpack Applied (with warnings)",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+
+        private class ModPackListItem
+        {
+            public string Id { get; }
+            public string Name { get; }
+            public int Count { get; }
+
+            public ModPackListItem(ModPack pack)
+            {
+                Id = pack?.Id ?? "";
+                Name = pack?.Name ?? "Unnamed";
+                Count = pack?.ModIds?.Distinct(StringComparer.OrdinalIgnoreCase).Count() ?? 0;
+            }
+
+            public override string ToString()
+            {
+                return $"{Name}  ({Count})";
+            }
         }
 
         private void LoadSettings()
@@ -331,7 +1971,7 @@ namespace BeanModManager
             {
                 UpdateBulkActionToolbar(true);
             }
-            else if (tabControl.SelectedIndex == 1)
+            else if (tabControl.SelectedIndex == 2)
             {
                 UpdateBulkActionToolbar(false);
             }
@@ -495,26 +2135,39 @@ namespace BeanModManager
                     : palette.SecondaryTextColor;
             }
 
+            if (_btnSidebarModpacks != null)
+            {
+                _btnSidebarModpacks.BackColor = selectedIndex == 1
+                    ? selectedBgColor
+                    : Color.Transparent;
+                _btnSidebarModpacks.Font = new Font("Segoe UI", 9.5F,
+                    selectedIndex == 1 ? FontStyle.Bold : FontStyle.Regular);
+                _btnSidebarModpacks.ForeColor = selectedIndex == 1
+                    ? palette.SuccessButtonColor
+                    : palette.SecondaryTextColor;
+                _btnSidebarModpacks.FlatAppearance.MouseOverBackColor = selectedBgColor;
+            }
+
             if (btnSidebarStore != null)
             {
-                btnSidebarStore.BackColor = selectedIndex == 1
+                btnSidebarStore.BackColor = selectedIndex == 2
                     ? selectedBgColor
                     : Color.Transparent;
                 btnSidebarStore.Font = new Font("Segoe UI", 9.5F,
-                    selectedIndex == 1 ? FontStyle.Bold : FontStyle.Regular);
-                btnSidebarStore.ForeColor = selectedIndex == 1
+                    selectedIndex == 2 ? FontStyle.Bold : FontStyle.Regular);
+                btnSidebarStore.ForeColor = selectedIndex == 2
                     ? palette.SuccessButtonColor
                     : palette.SecondaryTextColor;
             }
 
             if (btnSidebarSettings != null)
             {
-                btnSidebarSettings.BackColor = selectedIndex == 2
+                btnSidebarSettings.BackColor = selectedIndex == 3
                     ? selectedBgColor
                     : Color.Transparent;
                 btnSidebarSettings.Font = new Font("Segoe UI", 9.5F,
-                    selectedIndex == 2 ? FontStyle.Bold : FontStyle.Regular);
-                btnSidebarSettings.ForeColor = selectedIndex == 2
+                    selectedIndex == 3 ? FontStyle.Bold : FontStyle.Regular);
+                btnSidebarSettings.ForeColor = selectedIndex == 3
                     ? palette.SuccessButtonColor
                     : palette.SecondaryTextColor;
             }
@@ -539,17 +2192,17 @@ namespace BeanModManager
 
         private void btnSidebarStore_Click(object sender, EventArgs e)
         {
-            if (tabControl != null && tabControl.SelectedIndex != 1)
+            if (tabControl != null && tabControl.SelectedIndex != 2)
             {
-                tabControl.SelectedIndex = 1;
+                tabControl.SelectedIndex = 2;
             }
         }
 
         private void btnSidebarSettings_Click(object sender, EventArgs e)
         {
-            if (tabControl != null && tabControl.SelectedIndex != 2)
+            if (tabControl != null && tabControl.SelectedIndex != 3)
             {
-                tabControl.SelectedIndex = 2;
+                tabControl.SelectedIndex = 3;
             }
         }
 
@@ -557,7 +2210,7 @@ namespace BeanModManager
         {
             if (tabControl != null)
             {
-                tabControl.SelectedIndex = 1;
+                tabControl.SelectedIndex = 2;
                 if (cmbStoreCategory != null)
                 {
                     _storeCategoryFilter = "Featured";
@@ -571,7 +2224,7 @@ namespace BeanModManager
         {
             if (tabControl != null)
             {
-                tabControl.SelectedIndex = 1;
+                tabControl.SelectedIndex = 2;
 
                 _storeSearchText = string.Empty;
                 _storeCategoryFilter = "All";
@@ -946,15 +2599,16 @@ namespace BeanModManager
             {
                 lblInstalledCount.ForeColor = palette.HeadingTextColor;
             }
-            var sidebarButtons = new[] { btnSidebarInstalled, btnSidebarStore, btnSidebarSettings };
+            var sidebarButtons = new[] { btnSidebarInstalled, btnSidebarStore, _btnSidebarModpacks, btnSidebarSettings };
             foreach (var btn in sidebarButtons)
             {
                 if (btn != null)
                 {
                     var isSelected = tabControl != null &&
                         ((btn == btnSidebarInstalled && tabControl.SelectedIndex == 0) ||
-                         (btn == btnSidebarStore && tabControl.SelectedIndex == 1) ||
-                         (btn == btnSidebarSettings && tabControl.SelectedIndex == 2));
+                         (btn == _btnSidebarModpacks && tabControl.SelectedIndex == 1) ||
+                         (btn == btnSidebarStore && tabControl.SelectedIndex == 2) ||
+                         (btn == btnSidebarSettings && tabControl.SelectedIndex == 3));
 
                     btn.BackColor = isSelected
                         ? (ThemeManager.CurrentVariant == ThemeVariant.Dark
@@ -1088,6 +2742,79 @@ namespace BeanModManager
             if (panelStore != null)
             {
                 panelStore.BackColor = palette.SurfaceColor;
+            }
+
+            if (_tabModpacks != null)
+            {
+                _tabModpacks.BackColor = palette.WindowBackColor;
+                _tabModpacks.ForeColor = palette.PrimaryTextColor;
+            }
+            if (_modpacksLeftOuter != null) _modpacksLeftOuter.BackColor = palette.SurfaceColor;
+            if (_modpacksRightOuter != null) _modpacksRightOuter.BackColor = palette.SurfaceColor;
+            if (_modpacksListOuter != null) _modpacksListOuter.BackColor = palette.CardBorderColor;
+            if (_modpacksListInner != null) _modpacksListInner.BackColor = palette.CardBackground;
+            if (_inPackListOuter != null) _inPackListOuter.BackColor = palette.CardBorderColor;
+            if (_inPackListInner != null) _inPackListInner.BackColor = palette.CardBackgroundInstalled;
+            if (_installedListOuter != null) _installedListOuter.BackColor = palette.CardBorderColor;
+            if (_installedListInner != null) _installedListInner.BackColor = palette.CardBackgroundInstalled;
+            if (_lvModpacks != null)
+            {
+                _lvModpacks.BackColor = palette.CardBackground;
+                _lvModpacks.ForeColor = palette.PrimaryTextColor;
+                _lvModpacks.Invalidate();
+            }
+            if (_lvModpackMods != null)
+            {
+                _lvModpackMods.BackColor = palette.CardBackgroundInstalled;
+                _lvModpackMods.ForeColor = palette.PrimaryTextColor;
+                _lvModpackMods.Invalidate();
+            }
+            if (_lvInstalledMods != null)
+            {
+                _lvInstalledMods.BackColor = palette.CardBackgroundInstalled;
+                _lvInstalledMods.ForeColor = palette.PrimaryTextColor;
+                _lvInstalledMods.Invalidate();
+            }
+            ApplyThemeToContextMenu(_ctxModpackList);
+            ApplyThemeToContextMenu(_ctxInPackList);
+            ApplyThemeToContextMenu(_ctxInstalledList);
+            if (_btnModpackPlay != null)
+            {
+                _btnModpackPlay.BackColor = palette.SuccessButtonColor;
+                _btnModpackPlay.ForeColor = palette.SuccessButtonTextColor;
+            }
+            if (_btnModpackNew != null)
+            {
+                _btnModpackNew.BackColor = palette.PrimaryButtonColor;
+                _btnModpackNew.ForeColor = palette.PrimaryButtonTextColor;
+            }
+            var modpackSecondaryButtons = new[]
+            {
+                _btnAddToModpack,
+                _btnRemoveFromModpack
+            };
+            foreach (var btn in modpackSecondaryButtons)
+            {
+                if (btn != null)
+                {
+                    btn.BackColor = palette.NeutralButtonColor;
+                    btn.ForeColor = palette.NeutralButtonTextColor;
+                }
+            }
+            if (_btnModpackPlay != null)
+            {
+                _btnModpackPlay.BackColor = palette.SuccessButtonColor;
+                _btnModpackPlay.ForeColor = palette.SuccessButtonTextColor;
+            }
+            if (_lvModpacks != null)
+            {
+                _lvModpacks.BackColor = palette.SurfaceColor;
+                _lvModpacks.ForeColor = palette.PrimaryTextColor;
+            }
+            if (_lvModpackMods != null)
+            {
+                _lvModpackMods.BackColor = palette.SurfaceColor;
+                _lvModpackMods.ForeColor = palette.PrimaryTextColor;
             }
 
             if (installedLayout != null)
@@ -2111,7 +3838,7 @@ namespace BeanModManager
                     {
                         UpdateBulkActionToolbar(true);
                     }
-                    else if (tabControl.SelectedIndex == 1)
+                    else if (tabControl.SelectedIndex == 2)
                     {
                         UpdateBulkActionToolbar(false);
                     }
@@ -2396,8 +4123,11 @@ namespace BeanModManager
 
             if (selectionChanged)
             {
-                PersistSelectedMods();
-                UpdateBulkActionToolbar(true);
+                if (!_isApplyingModpackSelection)
+                {
+                    PersistSelectedMods();
+                    UpdateBulkActionToolbar(true);
+                }
             }
 
             UpdateLaunchButtonsState();
@@ -2832,12 +4562,6 @@ namespace BeanModManager
             }
 
             return files;
-        }
-
-        private static bool IsBetterCrewLink(Mod mod)
-        {
-            return mod != null && mod.Id != null &&
-                   mod.Id.Equals("BetterCrewLink", StringComparison.OrdinalIgnoreCase);
         }
 
         private void PersistSelectedMods()
