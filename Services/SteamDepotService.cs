@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -89,6 +90,24 @@ namespace BeanModManager.Services
                 {
                     return path;
                 }
+            }
+
+            try
+            {
+                foreach (var candidate in PathCompatibilityHelper.GetCommonNativeSteamRootsAsWinePaths())
+                {
+                    if (string.IsNullOrEmpty(candidate))
+                        continue;
+
+                    var steamapps = Path.Combine(candidate, "steamapps");
+                    if (Directory.Exists(steamapps))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+            catch
+            {
             }
 
             return null;

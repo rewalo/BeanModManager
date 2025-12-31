@@ -46,6 +46,40 @@ namespace BeanModManager
         public bool IsSelected => _chkSelected?.Checked ?? false;
         public Mod BoundMod => _mod;
 
+        /// <summary>
+        /// Re-bind this card to the latest Mod instance. This is important because the UI may reuse
+        /// ModCard controls across refreshes while the underlying Mod objects are replaced/updated.
+        /// </summary>
+        public void Bind(Mod mod, ModVersion version, Config config, bool isInstalledView)
+        {
+            if (mod == null)
+                return;
+
+            _mod = mod;
+            _config = config ?? _config;
+            _isInstalledView = isInstalledView;
+
+            if (version != null)
+            {
+                _version = version;
+            }
+            else if (_mod.InstalledVersion != null)
+            {
+                _version = _mod.InstalledVersion;
+            }
+
+            // Update static text fields that won't be recalculated unless we do it here.
+            if (_lblName != null) _lblName.Text = _mod.Name;
+            if (_lblAuthor != null) _lblAuthor.Text = $"By {_mod.Author}";
+            if (_lblDescription != null) _lblDescription.Text = _mod.Description;
+            if (_lblCategory != null)
+            {
+                _lblCategory.Text = string.IsNullOrEmpty(_mod.Category) ? "MOD" : _mod.Category.ToUpperInvariant();
+            }
+
+            UpdateUI();
+        }
+
         public void UpdateVersion(ModVersion newVersion)
         {
             if (newVersion != null && _version != newVersion)

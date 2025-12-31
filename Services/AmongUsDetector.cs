@@ -1,6 +1,8 @@
 using Microsoft.Win32;
 using System;
 using System.IO;
+using System.Linq;
+using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -48,11 +50,52 @@ namespace BeanModManager.Services
                 }
             }
 
+            try
+            {
+                var steamService = new SteamDepotService();
+                var steamRoot = steamService.GetSteamPath();
+                if (!string.IsNullOrEmpty(steamRoot))
+                {
+                    var libraryRoots = PathCompatibilityHelper.TryGetSteamLibraryRoots(steamRoot);
+                    foreach (var lib in libraryRoots)
+                    {
+                        var candidate = Path.Combine(lib, "steamapps", "common", "Among Us");
+                        var exePath = Path.Combine(candidate, "Among Us.exe");
+                        if (File.Exists(exePath))
+                        {
+                            return candidate;
+                        }
+                    }
+                }
+
+                foreach (var steamCandidate in PathCompatibilityHelper.GetCommonNativeSteamRootsAsWinePaths())
+                {
+                    if (!Directory.Exists(steamCandidate))
+                        continue;
+
+                    var libraryRoots = PathCompatibilityHelper.TryGetSteamLibraryRoots(steamCandidate);
+                    foreach (var lib in libraryRoots)
+                    {
+                        var candidate = Path.Combine(lib, "steamapps", "common", "Among Us");
+                        var exePath = Path.Combine(candidate, "Among Us.exe");
+                        if (File.Exists(exePath))
+                        {
+                            return candidate;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+            }
+
             return null;
         }
 
         public static bool ValidateAmongUsPath(string path)
         {
+            path = PathCompatibilityHelper.NormalizeUserPath(path);
+
             if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
             {
                 return false;

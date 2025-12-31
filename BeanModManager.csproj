@@ -74,6 +74,7 @@
     <Compile Include="Helpers\DarkModeHelper.cs" />
     <Compile Include="Helpers\FileSystemHelper.cs" />
     <Compile Include="Helpers\GitHubCacheHelper.cs" />
+    <Compile Include="Helpers\PathCompatibilityHelper.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
     </Compile>

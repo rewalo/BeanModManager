@@ -151,7 +151,16 @@ namespace BeanModManager
                 var detectedPath = AmongUsDetector.DetectAmongUsPath();
                 if (detectedPath != null)
                 {
-                    _config.AmongUsPath = detectedPath;
+                    _config.AmongUsPath = PathCompatibilityHelper.NormalizeUserPath(detectedPath);
+                    _ = _config.SaveAsync();
+                }
+            }
+            else
+            {
+                var normalized = PathCompatibilityHelper.NormalizeUserPath(_config.AmongUsPath);
+                if (!string.Equals(normalized, _config.AmongUsPath, StringComparison.Ordinal))
+                {
+                    _config.AmongUsPath = normalized;
                     _ = _config.SaveAsync();
                 }
             }
@@ -1762,6 +1771,7 @@ namespace BeanModManager
                             if (existingInstalledCards.TryGetValue(mod.Id, out var existingInstalledCard))
                             {
                                 installedCard = existingInstalledCard;
+                                installedCard.Bind(mod, mod.InstalledVersion, _config, true);
                                 if (mod.InstalledVersion != null && installedCard.SelectedVersion != mod.InstalledVersion)
                                 {
                                     installedCard.UpdateVersion(mod.InstalledVersion);
@@ -1848,6 +1858,7 @@ namespace BeanModManager
                             if (existingStoreCards.TryGetValue(mod.Id, out var existingStoreCard))
                             {
                                 storeCard = existingStoreCard;
+                                storeCard.Bind(mod, preferredVersion, _config, false);
                             }
                             else if (existingInstalledCards.TryGetValue(mod.Id, out var existingInstalledCard))
                             {
@@ -2127,7 +2138,7 @@ namespace BeanModManager
 
             card.SelectionChanged += (cardControl, isSelected) =>
 {
-    var currentMod = mod;
+    var currentMod = cardControl?.BoundMod ?? mod;
 
     HandleBulkSelectionChanged(currentMod, cardControl, isSelected, isInstalledView);
 
@@ -2144,26 +2155,29 @@ namespace BeanModManager
 
             card.InstallClicked += async (s, e) =>
             {
+                var currentMod = card.BoundMod ?? mod;
                 var selectedVersion = card.SelectedVersion;
                 if (selectedVersion == null || string.IsNullOrEmpty(selectedVersion.DownloadUrl))
                 {
                     selectedVersion = version;
                 }
 
-                await InstallMod(mod, selectedVersion).ConfigureAwait(false);
+                await InstallMod(currentMod, selectedVersion).ConfigureAwait(false);
             };
             card.UpdateClicked += async (s, e) =>
             {
-                if (IsDependencyMod(mod))
+                var currentMod = card.BoundMod ?? mod;
+
+                if (IsDependencyMod(currentMod))
                 {
-                    var dependents = GetInstalledDependents(mod.Id);
+                    var dependents = GetInstalledDependents(currentMod.Id);
                     if (dependents.Any())
                     {
                         var dependentNames = string.Join(", ", dependents.Select(m => m.Name));
-                        var currentVersion = mod.InstalledVersion != null
-                            ? (!string.IsNullOrEmpty(mod.InstalledVersion.ReleaseTag)
-                                ? mod.InstalledVersion.ReleaseTag
-                                : mod.InstalledVersion.Version)
+                        var currentVersion = currentMod.InstalledVersion != null
+                            ? (!string.IsNullOrEmpty(currentMod.InstalledVersion.ReleaseTag)
+                                ? currentMod.InstalledVersion.ReleaseTag
+                                : currentMod.InstalledVersion.Version)
                             : "unknown";
 
                         var dependentDetails = new List<string>();
@@ -2173,7 +2187,7 @@ namespace BeanModManager
                             if (deps != null)
                             {
                                 var dep = deps.FirstOrDefault(d =>
-                                    string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                                    string.Equals(d.modId, currentMod.Id, StringComparison.OrdinalIgnoreCase));
                                 if (dep != null)
                                 {
                                     var reqVersion = dep.GetRequiredVersion();
@@ -2183,7 +2197,7 @@ namespace BeanModManager
                                     }
                                     else
                                     {
-                                        dependentDetails.Add($"{dependent.Name} requires {mod.Name}");
+                                        dependentDetails.Add($"{dependent.Name} requires {currentMod.Name}");
                                     }
                                 }
                             }
@@ -2197,7 +2211,7 @@ namespace BeanModManager
                                 if (versionDeps != null)
                                 {
                                     var vdep = versionDeps.FirstOrDefault(d =>
-                                        string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                                        string.Equals(d.modId, currentMod.Id, StringComparison.OrdinalIgnoreCase));
                                     if (vdep != null)
                                     {
                                         var existingDetail = dependentDetails.FirstOrDefault(d => d.StartsWith(dependent.Name));
@@ -2211,7 +2225,7 @@ namespace BeanModManager
                             }
                         }
 
-                        var message = $"{mod.Name} is a dependency used by other mods:\n\n" +
+                        var message = $"{currentMod.Name} is a dependency used by other mods:\n\n" +
                                      string.Join("\n", dependentDetails) +
                                      $"\n\nCurrent version: {currentVersion}\n\n" +
                                      "Updating may break compatibility with these mods. Continue?";
@@ -2229,9 +2243,9 @@ namespace BeanModManager
 
                 ModVersion updateVersion = null;
 
-                if (mod.Versions != null && mod.Versions.Any())
+                if (currentMod.Versions != null && currentMod.Versions.Any())
                 {
-                    var availableVersions = mod.Versions.AsEnumerable();
+                    var availableVersions = currentMod.Versions.AsEnumerable();
                     if (!_config.ShowBetaVersions)
                     {
                         availableVersions = availableVersions.Where(v => !v.IsPreRelease);
@@ -2274,13 +2288,22 @@ namespace BeanModManager
                     return;
                 }
 
-                await InstallMod(mod, updateVersion).ConfigureAwait(false);
+                await InstallMod(currentMod, updateVersion).ConfigureAwait(false);
             };
-            card.UninstallClicked += (s, e) => UninstallMod(mod, version);
-            card.PlayClicked += (s, e) => LaunchMod(mod, version);
+            card.UninstallClicked += (s, e) =>
+            {
+                var currentMod = card.BoundMod ?? mod;
+                UninstallMod(currentMod, version);
+            };
+            card.PlayClicked += (s, e) =>
+            {
+                var currentMod = card.BoundMod ?? mod;
+                LaunchMod(currentMod, version);
+            };
             card.OpenFolderClicked += (s, e) =>
             {
-                var modFolder = Path.Combine(GetModsFolder(), mod.Id);
+                var currentMod = card.BoundMod ?? mod;
+                var modFolder = Path.Combine(GetModsFolder(), currentMod.Id);
                 if (Directory.Exists(modFolder))
                 {
                     System.Diagnostics.Process.Start("explorer.exe", modFolder);
@@ -6483,6 +6506,7 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             var detectedPath = AmongUsDetector.DetectAmongUsPath();
             if (detectedPath != null)
             {
+                detectedPath = PathCompatibilityHelper.NormalizeUserPath(detectedPath);
                 _config.AmongUsPath = detectedPath;
                 _ = _config.SaveAsync();
                 txtAmongUsPath.Text = detectedPath;
@@ -6522,6 +6546,7 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                 if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
                 {
                     string selected = dialog.FileName;
+                    selected = PathCompatibilityHelper.NormalizeUserPath(selected);
 
                     if (AmongUsDetector.ValidateAmongUsPath(selected))
                     {
