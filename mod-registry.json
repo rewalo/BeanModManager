@@ -863,6 +863,108 @@
       },
       "requiresDepot": false,
       "incompatibilities": []
+    },
+    {
+      "id": "SyzyfowyTownOfUs",
+      "name": "Syzyfowy Town Of Us",
+      "author": "LimeShep",
+      "description": "A Town Of Us fork that brings back classic roles, while also providing many new roles & modifiers",
+      "githubOwner": "LimeShep",
+      "githubRepo": "Town-Of-Us",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "PokeLobby",
+      "name": "Poké Lobby",
+      "author": "XtraCube",
+      "description": "Pokémon inspired lobby for Among Us",
+      "githubOwner": "XtraCube",
+      "githubRepo": "PokemongUs",
+      "category": "Fun",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "SuperNewRoles",
+      "name": "SuperNewRoles!!!!",
+      "author": "SuperNewRoles",
+      "description": "SuperNewRoles!!!! is an Among Us mod that includes various elements such as new modes and roles.",
+      "githubOwner": "SuperNewRoles",
+      "githubRepo": "SuperNewRoles",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "Nebula",
+      "name": "Nebula On The Ship",
+      "author": "Dolly1016",
+      "description": "Unique and stylish role, features, and countless colors!",
+      "githubOwner": "Dolly1016",
+      "githubRepo": "Nebula",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "AleLuduMod",
+      "name": "AleLuduMod",
+      "author": "townofus-pl",
+      "description": "This mod unlocks the possibility to show more than 15 players on screen during an emergency meeting, on vitals, and on the Transporter/Glitch screen.",
+      "githubOwner": "townofus-pl",
+      "githubRepo": "AleLuduMod",
+      "category": "Utility",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "EmojisInTheChat",
+      "name": "Emojis In The Chat",
+      "author": "WanderingPix",
+      "description": "An among us mod which adds emojis to chat!",
+      "githubOwner": "WanderingPix",
+      "githubRepo": "Emojis-in-the-mogus-chat",
+      "category": "Fun",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
     }
   ]
 }

@@ -89,6 +89,9 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - CrowdedMod  
 - ChaosTokens  
 - Extreme Roles  
+- Syzyfowy Town Of Us  
+- SuperNewRoles!!!!  
+- Nebula On The Ship  
 
 ### Host Mods
 - Town of Host Optimized (TOHO)  
@@ -100,6 +103,8 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - SmolMod  
 - PropHunt  
 - Cursed Among Us  
+- Poké Lobby  
+- Emojis In The Chat  
 
 ### Map Mods
 - Unlock dleks ehT  
@@ -111,6 +116,7 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - AUnlocker  
 - Impostor (private server)  
 - Vanilla Enhancements  
+- AleLuduMod  
 
 Note: Epic/MS Store versions are detected automatically. Mods requiring Steam depot downloads are handled internally.
 
