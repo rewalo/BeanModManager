@@ -29,6 +29,23 @@
       "featured": true
     },
     {
+      "id": "TOHO",
+      "name": "Town of Host Optimized",
+      "author": "Limeau",
+      "description": "TOHO is a Host-Only among us mod with hundreds of new roles, multiple Game Modes, and many game optimizations!",
+      "githubOwner": "Limeau",
+      "githubRepo": "TownofHost-Optimized",
+      "category": "Host Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
       "id": "TownOfUs",
       "name": "Town of Us Mira",
       "author": "AU-Avengers",
