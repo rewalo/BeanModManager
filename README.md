@@ -91,6 +91,7 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - Extreme Roles  
 
 ### Host Mods
+- Town of Host Optimized (TOHO)  
 - More Gamemodes  
 - Project Lotus: Continued  
 - Minimum Level  
