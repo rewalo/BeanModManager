@@ -965,6 +965,34 @@
       },
       "requiresDepot": false,
       "incompatibilities": []
+    },
+    {
+      "id": "TownOfUsMiraRolesExtension",
+      "name": "Town Of Us Mira Roles Extension",
+      "author": "rewalo",
+      "description": "An extension mod for Town of Us: Mira that adds new roles and modifiers.",
+      "githubOwner": "rewalo",
+      "githubRepo": "TownOfUsMiraRolesExtension",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": []
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "TownOfUs",
+          "name": "Town of Us Mira",
+          "fileName": "TownOfUsMira.dll",
+          "githubOwner": "AU-Avengers",
+          "githubRepo": "TOU-Mira",
+          "requiredVersion": null,
+          "optional": false
+        }
+      ],
+      "incompatibilities": []
     }
   ]
 }
