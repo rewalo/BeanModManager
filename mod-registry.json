@@ -975,9 +975,9 @@
       "githubRepo": "TownOfUsMiraRolesExtension",
       "category": "Mod",
       "assetFilters": {
-        "dll": {
-          "patterns": [".dll"],
-          "exclude": []
+        "default": {
+          "patterns": ["TownOfUsMiraRolesExtension.zip", ".zip"],
+          "exclude": ["source"]
         }
       },
       "requiresDepot": false,
