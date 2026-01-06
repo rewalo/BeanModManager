@@ -141,6 +141,11 @@ namespace BeanModManager.Services
 
         private void CopyDirectoryContents(string sourceDir, string destDir, bool overwrite, List<string> dontInclude = null)
         {
+            CopyDirectoryContents(sourceDir, destDir, overwrite, dontInclude, null);
+        }
+
+        private void CopyDirectoryContents(string sourceDir, string destDir, bool overwrite, List<string> dontInclude, string amongUsPath)
+        {
             if (!Directory.Exists(sourceDir))
             {
                 return;
@@ -170,6 +175,13 @@ namespace BeanModManager.Services
                 var destFile = Path.Combine(destDir, fileName);
                 try
                 {
+                    if (File.Exists(destFile) && !string.IsNullOrEmpty(amongUsPath) &&
+    ShouldSkipFileOverwrite(file, destFile, amongUsPath))
+                    {
+                        OnProgressChanged($"Skipped {fileName} (destination is newer or equal)");
+                        continue;
+                    }
+
                     FileSystemHelper.CopyFileWithRetry(file, destFile, overwrite);
                 }
                 catch
@@ -191,7 +203,57 @@ namespace BeanModManager.Services
                 }
 
                 var destSubDir = Path.Combine(destDir, dirName);
-                CopyDirectoryContents(dir, destSubDir, overwrite, dontInclude);
+                CopyDirectoryContents(dir, destSubDir, overwrite, dontInclude, amongUsPath);
+            }
+        }
+
+        private bool ShouldSkipFileOverwrite(string sourceFile, string destFile, string amongUsPath)
+        {
+            if (!sourceFile.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            string relativeDestPath = null;
+            if (!string.IsNullOrEmpty(amongUsPath) && destFile.StartsWith(amongUsPath, StringComparison.OrdinalIgnoreCase))
+            {
+                relativeDestPath = destFile.Substring(amongUsPath.Length)
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Replace(Path.DirectorySeparatorChar, '/');
+            }
+
+            bool isBepInExCore = false;
+            if (relativeDestPath != null)
+            {
+                var relativeLower = relativeDestPath.ToLower();
+                isBepInExCore = (relativeLower == "bepinex/core/bepinex.core.dll" ||
+                                relativeLower == "bepinex/core/bepinex.dll");
+            }
+
+            bool isInPlugins = false;
+            if (relativeDestPath != null)
+            {
+                var relativeLower = relativeDestPath.ToLower();
+                isInPlugins = relativeLower.StartsWith("bepinex/plugins/", StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (!isBepInExCore && !isInPlugins)
+                return false;
+
+            try
+            {
+                var sourceVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(sourceFile);
+                var destVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(destFile);
+
+                if (string.IsNullOrEmpty(destVersion))
+                    return false;
+
+                if (string.IsNullOrEmpty(sourceVersion))
+                    return true;
+
+                return Helpers.VersionComparisonHelper.IsNewerOrEqual(destVersion, sourceVersion);
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -500,4 +562,3 @@ namespace BeanModManager.Services
         }
     }
 }
-

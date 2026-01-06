@@ -15,15 +15,24 @@ namespace BeanModManager.Services
         private const int AmongUsAppId = 945360;
         private const int AmongUsDepotId = 945361;
         private const int MaxDepotWaitTimeSeconds = 600; private const int DepotCheckIntervalSeconds = 3; private const int DepotProgressUpdateIntervalSeconds = 15; private const int SteamConsoleOpenDelayMs = 1000;
+
+        private readonly ModStore _modStore;
+
+        public SteamDepotService(ModStore modStore = null)
+        {
+            _modStore = modStore;
+        }
+
         public string GetDepotManifest(string modId)
         {
-            if (modId == "AllTheRoles")
+            // Try to get from mod registry first
+            if (_modStore != null)
             {
-                return "1110308242604365209";
-            }
-            else if (modId == "TheOtherRoles")
-            {
-                return "5207443046106116882";
+                var depotConfig = _modStore.GetDepotConfig(modId);
+                if (depotConfig != null && !string.IsNullOrEmpty(depotConfig.manifestId))
+                {
+                    return depotConfig.manifestId;
+                }
             }
 
             return "1110308242604365209";
@@ -31,13 +40,14 @@ namespace BeanModManager.Services
 
         public string GetDepotVersion(string modId)
         {
-            if (modId == "AllTheRoles")
+            // Try to get from mod registry first
+            if (_modStore != null)
             {
-                return "v16.0.5";
-            }
-            else if (modId == "TheOtherRoles")
-            {
-                return "v15.11.0";
+                var depotConfig = _modStore.GetDepotConfig(modId);
+                if (depotConfig != null && !string.IsNullOrEmpty(depotConfig.gameVersion))
+                {
+                    return depotConfig.gameVersion;
+                }
             }
 
             return "v16.0.5";
@@ -363,6 +373,12 @@ namespace BeanModManager.Services
                                 {
                                     if (File.Exists(destPath))
                                     {
+                                        if (ShouldSkipFileOverwrite(dllFile, destPath, depotPath))
+                                        {
+                                            OnProgressChanged($"Skipped {fileName} (destination is newer or equal)");
+                                            continue;
+                                        }
+
                                         File.SetAttributes(destPath, FileAttributes.Normal);
                                         File.Delete(destPath);
                                     }
@@ -376,11 +392,11 @@ namespace BeanModManager.Services
                         }
                         else if (hasBepInExStructure)
                         {
-                            CopyDirectoryContents(modStoragePath, depotPath, true);
+                            CopyDirectoryContents(modStoragePath, depotPath, true, depotPath);
                         }
                         else
                         {
-                            CopyDirectoryContents(modStoragePath, depotPath, true);
+                            CopyDirectoryContents(modStoragePath, depotPath, true, depotPath);
                         }
 
                         OnProgressChanged("Mod installed to depot successfully!");
@@ -428,6 +444,12 @@ namespace BeanModManager.Services
                         {
                             if (File.Exists(destPath))
                             {
+                                if (ShouldSkipFileOverwrite(dllFile, destPath, depotPath))
+                                {
+                                    OnProgressChanged($"Skipped {fileName} (destination is newer or equal)");
+                                    continue;
+                                }
+
                                 File.SetAttributes(destPath, FileAttributes.Normal);
                                 File.Delete(destPath);
                             }
@@ -441,11 +463,11 @@ namespace BeanModManager.Services
                 }
                 else if (modHasBepInExStructure)
                 {
-                    CopyDirectoryContents(modStoragePath, depotPath, true);
+                    CopyDirectoryContents(modStoragePath, depotPath, true, depotPath);
                 }
                 else
                 {
-                    CopyDirectoryContents(modStoragePath, depotPath, true);
+                    CopyDirectoryContents(modStoragePath, depotPath, true, depotPath);
                 }
 
                 OnProgressChanged("Mod installed to depot successfully!");
@@ -557,6 +579,11 @@ namespace BeanModManager.Services
 
         public void CopyDirectoryContents(string sourceDir, string destDir, bool overwrite)
         {
+            CopyDirectoryContents(sourceDir, destDir, overwrite, null);
+        }
+
+        public void CopyDirectoryContents(string sourceDir, string destDir, bool overwrite, string gameRootPath)
+        {
             if (!Directory.Exists(sourceDir))
             {
                 return;
@@ -576,6 +603,12 @@ namespace BeanModManager.Services
                 {
                     if (File.Exists(destFile) && overwrite)
                     {
+                        if (!string.IsNullOrEmpty(gameRootPath) && ShouldSkipFileOverwrite(file, destFile, gameRootPath))
+                        {
+                            OnProgressChanged($"Skipped {fileName} (destination is newer or equal)");
+                            continue;
+                        }
+
                         File.SetAttributes(destFile, FileAttributes.Normal);
                         File.Delete(destFile);
                     }
@@ -590,7 +623,57 @@ namespace BeanModManager.Services
             {
                 var dirName = Path.GetFileName(dir);
                 var destSubDir = Path.Combine(destDir, dirName);
-                CopyDirectoryContents(dir, destSubDir, overwrite);
+                CopyDirectoryContents(dir, destSubDir, overwrite, gameRootPath);
+            }
+        }
+
+        private bool ShouldSkipFileOverwrite(string sourceFile, string destFile, string gameRootPath)
+        {
+            if (!sourceFile.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            string relativeDestPath = null;
+            if (!string.IsNullOrEmpty(gameRootPath) && destFile.StartsWith(gameRootPath, StringComparison.OrdinalIgnoreCase))
+            {
+                relativeDestPath = destFile.Substring(gameRootPath.Length)
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Replace(Path.DirectorySeparatorChar, '/');
+            }
+
+            bool isBepInExCore = false;
+            if (relativeDestPath != null)
+            {
+                var relativeLower = relativeDestPath.ToLower();
+                isBepInExCore = (relativeLower == "bepinex/core/bepinex.core.dll" ||
+                                relativeLower == "bepinex/core/bepinex.dll");
+            }
+
+            bool isInPlugins = false;
+            if (relativeDestPath != null)
+            {
+                var relativeLower = relativeDestPath.ToLower();
+                isInPlugins = relativeLower.StartsWith("bepinex/plugins/", StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (!isBepInExCore && !isInPlugins)
+                return false;
+
+            try
+            {
+                var sourceVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(sourceFile);
+                var destVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(destFile);
+
+                if (string.IsNullOrEmpty(destVersion))
+                    return false;
+
+                if (string.IsNullOrEmpty(sourceVersion))
+                    return true;
+
+                return Helpers.VersionComparisonHelper.IsNewerOrEqual(destVersion, sourceVersion);
+            }
+            catch
+            {
+                return false;
             }
         }
 

@@ -87,6 +87,10 @@
             this.btnBrowsePath = new System.Windows.Forms.Button();
             this.btnDetectPath = new System.Windows.Forms.Button();
             this.lblAmongUsPath = new System.Windows.Forms.Label();
+            this.panelGameChannel = new System.Windows.Forms.Panel();
+            this.lblGameChannel = new System.Windows.Forms.Label();
+            this.rbSteam = new System.Windows.Forms.RadioButton();
+            this.rbEpic = new System.Windows.Forms.RadioButton();
             this.grpBepInEx = new System.Windows.Forms.GroupBox();
             this.flowBepInEx = new System.Windows.Forms.FlowLayoutPanel();
             this.btnInstallBepInEx = new System.Windows.Forms.Button();
@@ -135,6 +139,7 @@
             this.settingsLayout.SuspendLayout();
             this.grpPath.SuspendLayout();
             this.pathLayout.SuspendLayout();
+            this.panelGameChannel.SuspendLayout();
             this.grpBepInEx.SuspendLayout();
             this.flowBepInEx.SuspendLayout();
             this.grpFolders.SuspendLayout();
@@ -153,10 +158,10 @@
             this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.lblStatus,
             this.progressBar});
-            this.statusStrip.Location = new System.Drawing.Point(0, 742);
+            this.statusStrip.Location = new System.Drawing.Point(0, 805);
             this.statusStrip.Name = "statusStrip";
             this.statusStrip.Padding = new System.Windows.Forms.Padding(1, 0, 0, 0);
-            this.statusStrip.Size = new System.Drawing.Size(1335, 22);
+            this.statusStrip.Size = new System.Drawing.Size(1361, 22);
             this.statusStrip.TabIndex = 1;
             this.statusStrip.Text = "statusStrip1";
             // 
@@ -182,7 +187,7 @@
             this.headerStrip.Location = new System.Drawing.Point(0, 0);
             this.headerStrip.Name = "headerStrip";
             this.headerStrip.Padding = new System.Windows.Forms.Padding(0, 0, 0, 1);
-            this.headerStrip.Size = new System.Drawing.Size(1335, 32);
+            this.headerStrip.Size = new System.Drawing.Size(1361, 32);
             this.headerStrip.TabIndex = 2;
             this.headerStrip.Paint += new System.Windows.Forms.PaintEventHandler(this.HeaderStrip_Paint);
             // 
@@ -192,7 +197,7 @@
             this.lblDiscordLink.AutoSize = true;
             this.lblDiscordLink.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblDiscordLink.LinkBehavior = System.Windows.Forms.LinkBehavior.HoverUnderline;
-            this.lblDiscordLink.Location = new System.Drawing.Point(1225, 6);
+            this.lblDiscordLink.Location = new System.Drawing.Point(1251, 6);
             this.lblDiscordLink.Name = "lblDiscordLink";
             this.lblDiscordLink.Size = new System.Drawing.Size(106, 19);
             this.lblDiscordLink.TabIndex = 1;
@@ -222,7 +227,7 @@
             this.leftSidebar.Dock = System.Windows.Forms.DockStyle.Left;
             this.leftSidebar.Location = new System.Drawing.Point(0, 32);
             this.leftSidebar.Name = "leftSidebar";
-            this.leftSidebar.Size = new System.Drawing.Size(220, 710);
+            this.leftSidebar.Size = new System.Drawing.Size(220, 773);
             this.leftSidebar.TabIndex = 3;
             // 
             // sidebarButtons
@@ -389,7 +394,7 @@
             this.sidebarBorder.Dock = System.Windows.Forms.DockStyle.Right;
             this.sidebarBorder.Location = new System.Drawing.Point(219, 0);
             this.sidebarBorder.Name = "sidebarBorder";
-            this.sidebarBorder.Size = new System.Drawing.Size(1, 710);
+            this.sidebarBorder.Size = new System.Drawing.Size(1, 773);
             this.sidebarBorder.TabIndex = 4;
             // 
             // tabControl
@@ -407,7 +412,7 @@
             this.tabControl.Name = "tabControl";
             this.tabControl.Padding = new System.Drawing.Point(0, 0);
             this.tabControl.SelectedIndex = 0;
-            this.tabControl.Size = new System.Drawing.Size(1115, 710);
+            this.tabControl.Size = new System.Drawing.Size(1141, 773);
             this.tabControl.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
             this.tabControl.TabIndex = 0;
             this.tabControl.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.tabControl_DrawItem);
@@ -418,7 +423,7 @@
             this.tabInstalled.Location = new System.Drawing.Point(4, 5);
             this.tabInstalled.Name = "tabInstalled";
             this.tabInstalled.Padding = new System.Windows.Forms.Padding(10);
-            this.tabInstalled.Size = new System.Drawing.Size(1107, 701);
+            this.tabInstalled.Size = new System.Drawing.Size(1133, 764);
             this.tabInstalled.TabIndex = 0;
             this.tabInstalled.Text = "Installed Mods";
             // 
@@ -440,7 +445,7 @@
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.installedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.installedLayout.Size = new System.Drawing.Size(1087, 681);
+            this.installedLayout.Size = new System.Drawing.Size(1113, 744);
             this.installedLayout.TabIndex = 3;
             // 
             // lblInstalledHeader
@@ -469,7 +474,7 @@
             this.flowInstalledFilters.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.flowInstalledFilters.Name = "flowInstalledFilters";
             this.flowInstalledFilters.Padding = new System.Windows.Forms.Padding(0, 3, 0, 3);
-            this.flowInstalledFilters.Size = new System.Drawing.Size(1087, 29);
+            this.flowInstalledFilters.Size = new System.Drawing.Size(1113, 29);
             this.flowInstalledFilters.TabIndex = 4;
             this.flowInstalledFilters.WrapContents = false;
             // 
@@ -553,7 +558,7 @@
             this.panelBulkActionsInstalled.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.panelBulkActionsInstalled.Name = "panelBulkActionsInstalled";
             this.panelBulkActionsInstalled.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
-            this.panelBulkActionsInstalled.Size = new System.Drawing.Size(1087, 44);
+            this.panelBulkActionsInstalled.Size = new System.Drawing.Size(1113, 44);
             this.panelBulkActionsInstalled.TabIndex = 5;
             this.panelBulkActionsInstalled.Visible = false;
             // 
@@ -577,7 +582,7 @@
             this.btnBulkUninstallInstalled.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnBulkUninstallInstalled.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.btnBulkUninstallInstalled.ForeColor = System.Drawing.Color.White;
-            this.btnBulkUninstallInstalled.Location = new System.Drawing.Point(800, 6);
+            this.btnBulkUninstallInstalled.Location = new System.Drawing.Point(826, 6);
             this.btnBulkUninstallInstalled.Name = "btnBulkUninstallInstalled";
             this.btnBulkUninstallInstalled.Size = new System.Drawing.Size(130, 28);
             this.btnBulkUninstallInstalled.TabIndex = 1;
@@ -594,7 +599,7 @@
             this.btnBulkDeselectAllInstalled.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnBulkDeselectAllInstalled.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.btnBulkDeselectAllInstalled.ForeColor = System.Drawing.Color.White;
-            this.btnBulkDeselectAllInstalled.Location = new System.Drawing.Point(936, 6);
+            this.btnBulkDeselectAllInstalled.Location = new System.Drawing.Point(962, 6);
             this.btnBulkDeselectAllInstalled.Name = "btnBulkDeselectAllInstalled";
             this.btnBulkDeselectAllInstalled.Size = new System.Drawing.Size(139, 28);
             this.btnBulkDeselectAllInstalled.TabIndex = 2;
@@ -611,7 +616,7 @@
             this.panelInstalledHost.Location = new System.Drawing.Point(0, 112);
             this.panelInstalledHost.Margin = new System.Windows.Forms.Padding(0);
             this.panelInstalledHost.Name = "panelInstalledHost";
-            this.panelInstalledHost.Size = new System.Drawing.Size(1087, 519);
+            this.panelInstalledHost.Size = new System.Drawing.Size(1113, 582);
             this.panelInstalledHost.TabIndex = 3;
             // 
             // panelEmptyInstalled
@@ -622,7 +627,7 @@
             this.panelEmptyInstalled.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelEmptyInstalled.Location = new System.Drawing.Point(0, 0);
             this.panelEmptyInstalled.Name = "panelEmptyInstalled";
-            this.panelEmptyInstalled.Size = new System.Drawing.Size(1087, 519);
+            this.panelEmptyInstalled.Size = new System.Drawing.Size(1113, 582);
             this.panelEmptyInstalled.TabIndex = 2;
             this.panelEmptyInstalled.Visible = false;
             // 
@@ -631,7 +636,7 @@
             this.lblEmptyInstalled.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.lblEmptyInstalled.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblEmptyInstalled.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(150)))));
-            this.lblEmptyInstalled.Location = new System.Drawing.Point(0, 174);
+            this.lblEmptyInstalled.Location = new System.Drawing.Point(13, 206);
             this.lblEmptyInstalled.Name = "lblEmptyInstalled";
             this.lblEmptyInstalled.Size = new System.Drawing.Size(1087, 30);
             this.lblEmptyInstalled.TabIndex = 0;
@@ -647,7 +652,7 @@
             this.btnEmptyInstalledBrowseFeatured.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnEmptyInstalledBrowseFeatured.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnEmptyInstalledBrowseFeatured.ForeColor = System.Drawing.Color.White;
-            this.btnEmptyInstalledBrowseFeatured.Location = new System.Drawing.Point(443, 224);
+            this.btnEmptyInstalledBrowseFeatured.Location = new System.Drawing.Point(456, 256);
             this.btnEmptyInstalledBrowseFeatured.Name = "btnEmptyInstalledBrowseFeatured";
             this.btnEmptyInstalledBrowseFeatured.Size = new System.Drawing.Size(200, 36);
             this.btnEmptyInstalledBrowseFeatured.TabIndex = 1;
@@ -664,7 +669,7 @@
             this.btnEmptyInstalledBrowseStore.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnEmptyInstalledBrowseStore.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnEmptyInstalledBrowseStore.ForeColor = System.Drawing.Color.White;
-            this.btnEmptyInstalledBrowseStore.Location = new System.Drawing.Point(443, 270);
+            this.btnEmptyInstalledBrowseStore.Location = new System.Drawing.Point(456, 302);
             this.btnEmptyInstalledBrowseStore.Name = "btnEmptyInstalledBrowseStore";
             this.btnEmptyInstalledBrowseStore.Size = new System.Drawing.Size(200, 36);
             this.btnEmptyInstalledBrowseStore.TabIndex = 2;
@@ -682,7 +687,7 @@
             this.panelInstalled.Margin = new System.Windows.Forms.Padding(0);
             this.panelInstalled.Name = "panelInstalled";
             this.panelInstalled.Padding = new System.Windows.Forms.Padding(10);
-            this.panelInstalled.Size = new System.Drawing.Size(1087, 519);
+            this.panelInstalled.Size = new System.Drawing.Size(1113, 582);
             this.panelInstalled.TabIndex = 1;
             // 
             // btnLaunchSelected
@@ -694,10 +699,10 @@
             this.btnLaunchSelected.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLaunchSelected.Font = new System.Drawing.Font("Segoe UI", 10.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnLaunchSelected.ForeColor = System.Drawing.Color.White;
-            this.btnLaunchSelected.Location = new System.Drawing.Point(10, 641);
+            this.btnLaunchSelected.Location = new System.Drawing.Point(10, 704);
             this.btnLaunchSelected.Margin = new System.Windows.Forms.Padding(10, 10, 10, 0);
             this.btnLaunchSelected.Name = "btnLaunchSelected";
-            this.btnLaunchSelected.Size = new System.Drawing.Size(1067, 40);
+            this.btnLaunchSelected.Size = new System.Drawing.Size(1093, 40);
             this.btnLaunchSelected.TabIndex = 4;
             this.btnLaunchSelected.Text = "Launch Selected Mods";
             this.btnLaunchSelected.UseVisualStyleBackColor = false;
@@ -709,7 +714,7 @@
             this.tabStore.Location = new System.Drawing.Point(4, 5);
             this.tabStore.Name = "tabStore";
             this.tabStore.Padding = new System.Windows.Forms.Padding(10);
-            this.tabStore.Size = new System.Drawing.Size(1107, 701);
+            this.tabStore.Size = new System.Drawing.Size(1132, 731);
             this.tabStore.TabIndex = 1;
             this.tabStore.Text = "Mod Store";
             // 
@@ -729,7 +734,7 @@
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.storeLayout.Size = new System.Drawing.Size(1087, 681);
+            this.storeLayout.Size = new System.Drawing.Size(1112, 711);
             this.storeLayout.TabIndex = 2;
             // 
             // lblStoreHeader
@@ -757,7 +762,7 @@
             this.flowStoreFilters.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.flowStoreFilters.Name = "flowStoreFilters";
             this.flowStoreFilters.Padding = new System.Windows.Forms.Padding(0, 3, 0, 3);
-            this.flowStoreFilters.Size = new System.Drawing.Size(1087, 29);
+            this.flowStoreFilters.Size = new System.Drawing.Size(1112, 29);
             this.flowStoreFilters.TabIndex = 4;
             this.flowStoreFilters.WrapContents = false;
             // 
@@ -822,7 +827,7 @@
             this.panelBulkActionsStore.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.panelBulkActionsStore.Name = "panelBulkActionsStore";
             this.panelBulkActionsStore.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
-            this.panelBulkActionsStore.Size = new System.Drawing.Size(1087, 44);
+            this.panelBulkActionsStore.Size = new System.Drawing.Size(1112, 44);
             this.panelBulkActionsStore.TabIndex = 6;
             this.panelBulkActionsStore.Visible = false;
             // 
@@ -846,7 +851,7 @@
             this.btnBulkInstallStore.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnBulkInstallStore.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.btnBulkInstallStore.ForeColor = System.Drawing.Color.White;
-            this.btnBulkInstallStore.Location = new System.Drawing.Point(797, 6);
+            this.btnBulkInstallStore.Location = new System.Drawing.Point(822, 6);
             this.btnBulkInstallStore.Name = "btnBulkInstallStore";
             this.btnBulkInstallStore.Size = new System.Drawing.Size(130, 28);
             this.btnBulkInstallStore.TabIndex = 1;
@@ -863,7 +868,7 @@
             this.btnBulkDeselectAllStore.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnBulkDeselectAllStore.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.btnBulkDeselectAllStore.ForeColor = System.Drawing.Color.White;
-            this.btnBulkDeselectAllStore.Location = new System.Drawing.Point(933, 6);
+            this.btnBulkDeselectAllStore.Location = new System.Drawing.Point(958, 6);
             this.btnBulkDeselectAllStore.Name = "btnBulkDeselectAllStore";
             this.btnBulkDeselectAllStore.Size = new System.Drawing.Size(139, 28);
             this.btnBulkDeselectAllStore.TabIndex = 2;
@@ -880,7 +885,7 @@
             this.panelStoreHost.Location = new System.Drawing.Point(0, 112);
             this.panelStoreHost.Margin = new System.Windows.Forms.Padding(0);
             this.panelStoreHost.Name = "panelStoreHost";
-            this.panelStoreHost.Size = new System.Drawing.Size(1087, 569);
+            this.panelStoreHost.Size = new System.Drawing.Size(1112, 599);
             this.panelStoreHost.TabIndex = 2;
             // 
             // panelEmptyStore
@@ -891,7 +896,7 @@
             this.panelEmptyStore.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelEmptyStore.Location = new System.Drawing.Point(0, 0);
             this.panelEmptyStore.Name = "panelEmptyStore";
-            this.panelEmptyStore.Size = new System.Drawing.Size(1087, 569);
+            this.panelEmptyStore.Size = new System.Drawing.Size(1112, 599);
             this.panelEmptyStore.TabIndex = 5;
             this.panelEmptyStore.Visible = false;
             // 
@@ -900,7 +905,7 @@
             this.lblEmptyStore.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.lblEmptyStore.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblEmptyStore.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(150)))));
-            this.lblEmptyStore.Location = new System.Drawing.Point(-2, 174);
+            this.lblEmptyStore.Location = new System.Drawing.Point(11, 189);
             this.lblEmptyStore.Name = "lblEmptyStore";
             this.lblEmptyStore.Size = new System.Drawing.Size(1090, 30);
             this.lblEmptyStore.TabIndex = 0;
@@ -916,7 +921,7 @@
             this.btnEmptyStoreClearFilters.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnEmptyStoreClearFilters.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnEmptyStoreClearFilters.ForeColor = System.Drawing.Color.White;
-            this.btnEmptyStoreClearFilters.Location = new System.Drawing.Point(443, 224);
+            this.btnEmptyStoreClearFilters.Location = new System.Drawing.Point(456, 239);
             this.btnEmptyStoreClearFilters.Name = "btnEmptyStoreClearFilters";
             this.btnEmptyStoreClearFilters.Size = new System.Drawing.Size(200, 36);
             this.btnEmptyStoreClearFilters.TabIndex = 1;
@@ -933,7 +938,7 @@
             this.btnEmptyStoreBrowseFeatured.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnEmptyStoreBrowseFeatured.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnEmptyStoreBrowseFeatured.ForeColor = System.Drawing.Color.White;
-            this.btnEmptyStoreBrowseFeatured.Location = new System.Drawing.Point(443, 270);
+            this.btnEmptyStoreBrowseFeatured.Location = new System.Drawing.Point(456, 285);
             this.btnEmptyStoreBrowseFeatured.Name = "btnEmptyStoreBrowseFeatured";
             this.btnEmptyStoreBrowseFeatured.Size = new System.Drawing.Size(200, 36);
             this.btnEmptyStoreBrowseFeatured.TabIndex = 2;
@@ -950,7 +955,7 @@
             this.panelStore.Location = new System.Drawing.Point(0, 0);
             this.panelStore.Name = "panelStore";
             this.panelStore.Padding = new System.Windows.Forms.Padding(10);
-            this.panelStore.Size = new System.Drawing.Size(1087, 569);
+            this.panelStore.Size = new System.Drawing.Size(1112, 599);
             this.panelStore.TabIndex = 0;
             // 
             // tabSettings
@@ -959,7 +964,7 @@
             this.tabSettings.Location = new System.Drawing.Point(4, 5);
             this.tabSettings.Name = "tabSettings";
             this.tabSettings.Padding = new System.Windows.Forms.Padding(3);
-            this.tabSettings.Size = new System.Drawing.Size(1107, 701);
+            this.tabSettings.Size = new System.Drawing.Size(1132, 731);
             this.tabSettings.TabIndex = 2;
             this.tabSettings.Text = "Settings";
             // 
@@ -983,7 +988,7 @@
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.settingsLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.settingsLayout.Size = new System.Drawing.Size(1101, 695);
+            this.settingsLayout.Size = new System.Drawing.Size(1126, 725);
             this.settingsLayout.TabIndex = 0;
             // 
             // grpPath
@@ -991,12 +996,13 @@
             this.settingsLayout.SetColumnSpan(this.grpPath, 2);
             this.grpPath.Controls.Add(this.pathLayout);
             this.grpPath.Controls.Add(this.lblAmongUsPath);
+            this.grpPath.Controls.Add(this.panelGameChannel);
             this.grpPath.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpPath.Location = new System.Drawing.Point(13, 13);
             this.grpPath.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpPath.Name = "grpPath";
             this.grpPath.Padding = new System.Windows.Forms.Padding(12);
-            this.grpPath.Size = new System.Drawing.Size(1075, 114);
+            this.grpPath.Size = new System.Drawing.Size(1100, 175);
             this.grpPath.TabIndex = 0;
             this.grpPath.TabStop = false;
             this.grpPath.Text = "Among Us Path";
@@ -1011,12 +1017,12 @@
             this.pathLayout.Controls.Add(this.btnBrowsePath, 1, 0);
             this.pathLayout.Controls.Add(this.btnDetectPath, 2, 0);
             this.pathLayout.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pathLayout.Location = new System.Drawing.Point(12, 43);
+            this.pathLayout.Location = new System.Drawing.Point(12, 128);
             this.pathLayout.Margin = new System.Windows.Forms.Padding(0);
             this.pathLayout.Name = "pathLayout";
             this.pathLayout.RowCount = 1;
             this.pathLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.pathLayout.Size = new System.Drawing.Size(1051, 35);
+            this.pathLayout.Size = new System.Drawing.Size(1076, 35);
             this.pathLayout.TabIndex = 2;
             // 
             // txtAmongUsPath
@@ -1026,14 +1032,14 @@
             this.txtAmongUsPath.Location = new System.Drawing.Point(3, 3);
             this.txtAmongUsPath.Name = "txtAmongUsPath";
             this.txtAmongUsPath.ReadOnly = true;
-            this.txtAmongUsPath.Size = new System.Drawing.Size(805, 23);
+            this.txtAmongUsPath.Size = new System.Drawing.Size(830, 23);
             this.txtAmongUsPath.TabIndex = 0;
             // 
             // btnBrowsePath
             // 
             this.btnBrowsePath.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnBrowsePath.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnBrowsePath.Location = new System.Drawing.Point(814, 3);
+            this.btnBrowsePath.Location = new System.Drawing.Point(839, 3);
             this.btnBrowsePath.Name = "btnBrowsePath";
             this.btnBrowsePath.Size = new System.Drawing.Size(114, 29);
             this.btnBrowsePath.TabIndex = 1;
@@ -1045,7 +1051,7 @@
             // 
             this.btnDetectPath.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnDetectPath.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnDetectPath.Location = new System.Drawing.Point(934, 3);
+            this.btnDetectPath.Location = new System.Drawing.Point(959, 3);
             this.btnDetectPath.Name = "btnDetectPath";
             this.btnDetectPath.Size = new System.Drawing.Size(114, 29);
             this.btnDetectPath.TabIndex = 2;
@@ -1058,11 +1064,59 @@
             this.lblAmongUsPath.AutoSize = true;
             this.lblAmongUsPath.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblAmongUsPath.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblAmongUsPath.Location = new System.Drawing.Point(12, 28);
+            this.lblAmongUsPath.Location = new System.Drawing.Point(12, 113);
             this.lblAmongUsPath.Name = "lblAmongUsPath";
             this.lblAmongUsPath.Size = new System.Drawing.Size(93, 15);
             this.lblAmongUsPath.TabIndex = 1;
             this.lblAmongUsPath.Text = "Among Us Path:";
+            // 
+            // panelGameChannel
+            // 
+            this.panelGameChannel.Controls.Add(this.lblGameChannel);
+            this.panelGameChannel.Controls.Add(this.rbSteam);
+            this.panelGameChannel.Controls.Add(this.rbEpic);
+            this.panelGameChannel.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelGameChannel.Location = new System.Drawing.Point(12, 28);
+            this.panelGameChannel.Name = "panelGameChannel";
+            this.panelGameChannel.Padding = new System.Windows.Forms.Padding(0, 0, 0, 15);
+            this.panelGameChannel.Size = new System.Drawing.Size(1076, 85);
+            this.panelGameChannel.TabIndex = 3;
+            // 
+            // lblGameChannel
+            // 
+            this.lblGameChannel.AutoSize = true;
+            this.lblGameChannel.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblGameChannel.Location = new System.Drawing.Point(0, 5);
+            this.lblGameChannel.Name = "lblGameChannel";
+            this.lblGameChannel.Size = new System.Drawing.Size(88, 15);
+            this.lblGameChannel.TabIndex = 0;
+            this.lblGameChannel.Text = "Game Channel:";
+            // 
+            // rbSteam
+            // 
+            this.rbSteam.AutoSize = true;
+            this.rbSteam.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.rbSteam.Location = new System.Drawing.Point(3, 25);
+            this.rbSteam.Name = "rbSteam";
+            this.rbSteam.Size = new System.Drawing.Size(102, 19);
+            this.rbSteam.TabIndex = 1;
+            this.rbSteam.TabStop = true;
+            this.rbSteam.Text = "Steam / Itch.io";
+            this.rbSteam.UseVisualStyleBackColor = true;
+            this.rbSteam.CheckedChanged += new System.EventHandler(this.rbSteam_CheckedChanged);
+            // 
+            // rbEpic
+            // 
+            this.rbEpic.AutoSize = true;
+            this.rbEpic.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.rbEpic.Location = new System.Drawing.Point(3, 50);
+            this.rbEpic.Name = "rbEpic";
+            this.rbEpic.Size = new System.Drawing.Size(178, 19);
+            this.rbEpic.TabIndex = 2;
+            this.rbEpic.TabStop = true;
+            this.rbEpic.Text = "Epic Games / Microsoft Store";
+            this.rbEpic.UseVisualStyleBackColor = true;
+            this.rbEpic.CheckedChanged += new System.EventHandler(this.rbEpic_CheckedChanged);
             // 
             // grpBepInEx
             // 
@@ -1070,11 +1124,11 @@
             this.grpBepInEx.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.grpBepInEx.Controls.Add(this.flowBepInEx);
             this.grpBepInEx.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpBepInEx.Location = new System.Drawing.Point(13, 140);
+            this.grpBepInEx.Location = new System.Drawing.Point(13, 201);
             this.grpBepInEx.Margin = new System.Windows.Forms.Padding(3, 3, 10, 10);
             this.grpBepInEx.Name = "grpBepInEx";
             this.grpBepInEx.Padding = new System.Windows.Forms.Padding(12);
-            this.grpBepInEx.Size = new System.Drawing.Size(527, 215);
+            this.grpBepInEx.Size = new System.Drawing.Size(540, 215);
             this.grpBepInEx.TabIndex = 1;
             this.grpBepInEx.TabStop = false;
             this.grpBepInEx.Text = "BepInEx";
@@ -1091,7 +1145,7 @@
             this.flowBepInEx.Location = new System.Drawing.Point(12, 28);
             this.flowBepInEx.Name = "flowBepInEx";
             this.flowBepInEx.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowBepInEx.Size = new System.Drawing.Size(503, 175);
+            this.flowBepInEx.Size = new System.Drawing.Size(516, 175);
             this.flowBepInEx.TabIndex = 0;
             this.flowBepInEx.WrapContents = false;
             // 
@@ -1137,11 +1191,11 @@
             this.grpFolders.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.grpFolders.Controls.Add(this.flowFolders);
             this.grpFolders.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpFolders.Location = new System.Drawing.Point(553, 140);
+            this.grpFolders.Location = new System.Drawing.Point(566, 201);
             this.grpFolders.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpFolders.Name = "grpFolders";
             this.grpFolders.Padding = new System.Windows.Forms.Padding(12);
-            this.grpFolders.Size = new System.Drawing.Size(535, 215);
+            this.grpFolders.Size = new System.Drawing.Size(547, 215);
             this.grpFolders.TabIndex = 2;
             this.grpFolders.TabStop = false;
             this.grpFolders.Text = "Quick Actions";
@@ -1159,7 +1213,7 @@
             this.flowFolders.Location = new System.Drawing.Point(12, 28);
             this.flowFolders.Name = "flowFolders";
             this.flowFolders.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowFolders.Size = new System.Drawing.Size(511, 175);
+            this.flowFolders.Size = new System.Drawing.Size(523, 175);
             this.flowFolders.TabIndex = 0;
             this.flowFolders.WrapContents = false;
             // 
@@ -1216,11 +1270,11 @@
             this.settingsLayout.SetColumnSpan(this.grpAppearance, 2);
             this.grpAppearance.Controls.Add(this.appearanceLayout);
             this.grpAppearance.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpAppearance.Location = new System.Drawing.Point(13, 368);
+            this.grpAppearance.Location = new System.Drawing.Point(13, 429);
             this.grpAppearance.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpAppearance.Name = "grpAppearance";
             this.grpAppearance.Padding = new System.Windows.Forms.Padding(12);
-            this.grpAppearance.Size = new System.Drawing.Size(1075, 110);
+            this.grpAppearance.Size = new System.Drawing.Size(1100, 110);
             this.grpAppearance.TabIndex = 5;
             this.grpAppearance.TabStop = false;
             this.grpAppearance.Text = "Appearance";
@@ -1237,7 +1291,7 @@
             this.appearanceLayout.Name = "appearanceLayout";
             this.appearanceLayout.RowCount = 1;
             this.appearanceLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.appearanceLayout.Size = new System.Drawing.Size(1051, 70);
+            this.appearanceLayout.Size = new System.Drawing.Size(1076, 70);
             this.appearanceLayout.TabIndex = 0;
             // 
             // lblTheme
@@ -1269,11 +1323,11 @@
             // 
             this.grpMods.Controls.Add(this.flowMods);
             this.grpMods.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpMods.Location = new System.Drawing.Point(13, 491);
+            this.grpMods.Location = new System.Drawing.Point(13, 552);
             this.grpMods.Margin = new System.Windows.Forms.Padding(3, 3, 10, 10);
             this.grpMods.Name = "grpMods";
             this.grpMods.Padding = new System.Windows.Forms.Padding(12);
-            this.grpMods.Size = new System.Drawing.Size(527, 184);
+            this.grpMods.Size = new System.Drawing.Size(540, 153);
             this.grpMods.TabIndex = 3;
             this.grpMods.TabStop = false;
             this.grpMods.Text = "Mod Management";
@@ -1289,7 +1343,7 @@
             this.flowMods.Location = new System.Drawing.Point(12, 28);
             this.flowMods.Name = "flowMods";
             this.flowMods.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowMods.Size = new System.Drawing.Size(503, 144);
+            this.flowMods.Size = new System.Drawing.Size(516, 113);
             this.flowMods.TabIndex = 0;
             this.flowMods.WrapContents = false;
             // 
@@ -1335,11 +1389,11 @@
             // 
             this.grpData.Controls.Add(this.flowData);
             this.grpData.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpData.Location = new System.Drawing.Point(553, 491);
+            this.grpData.Location = new System.Drawing.Point(566, 552);
             this.grpData.Margin = new System.Windows.Forms.Padding(3, 3, 3, 10);
             this.grpData.Name = "grpData";
             this.grpData.Padding = new System.Windows.Forms.Padding(12);
-            this.grpData.Size = new System.Drawing.Size(535, 184);
+            this.grpData.Size = new System.Drawing.Size(547, 153);
             this.grpData.TabIndex = 4;
             this.grpData.TabStop = false;
             this.grpData.Text = "Save Data";
@@ -1354,7 +1408,7 @@
             this.flowData.Location = new System.Drawing.Point(12, 28);
             this.flowData.Name = "flowData";
             this.flowData.Padding = new System.Windows.Forms.Padding(0, 0, 0, 5);
-            this.flowData.Size = new System.Drawing.Size(511, 144);
+            this.flowData.Size = new System.Drawing.Size(523, 113);
             this.flowData.TabIndex = 0;
             this.flowData.WrapContents = false;
             // 
@@ -1399,7 +1453,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
-            this.ClientSize = new System.Drawing.Size(1335, 764);
+            this.ClientSize = new System.Drawing.Size(1361, 827);
             this.Controls.Add(this.tabControl);
             this.Controls.Add(this.leftSidebar);
             this.Controls.Add(this.headerStrip);
@@ -1446,6 +1500,8 @@
             this.grpPath.PerformLayout();
             this.pathLayout.ResumeLayout(false);
             this.pathLayout.PerformLayout();
+            this.panelGameChannel.ResumeLayout(false);
+            this.panelGameChannel.PerformLayout();
             this.grpBepInEx.ResumeLayout(false);
             this.grpBepInEx.PerformLayout();
             this.flowBepInEx.ResumeLayout(false);
@@ -1503,6 +1559,10 @@
         private System.Windows.Forms.TextBox txtAmongUsPath;
         private System.Windows.Forms.Button btnBrowsePath;
         private System.Windows.Forms.Button btnDetectPath;
+        private System.Windows.Forms.Panel panelGameChannel;
+        private System.Windows.Forms.Label lblGameChannel;
+        private System.Windows.Forms.RadioButton rbSteam;
+        private System.Windows.Forms.RadioButton rbEpic;
         private System.Windows.Forms.GroupBox grpBepInEx;
         private System.Windows.Forms.FlowLayoutPanel flowBepInEx;
         private System.Windows.Forms.Button btnInstallBepInEx;

@@ -249,7 +249,7 @@ namespace BeanModManager
             _modInstaller.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _modImporter.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _bepInExInstaller.ProgressChanged += (s, msg) => UpdateStatus(msg);
-            _steamDepotService = new SteamDepotService();
+            _steamDepotService = new SteamDepotService(_modStore);
             _steamDepotService.ProgressChanged += (s, msg) => UpdateStatus(msg);
             _updateChecker.ProgressChanged += (s, msg) => HandleUpdateCheckerProgress(msg);
             _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
@@ -1832,6 +1832,19 @@ namespace BeanModManager
                 _isApplyingThemeSelection = false;
             }
 
+            if (rbSteam != null && rbEpic != null)
+            {
+                var currentChannel = _config.GameChannel ?? "Steam/Itch.io";
+                if (currentChannel == "Epic/MS Store")
+                {
+                    rbEpic.Checked = true;
+                }
+                else
+                {
+                    rbSteam.Checked = true;
+                }
+            }
+
             UpdateBepInExButtonState();
         }
 
@@ -2205,6 +2218,24 @@ namespace BeanModManager
             if (tabControl != null && tabControl.SelectedIndex != 3)
             {
                 tabControl.SelectedIndex = 3;
+            }
+        }
+
+        private void rbSteam_CheckedChanged(object sender, EventArgs e)
+        {
+            if (rbSteam != null && rbSteam.Checked)
+            {
+                _config.GameChannel = "Steam/Itch.io";
+                _ = _config.SaveAsync();
+            }
+        }
+
+        private void rbEpic_CheckedChanged(object sender, EventArgs e)
+        {
+            if (rbEpic != null && rbEpic.Checked)
+            {
+                _config.GameChannel = "Epic/MS Store";
+                _ = _config.SaveAsync();
             }
         }
 
@@ -2839,6 +2870,24 @@ namespace BeanModManager
             ApplyGroupTheme(grpMods, palette);
             ApplyGroupTheme(grpData, palette);
 
+            if (panelGameChannel != null)
+            {
+                panelGameChannel.BackColor = palette.SurfaceColor;
+                panelGameChannel.ForeColor = palette.PrimaryTextColor;
+            }
+            if (lblGameChannel != null)
+            {
+                lblGameChannel.ForeColor = palette.PrimaryTextColor;
+            }
+            if (rbSteam != null)
+            {
+                rbSteam.ForeColor = palette.PrimaryTextColor;
+            }
+            if (rbEpic != null)
+            {
+                rbEpic.ForeColor = palette.PrimaryTextColor;
+            }
+
             if (flowBepInEx != null)
             {
                 flowBepInEx.BackColor = Color.Transparent;
@@ -3401,7 +3450,6 @@ namespace BeanModManager
                                     versionString = versionString.Substring(0, parenIndex);
                                 }
 
-                                // Try to match by both version and GameVersion if available
                                 ModVersion matchingVersion = null;
                                 if (!string.IsNullOrEmpty(gameVersion))
                                 {
@@ -3410,8 +3458,7 @@ namespace BeanModManager
                                          (!string.IsNullOrEmpty(v.Version) && string.Equals(v.Version, versionString, StringComparison.OrdinalIgnoreCase))) &&
                                         string.Equals(v.GameVersion, gameVersion, StringComparison.OrdinalIgnoreCase));
                                 }
-                                
-                                // Fallback to matching by version only if no GameVersion match found
+
                                 if (matchingVersion == null)
                                 {
                                     matchingVersion = mod.Versions?.FirstOrDefault(v =>
@@ -5291,6 +5338,11 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
 
         private void CopyDirectoryContents(string sourceDir, string destDir, bool overwrite)
         {
+            CopyDirectoryContents(sourceDir, destDir, overwrite, _config.AmongUsPath);
+        }
+
+        private void CopyDirectoryContents(string sourceDir, string destDir, bool overwrite, string amongUsPath)
+        {
             if (!Directory.Exists(sourceDir))
             {
                 return;
@@ -5309,6 +5361,12 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                 {
                     if (File.Exists(destFile))
                     {
+                        if (ShouldSkipFileOverwrite(file, destFile, amongUsPath))
+                        {
+                            UpdateStatus($"Skipped {fileName} (destination is newer or equal)");
+                            continue;
+                        }
+
                         File.SetAttributes(destFile, FileAttributes.Normal);
                         File.Delete(destFile);
                     }
@@ -5323,7 +5381,65 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             {
                 var dirName = Path.GetFileName(dir);
                 var destSubDir = Path.Combine(destDir, dirName);
-                CopyDirectoryContents(dir, destSubDir, overwrite);
+                CopyDirectoryContents(dir, destSubDir, overwrite, amongUsPath);
+            }
+        }
+
+        private bool ShouldSkipFileOverwrite(string sourceFile, string destFile, string amongUsPath)
+        {
+            if (!sourceFile.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            string relativeDestPath = null;
+            if (!string.IsNullOrEmpty(amongUsPath) && destFile.StartsWith(amongUsPath, StringComparison.OrdinalIgnoreCase))
+            {
+                relativeDestPath = destFile.Substring(amongUsPath.Length)
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Replace(Path.DirectorySeparatorChar, '/');
+            }
+
+            bool isBepInExCore = false;
+            if (relativeDestPath != null)
+            {
+                var relativeLower = relativeDestPath.ToLower();
+                isBepInExCore = (relativeLower == "bepinex/core/bepinex.core.dll" ||
+                                relativeLower == "bepinex/core/bepinex.dll");
+            }
+
+            bool isInPlugins = false;
+            if (relativeDestPath != null)
+            {
+                var relativeLower = relativeDestPath.ToLower();
+                isInPlugins = relativeLower.StartsWith("bepinex/plugins/", StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (!isBepInExCore && !isInPlugins)
+                return false;
+
+            try
+            {
+                var sourceVersion = VersionComparisonHelper.GetDllProductVersion(sourceFile);
+                var destVersion = VersionComparisonHelper.GetDllProductVersion(destFile);
+
+                if (string.IsNullOrEmpty(destVersion))
+                    return false;
+
+                if (string.IsNullOrEmpty(sourceVersion))
+                    return true;
+
+                var comparison = VersionComparisonHelper.CompareVersions(destVersion, sourceVersion);
+                if (comparison >= 0)
+                {
+                    UpdateStatus($"Version check: Keeping {Path.GetFileName(destFile)} ({destVersion}) over {Path.GetFileName(sourceFile)} ({sourceVersion})");
+                    return true;
+                }
+                UpdateStatus($"Version check: Overwriting {Path.GetFileName(destFile)} ({destVersion}) with {Path.GetFileName(sourceFile)} ({sourceVersion})");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"Version check error for {Path.GetFileName(sourceFile)}: {ex.Message}");
+                return false;
             }
         }
 
@@ -5332,11 +5448,9 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             if (!EnsureAmongUsPathSet())
                 return;
 
-            // Check if path is in Program Files
             if (!CheckProgramFilesWarning())
                 return;
 
-            // Check if Steam is running (for Steam versions)
             if (!EnsureSteamIsRunning())
                 return;
 
@@ -5361,13 +5475,11 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                 UseShellExecute = true
             };
 
-            // Check if Epic Games and use EpicGamesStarter
             if (AmongUsDetector.IsEpicOrMsStoreVersion(_config))
             {
                 var epicGamesStarterPath = await EnsureEpicGamesStarterAsync();
                 if (epicGamesStarterPath == null)
                 {
-                    // Failed to get EpicGamesStarter
                     if (!string.IsNullOrEmpty(bepInExBackup) && Directory.Exists(bepInExBackup))
                     {
                         try
@@ -5383,7 +5495,6 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     }
                     return;
                 }
-                // Use EpicGamesStarter.exe instead of Among Us.exe
                 startInfo.FileName = epicGamesStarterPath;
                 startInfo.WorkingDirectory = Path.GetDirectoryName(epicGamesStarterPath);
             }
@@ -5433,7 +5544,6 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
         {
             if (!AmongUsDetector.IsEpicOrMsStoreVersion(_config))
             {
-                // Only check for Steam if it's not Epic/MS Store
                 if (!IsSteamRunning())
                 {
                     MessageBox.Show(
@@ -5450,7 +5560,6 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
 
         private bool CheckProgramFilesWarning()
         {
-            // Only warn for Epic Games/MS Store users
             if (!AmongUsDetector.IsEpicOrMsStoreVersion(_config))
                 return true;
 
@@ -5467,7 +5576,7 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     "Program Files Warning",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning);
-                
+
                 return result == DialogResult.Yes;
             }
             return true;
@@ -5479,12 +5588,10 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             {
                 var epicGamesStarterPath = Path.Combine(_config.AmongUsPath, "EpicGamesStarter.exe");
 
-                // Check if EpicGamesStarter.exe exists
                 if (!File.Exists(epicGamesStarterPath))
                 {
-                    // Download and extract it
                     UpdateStatus("Downloading EpicGamesStarter...");
-                    
+
                     var tempZip = Path.Combine(Path.GetTempPath(), "EpicGamesStarter.exe.zip");
                     const string EPIC_GAMES_STARTER_URL = "https://github.com/whichtwix/EpicGamesStarter/releases/download/1.0.3/EpicGamesStarter.exe.zip";
 
@@ -5499,7 +5606,6 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
 
                         UpdateStatus("Extracting EpicGamesStarter...");
 
-                        // Extract the zip file
                         using (var archive = ZipFile.OpenRead(tempZip))
                         {
                             foreach (var entry in archive.Entries)
@@ -5517,7 +5623,6 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                             }
                         }
 
-                        // Clean up temp file
                         if (File.Exists(tempZip))
                         {
                             File.Delete(tempZip);
@@ -5531,7 +5636,6 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     }
                 }
 
-                // Verify it exists now
                 if (!File.Exists(epicGamesStarterPath))
                 {
                     MessageBox.Show("EpicGamesStarter.exe not found and could not be downloaded.", "File Not Found",
@@ -6628,6 +6732,35 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
 
                 UpdateStatus($"Preparing {mods.Count} mod(s)...");
 
+                var currentChannel = _config.GameChannel ?? "Steam/Itch.io";
+                if (currentChannel == "Steam/Itch.io")
+                {
+                    var epicMods = mods.Where(m =>
+                        m.InstalledVersion != null &&
+                        !string.IsNullOrEmpty(m.InstalledVersion.GameVersion) &&
+                        string.Equals(m.InstalledVersion.GameVersion, "Epic/MS Store", StringComparison.OrdinalIgnoreCase)
+                    ).ToList();
+
+                    if (epicMods.Any())
+                    {
+                        var modNames = string.Join(", ", epicMods.Select(m => m.Name ?? m.Id));
+                        var result = MessageBox.Show(
+                            $"You are trying to launch Epic Games/Microsoft Store mod(s) while your game channel is set to Steam/Itch.io.\n\n" +
+                            $"Mod(s): {modNames}\n\n" +
+                            $"These mods may not work correctly with your Steam version of the game.\n\n" +
+                            $"Would you like to continue anyway?",
+                            "Game Channel Mismatch",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Warning);
+
+                        if (result != DialogResult.Yes)
+                        {
+                            UpdateStatus("Launch cancelled due to game channel mismatch.");
+                            return;
+                        }
+                    }
+                }
+
                 if (!ValidateDependencyVersionsBeforeLaunch(mods, out var conflicts))
                 {
                     var resolved = await ResolveVersionConflictsAsync(mods, conflicts);
@@ -6742,13 +6875,11 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     }
                 }
 
-                // Check if path is in Program Files
                 if (!CheckProgramFilesWarning())
                 {
                     return;
                 }
 
-                // Check if Steam is running (for Steam versions)
                 if (!EnsureSteamIsRunning())
                 {
                     return;
@@ -6761,16 +6892,13 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     UseShellExecute = true
                 };
 
-                // Check if Epic Games and use EpicGamesStarter
                 if (AmongUsDetector.IsEpicOrMsStoreVersion(_config))
                 {
                     var epicGamesStarterPath = await EnsureEpicGamesStarterAsync();
                     if (epicGamesStarterPath == null)
                     {
-                        // Failed to get EpicGamesStarter
                         return;
                     }
-                    // Use EpicGamesStarter.exe instead of Among Us.exe
                     startInfo.FileName = epicGamesStarterPath;
                     startInfo.WorkingDirectory = Path.GetDirectoryName(epicGamesStarterPath);
                 }
@@ -6985,6 +7113,12 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     {
                         if (File.Exists(destPath))
                         {
+                            if (ShouldSkipFileOverwrite(dllFile, destPath, _config.AmongUsPath))
+                            {
+                                UpdateStatus($"Skipped {fileName} (destination is newer or equal)");
+                                continue;
+                            }
+
                             File.SetAttributes(destPath, FileAttributes.Normal);
                             File.Delete(destPath);
                         }
@@ -8443,8 +8577,19 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             {
                 detectedPath = PathCompatibilityHelper.NormalizeUserPath(detectedPath);
                 _config.AmongUsPath = detectedPath;
+
+                var isEpic = AmongUsDetector.IsEpicOrMsStoreVersion(detectedPath);
+                _config.GameChannel = isEpic ? "Epic/MS Store" : "Steam/Itch.io";
+
                 _ = _config.SaveAsync();
                 txtAmongUsPath.Text = detectedPath;
+
+                if (rbSteam != null && rbEpic != null)
+                {
+                    rbSteam.Checked = !isEpic;
+                    rbEpic.Checked = isEpic;
+                }
+
                 UpdateLaunchButtonsState();
                 UpdateBepInExButtonState();
                 UpdateHeaderInfo();
@@ -8486,8 +8631,18 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     if (AmongUsDetector.ValidateAmongUsPath(selected))
                     {
                         _config.AmongUsPath = selected;
+
+                        var isEpic = AmongUsDetector.IsEpicOrMsStoreVersion(selected);
+                        _config.GameChannel = isEpic ? "Epic/MS Store" : "Steam/Itch.io";
+
                         _ = _config.SaveAsync();
                         txtAmongUsPath.Text = selected;
+
+                        if (rbSteam != null && rbEpic != null)
+                        {
+                            rbSteam.Checked = !isEpic;
+                            rbEpic.Checked = isEpic;
+                        }
 
                         UpdateLaunchButtonsState();
                         UpdateBepInExButtonState();

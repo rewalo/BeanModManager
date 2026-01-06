@@ -80,6 +80,7 @@
     <Compile Include="Helpers\GitHubCacheHelper.cs" />
     <Compile Include="Helpers\PathCompatibilityHelper.cs" />
     <Compile Include="Helpers\PromptDialog.cs" />
+    <Compile Include="Helpers\VersionComparisonHelper.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
     </Compile>
