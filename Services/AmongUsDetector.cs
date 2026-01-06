@@ -109,11 +109,14 @@ namespace BeanModManager.Services
             if (string.IsNullOrEmpty(path))
                 return false;
 
-            var pathLower = path.ToLower();
-
-            if (pathLower.Contains("epic games") || pathLower.Contains("epicgames"))
+            // Check for Epic Games installation by looking for the EGS folder indicator
+            // This matches Starlight-PC's detection method
+            var epicIndicatorPath = Path.Combine(path, "Among Us_Data", "StreamingAssets", "aa", "EGS");
+            if (Directory.Exists(epicIndicatorPath))
                 return true;
 
+            // Check for MS Store/Xbox installations
+            var pathLower = path.ToLower();
             if (pathLower.Contains("windowsapps") || pathLower.Contains("xboxgames") || pathLower.Contains("xbox games"))
                 return true;
 

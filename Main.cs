@@ -1,4 +1,5 @@
-﻿using BeanModManager.Helpers;
+﻿using BeanModManager.Dialogs;
+using BeanModManager.Helpers;
 using BeanModManager.Models;
 using BeanModManager.Services;
 using BeanModManager.Themes;
@@ -10,6 +11,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -3399,9 +3401,23 @@ namespace BeanModManager
                                     versionString = versionString.Substring(0, parenIndex);
                                 }
 
-                                var matchingVersion = mod.Versions?.FirstOrDefault(v =>
-(!string.IsNullOrEmpty(v.ReleaseTag) && string.Equals(v.ReleaseTag, versionString, StringComparison.OrdinalIgnoreCase)) ||
-(!string.IsNullOrEmpty(v.Version) && string.Equals(v.Version, versionString, StringComparison.OrdinalIgnoreCase)));
+                                // Try to match by both version and GameVersion if available
+                                ModVersion matchingVersion = null;
+                                if (!string.IsNullOrEmpty(gameVersion))
+                                {
+                                    matchingVersion = mod.Versions?.FirstOrDefault(v =>
+                                        ((!string.IsNullOrEmpty(v.ReleaseTag) && string.Equals(v.ReleaseTag, versionString, StringComparison.OrdinalIgnoreCase)) ||
+                                         (!string.IsNullOrEmpty(v.Version) && string.Equals(v.Version, versionString, StringComparison.OrdinalIgnoreCase))) &&
+                                        string.Equals(v.GameVersion, gameVersion, StringComparison.OrdinalIgnoreCase));
+                                }
+                                
+                                // Fallback to matching by version only if no GameVersion match found
+                                if (matchingVersion == null)
+                                {
+                                    matchingVersion = mod.Versions?.FirstOrDefault(v =>
+                                        (!string.IsNullOrEmpty(v.ReleaseTag) && string.Equals(v.ReleaseTag, versionString, StringComparison.OrdinalIgnoreCase)) ||
+                                        (!string.IsNullOrEmpty(v.Version) && string.Equals(v.Version, versionString, StringComparison.OrdinalIgnoreCase)));
+                                }
 
                                 if (matchingVersion != null)
                                 {
@@ -5311,9 +5327,17 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             }
         }
 
-        private void LaunchVanillaAmongUs()
+        private async void LaunchVanillaAmongUs()
         {
             if (!EnsureAmongUsPathSet())
+                return;
+
+            // Check if path is in Program Files
+            if (!CheckProgramFilesWarning())
+                return;
+
+            // Check if Steam is running (for Steam versions)
+            if (!EnsureSteamIsRunning())
                 return;
 
             var exePath = Path.Combine(_config.AmongUsPath, "Among Us.exe");
@@ -5336,6 +5360,34 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                 WorkingDirectory = _config.AmongUsPath,
                 UseShellExecute = true
             };
+
+            // Check if Epic Games and use EpicGamesStarter
+            if (AmongUsDetector.IsEpicOrMsStoreVersion(_config))
+            {
+                var epicGamesStarterPath = await EnsureEpicGamesStarterAsync();
+                if (epicGamesStarterPath == null)
+                {
+                    // Failed to get EpicGamesStarter
+                    if (!string.IsNullOrEmpty(bepInExBackup) && Directory.Exists(bepInExBackup))
+                    {
+                        try
+                        {
+                            var bepInExPath2 = Path.Combine(_config.AmongUsPath, "BepInEx");
+                            if (Directory.Exists(bepInExPath2))
+                            {
+                                Directory.Delete(bepInExPath2, true);
+                            }
+                            Directory.Move(bepInExBackup, bepInExPath2);
+                        }
+                        catch { }
+                    }
+                    return;
+                }
+                // Use EpicGamesStarter.exe instead of Among Us.exe
+                startInfo.FileName = epicGamesStarterPath;
+                startInfo.WorkingDirectory = Path.GetDirectoryName(epicGamesStarterPath);
+            }
+
             var process = Process.Start(startInfo);
 
             if (process != null)
@@ -5364,6 +5416,138 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             UpdateStatus("Launched Vanilla Among Us");
         }
 
+        private bool IsSteamRunning()
+        {
+            try
+            {
+                var processes = Process.GetProcessesByName("steam");
+                return processes != null && processes.Length > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool EnsureSteamIsRunning()
+        {
+            if (!AmongUsDetector.IsEpicOrMsStoreVersion(_config))
+            {
+                // Only check for Steam if it's not Epic/MS Store
+                if (!IsSteamRunning())
+                {
+                    MessageBox.Show(
+                        "Steam is not running. Please start Steam before launching the game.\n\n" +
+                        "Launching the game without Steam will cause login issues.",
+                        "Steam Not Running",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private bool CheckProgramFilesWarning()
+        {
+            // Only warn for Epic Games/MS Store users
+            if (!AmongUsDetector.IsEpicOrMsStoreVersion(_config))
+                return true;
+
+            if (string.IsNullOrEmpty(_config.AmongUsPath))
+                return true;
+
+            var pathLower = _config.AmongUsPath.ToLower();
+            if (pathLower.Contains("program files") || pathLower.Contains("programfiles"))
+            {
+                var result = MessageBox.Show(
+                    "Your Among Us copy is in Program Files. Please move it somewhere else like Desktop.\n\n" +
+                    "Program Files has restricted permissions that can cause issues with mods.\n\n" +
+                    "Would you like to continue anyway?",
+                    "Program Files Warning",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+                
+                return result == DialogResult.Yes;
+            }
+            return true;
+        }
+
+        private async Task<string> EnsureEpicGamesStarterAsync()
+        {
+            try
+            {
+                var epicGamesStarterPath = Path.Combine(_config.AmongUsPath, "EpicGamesStarter.exe");
+
+                // Check if EpicGamesStarter.exe exists
+                if (!File.Exists(epicGamesStarterPath))
+                {
+                    // Download and extract it
+                    UpdateStatus("Downloading EpicGamesStarter...");
+                    
+                    var tempZip = Path.Combine(Path.GetTempPath(), "EpicGamesStarter.exe.zip");
+                    const string EPIC_GAMES_STARTER_URL = "https://github.com/whichtwix/EpicGamesStarter/releases/download/1.0.3/EpicGamesStarter.exe.zip";
+
+                    try
+                    {
+                        var progress = new Progress<int>(percent =>
+                        {
+                            UpdateStatus($"Downloading EpicGamesStarter... {percent}%");
+                        });
+
+                        await HttpDownloadHelper.DownloadFileAsync(EPIC_GAMES_STARTER_URL, tempZip, progress).ConfigureAwait(false);
+
+                        UpdateStatus("Extracting EpicGamesStarter...");
+
+                        // Extract the zip file
+                        using (var archive = ZipFile.OpenRead(tempZip))
+                        {
+                            foreach (var entry in archive.Entries)
+                            {
+                                if (entry.Name == "EpicGamesStarter.exe")
+                                {
+                                    var destinationPath = Path.Combine(_config.AmongUsPath, entry.Name);
+                                    if (File.Exists(destinationPath))
+                                    {
+                                        File.Delete(destinationPath);
+                                    }
+                                    entry.ExtractToFile(destinationPath, true);
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Clean up temp file
+                        if (File.Exists(tempZip))
+                        {
+                            File.Delete(tempZip);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to download EpicGamesStarter: {ex.Message}", "Download Error",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return null;
+                    }
+                }
+
+                // Verify it exists now
+                if (!File.Exists(epicGamesStarterPath))
+                {
+                    MessageBox.Show("EpicGamesStarter.exe not found and could not be downloaded.", "File Not Found",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return null;
+                }
+
+                return epicGamesStarterPath;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to prepare EpicGamesStarter: {ex.Message}", "Epic Games Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return null;
+            }
+        }
 
         private class DependencyRequirement
         {
@@ -6558,12 +6742,39 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     }
                 }
 
+                // Check if path is in Program Files
+                if (!CheckProgramFilesWarning())
+                {
+                    return;
+                }
+
+                // Check if Steam is running (for Steam versions)
+                if (!EnsureSteamIsRunning())
+                {
+                    return;
+                }
+
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = exePath,
                     WorkingDirectory = _config.AmongUsPath,
                     UseShellExecute = true
                 };
+
+                // Check if Epic Games and use EpicGamesStarter
+                if (AmongUsDetector.IsEpicOrMsStoreVersion(_config))
+                {
+                    var epicGamesStarterPath = await EnsureEpicGamesStarterAsync();
+                    if (epicGamesStarterPath == null)
+                    {
+                        // Failed to get EpicGamesStarter
+                        return;
+                    }
+                    // Use EpicGamesStarter.exe instead of Among Us.exe
+                    startInfo.FileName = epicGamesStarterPath;
+                    startInfo.WorkingDirectory = Path.GetDirectoryName(epicGamesStarterPath);
+                }
+
                 var process = Process.Start(startInfo);
 
                 if (process != null)
