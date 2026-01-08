@@ -796,6 +796,24 @@
       "incompatibilities": []
     },
     {
+      "id": "ModExplorer",
+      "name": "Mod Explorer",
+      "author": "xChipseq",
+      "description": "Mod Explorer adds an in-game list of all mods installed, in case you ever forget what you are playing with",
+      "githubOwner": "xChipseq",
+      "githubRepo": "ModExplorer",
+      "category": "Utility",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["ModExplorer.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
       "id": "ExtremeRoles",
       "name": "Extreme Roles",
       "author": "yukieiji",

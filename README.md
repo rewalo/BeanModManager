@@ -116,6 +116,7 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - AUnlocker  
 - Impostor (private server)  
 - Vanilla Enhancements  
+- Mod Explorer  
 - AleLuduMod  
 
 Note: Epic/MS Store versions are detected automatically. Mods requiring Steam depot downloads are handled internally.
