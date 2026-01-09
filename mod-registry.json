@@ -802,7 +802,7 @@
       "description": "Mod Explorer adds an in-game list of all mods installed, in case you ever forget what you are playing with",
       "githubOwner": "xChipseq",
       "githubRepo": "ModExplorer",
-      "category": "Utility",
+      "category": "Mod",
       "assetFilters": {
         "dll": {
           "patterns": ["ModExplorer.dll"],
