@@ -999,17 +999,6 @@
         }
       },
       "requiresDepot": false,
-      "dependencies": [
-        {
-          "modId": "TownOfUs",
-          "name": "Town of Us Mira",
-          "fileName": "TownOfUsMira.dll",
-          "githubOwner": "AU-Avengers",
-          "githubRepo": "TOU-Mira",
-          "requiredVersion": null,
-          "optional": false
-        }
-      ],
       "incompatibilities": []
     }
   ]
