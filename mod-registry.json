@@ -1010,6 +1010,36 @@
           "optional": false
         }
       ],
+      "incompatibilities": [],
+      "featured": true
+    },
+    {
+      "id": "TouMiraLegacy",
+      "name": "TouMiraLegacy",
+      "author": "AU-Avengers",
+      "description": "An Among Us extension mod for TOU Mira that brings back the old Town of Us and pre-2021 Among Us feeling.",
+      "githubOwner": "AU-Avengers",
+      "githubRepo": "TouMiraLegacy",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["TouMiraLegacy.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "TownOfUs",
+          "name": "Town of Us Mira",
+          "fileName": "TownOfUsMira.dll",
+          "githubOwner": "AU-Avengers",
+          "githubRepo": "TOU-Mira",
+          "requiredVersion": null,
+          "optional": false
+        }
+      ],
       "incompatibilities": []
     }
   ]
