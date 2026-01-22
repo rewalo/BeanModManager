@@ -1002,7 +1002,7 @@
           "exclude": []
         },
         "dll": {
-          "patterns": [".dll"],
+          "patterns": ["TouMiraRolesExtension.dll"],
           "exclude": [],
           "exactMatch": true
         }
