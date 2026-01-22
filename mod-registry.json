@@ -993,9 +993,18 @@
       "githubRepo": "TownOfUsMiraRolesExtension",
       "category": "Mod",
       "assetFilters": {
-        "default": {
-          "patterns": ["TownOfUsMiraRolesExtension.zip", ".zip"],
-          "exclude": ["source"]
+        "steam": {
+          "patterns": ["steam-itch"],
+          "exclude": []
+        },
+        "epic": {
+          "patterns": ["epic-msstore"],
+          "exclude": []
+        },
+        "dll": {
+          "patterns": [".dll"],
+          "exclude": [],
+          "exactMatch": true
         }
       },
       "requiresDepot": false,
