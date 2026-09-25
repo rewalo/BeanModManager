@@ -5299,7 +5299,7 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             return true;
         }
 
-        private void CleanPluginsFolder(string pluginsPath)
+        private void CleanPluginsFolder(string pluginsPath, HashSet<string> preserveDirs = null)
         {
             if (!Directory.Exists(pluginsPath))
                 return;
@@ -5328,12 +5328,34 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
 
             foreach (var dir in Directory.GetDirectories(pluginsPath))
             {
+                if (preserveDirs != null && preserveDirs.Contains(Path.GetFileName(dir)))
+                    continue;
+
                 try
                 {
                     Directory.Delete(dir, true);
                 }
                 catch { }
             }
+        }
+
+        private HashSet<string> GetPreservedPluginDirs(List<Mod> mods)
+        {
+            var preserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var mod in mods ?? Enumerable.Empty<Mod>())
+            {
+                if (mod == null)
+                    continue;
+
+                foreach (var keepPath in _modStore.GetKeepFiles(mod.Id) ?? Enumerable.Empty<string>())
+                {
+                    var normalized = keepPath.Replace("plugins/", "").Replace("plugins\\", "").TrimStart('/', '\\');
+                    var topDir = normalized.Split('/', '\\')[0];
+                    if (!string.IsNullOrEmpty(topDir))
+                        preserved.Add(topDir);
+                }
+            }
+            return preserved;
         }
 
         private void CopyDirectoryContents(string sourceDir, string destDir, bool overwrite)
@@ -6819,7 +6841,7 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     }
                 }
 
-                CleanPluginsFolder(pluginsPath);
+                CleanPluginsFolder(pluginsPath, GetPreservedPluginDirs(mods));
 
                 foreach (var mod in mods)
                 {
