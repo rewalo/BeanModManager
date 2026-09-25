@@ -61,11 +61,6 @@
         "epic": {
           "patterns": ["epic-msstore"],
           "exclude": []
-        },
-        "dll": {
-          "patterns": ["MiraAPI.dll"],
-          "exclude": [],
-          "exactMatch": true
         }
       },
       "requiresDepot": false,
@@ -844,7 +839,7 @@
       "author": "D1GQ",
       "description": "A client-sided mod that enhances the experience for the popular game Among Us!",
       "githubOwner": "D1GQ",
-      "githubRepo": "BetterAmongUs-Public",
+      "githubRepo": "BetterAmongUs",
       "category": "Mod",
       "assetFilters": {
         "steam": {

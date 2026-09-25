@@ -5475,24 +5475,34 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                 UseShellExecute = true
             };
 
-            if (AmongUsDetector.IsEpicOrMsStoreVersion(_config))
+            if (AmongUsDetector.IsMsStoreVersion(_config))
+            {
+                var restoreDoorstop = MsStoreLauncher.DisableDoorstopFiles(_config.AmongUsPath);
+                Action restoreVanillaFiles = () =>
+                {
+                    try { restoreDoorstop?.Invoke(); } catch { }
+                    RestoreBepInExBackup(bepInExBackup);
+                };
+
+                if (!await TryLaunchMsStoreGameAsync())
+                {
+                    restoreVanillaFiles();
+                    return;
+                }
+
+                // UWP launches aren't trackable processes, so restore the
+                // mod loader files on a delay instead of on process exit.
+                _ = Task.Delay(TimeSpan.FromSeconds(15)).ContinueWith(_ => restoreVanillaFiles());
+                UpdateStatus("Launched Vanilla Among Us");
+                return;
+            }
+
+            if (AmongUsDetector.IsEpicVersion(_config))
             {
                 var epicGamesStarterPath = await EnsureEpicGamesStarterAsync();
                 if (epicGamesStarterPath == null)
                 {
-                    if (!string.IsNullOrEmpty(bepInExBackup) && Directory.Exists(bepInExBackup))
-                    {
-                        try
-                        {
-                            var bepInExPath2 = Path.Combine(_config.AmongUsPath, "BepInEx");
-                            if (Directory.Exists(bepInExPath2))
-                            {
-                                Directory.Delete(bepInExPath2, true);
-                            }
-                            Directory.Move(bepInExBackup, bepInExPath2);
-                        }
-                        catch { }
-                    }
+                    RestoreBepInExBackup(bepInExBackup);
                     return;
                 }
                 startInfo.FileName = epicGamesStarterPath;
@@ -5504,27 +5514,65 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             if (process != null)
             {
                 process.EnableRaisingEvents = true;
-                process.Exited += (s, e) =>
-                {
-                    try
-                    {
-                        if (!string.IsNullOrEmpty(bepInExBackup) && Directory.Exists(bepInExBackup))
-                        {
-                            var bepInExPath2 = Path.Combine(_config.AmongUsPath, "BepInEx");
-                            if (Directory.Exists(bepInExPath2))
-                            {
-                                Directory.Delete(bepInExPath2, true);
-                            }
-                            Directory.Move(bepInExBackup, bepInExPath2);
-                        }
-                    }
-                    catch
-                    {
-                    }
-                };
+                process.Exited += (s, e) => RestoreBepInExBackup(bepInExBackup);
             }
 
             UpdateStatus("Launched Vanilla Among Us");
+        }
+
+        private void RestoreBepInExBackup(string bepInExBackup)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(bepInExBackup) || !Directory.Exists(bepInExBackup))
+                    return;
+
+                var bepInExPath = Path.Combine(_config.AmongUsPath, "BepInEx");
+                if (Directory.Exists(bepInExPath))
+                {
+                    Directory.Delete(bepInExPath, true);
+                }
+                Directory.Move(bepInExBackup, bepInExPath);
+            }
+            catch
+            {
+            }
+        }
+
+        private async Task<bool> TryLaunchMsStoreGameAsync()
+        {
+            var appId = _config.MsStoreAppId;
+            if (string.IsNullOrEmpty(appId))
+            {
+                UpdateStatus("Resolving Microsoft Store app id...");
+                appId = await MsStoreLauncher.ResolveAppIdAsync();
+            }
+
+            if (!string.IsNullOrEmpty(appId) && MsStoreLauncher.Launch(appId))
+            {
+                if (_config.MsStoreAppId != appId)
+                {
+                    _config.MsStoreAppId = appId;
+                    _config.Save();
+                }
+                return true;
+            }
+
+            // Cached id may be stale (reinstall changed the PFN); retry once fresh.
+            _config.MsStoreAppId = null;
+            appId = await MsStoreLauncher.ResolveAppIdAsync();
+            if (!string.IsNullOrEmpty(appId) && MsStoreLauncher.Launch(appId))
+            {
+                _config.MsStoreAppId = appId;
+                _config.Save();
+                return true;
+            }
+
+            MessageBox.Show(
+                "Could not launch the Microsoft Store version of Among Us.\n\n" +
+                "Make sure the game is installed from the Microsoft Store / Xbox app.",
+                "Launch Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return false;
         }
 
         private bool IsSteamRunning()
@@ -5542,7 +5590,7 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
 
         private bool EnsureSteamIsRunning()
         {
-            if (!AmongUsDetector.IsEpicOrMsStoreVersion(_config))
+            if (AmongUsDetector.IsSteamVersion(_config))
             {
                 if (!IsSteamRunning())
                 {
@@ -6885,6 +6933,19 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     return;
                 }
 
+                if (AmongUsDetector.IsMsStoreVersion(_config))
+                {
+                    // UWP launch via AppsFolder; the Doorstop files already
+                    // in the game dir load the prepared plugins.
+                    if (!await TryLaunchMsStoreGameAsync())
+                        return;
+
+                    UpdateStatus(mods.Count == 1
+                        ? $"Launched {mods[0].Name}"
+                        : $"Launched {mods.Count} mods");
+                    return;
+                }
+
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = exePath,
@@ -6892,7 +6953,7 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     UseShellExecute = true
                 };
 
-                if (AmongUsDetector.IsEpicOrMsStoreVersion(_config))
+                if (AmongUsDetector.IsEpicVersion(_config))
                 {
                     var epicGamesStarterPath = await EnsureEpicGamesStarterAsync();
                     if (epicGamesStarterPath == null)

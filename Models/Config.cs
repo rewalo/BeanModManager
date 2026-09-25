@@ -23,6 +23,7 @@ namespace BeanModManager.Models
         public bool WizardSelectedChannel { get; set; }
         public bool WizardInstalledBepInEx { get; set; }
         public string GameChannel { get; set; }
+        public string MsStoreAppId { get; set; }
 
         private static string ConfigPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

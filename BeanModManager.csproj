@@ -119,6 +119,7 @@
     <Compile Include="Services\ModStore.cs" />
     <Compile Include="Services\ModDetector.cs" />
     <Compile Include="Services\BepInExInstaller.cs" />
+    <Compile Include="Services\MsStoreLauncher.cs" />
     <Compile Include="Helpers\JsonHelper.cs" />
     <Compile Include="Controls\ThemedFlowLayoutPanel.cs">
       <SubType>Component</SubType>

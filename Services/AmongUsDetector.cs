@@ -106,16 +106,34 @@ namespace BeanModManager.Services
 
         public static bool IsEpicOrMsStoreVersion(string path)
         {
+            return IsEpicVersion(path) || IsMsStoreVersion(path);
+        }
+
+        public static bool IsEpicVersion(string path)
+        {
             if (string.IsNullOrEmpty(path))
                 return false;
 
-            // Check for Epic Games installation by looking for the EGS folder indicator
-            // This matches Starlight-PC's detection method
             var epicIndicatorPath = Path.Combine(path, "Among Us_Data", "StreamingAssets", "aa", "EGS");
             if (Directory.Exists(epicIndicatorPath))
                 return true;
 
-            // Check for MS Store/Xbox installations
+            var pathLower = path.ToLower();
+            if ((pathLower.Contains("epic") || pathLower.Contains("epicgames")) && !IsMsStoreVersion(path))
+                return true;
+
+            return false;
+        }
+
+        public static bool IsMsStoreVersion(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            var msStoreIndicatorPath = Path.Combine(path, "Among Us_Data", "StreamingAssets", "aa", "Win10");
+            if (Directory.Exists(msStoreIndicatorPath))
+                return true;
+
             var pathLower = path.ToLower();
             if (pathLower.Contains("windowsapps") || pathLower.Contains("xboxgames") || pathLower.Contains("xbox games"))
                 return true;
@@ -126,17 +144,43 @@ namespace BeanModManager.Services
             return false;
         }
 
-        public static bool IsEpicOrMsStoreVersion(Models.Config config)
+        public static bool IsSteamVersion(string path)
         {
-            if (!string.IsNullOrEmpty(config?.GameChannel))
-            {
-                return config.GameChannel == "Epic/MS Store";
-            }
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            return path.ToLower().Contains("steamapps");
+        }
+
+        public static bool IsSteamVersion(Models.Config config)
+        {
+            if (IsEpicOrMsStoreVersion(config))
+                return false;
 
             if (!string.IsNullOrEmpty(config?.AmongUsPath))
-            {
-                return IsEpicOrMsStoreVersion(config.AmongUsPath);
-            }
+                return IsSteamVersion(config.AmongUsPath);
+
+            // No path to check: non-Epic/MS channels default to Steam.
+            return true;
+        }
+
+        public static bool IsEpicOrMsStoreVersion(Models.Config config)
+        {
+            return IsEpicVersion(config) || IsMsStoreVersion(config);
+        }
+
+        public static bool IsEpicVersion(Models.Config config)
+        {
+            if (!string.IsNullOrEmpty(config?.AmongUsPath) && IsEpicVersion(config.AmongUsPath))
+                return true;
+
+            return config?.GameChannel == "Epic/MS Store" && !IsMsStoreVersion(config);
+        }
+
+        public static bool IsMsStoreVersion(Models.Config config)
+        {
+            if (!string.IsNullOrEmpty(config?.AmongUsPath))
+                return IsMsStoreVersion(config.AmongUsPath);
 
             return false;
         }
