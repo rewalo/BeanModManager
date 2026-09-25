@@ -55,12 +55,17 @@
       "category": "Mod",
       "assetFilters": {
         "steam": {
-          "patterns": ["steam-itch"],
+          "patterns": [ "steam-itch" ],
           "exclude": []
         },
         "epic": {
-          "patterns": ["epic-msstore"],
+          "patterns": [ "epic-msstore" ],
           "exclude": []
+        },
+        "dll": {
+          "patterns": [ "TownOfUsMira.dll" ],
+          "exclude": [],
+          "exactMatch": true
         }
       },
       "requiresDepot": false,
@@ -1031,6 +1036,148 @@
           "githubRepo": "TOU-Mira",
           "requiredVersion": null,
           "optional": false
+        }
+      ],
+      "incompatibilities": []
+    },
+    {
+      "id": "TechTechsSoundMod",
+      "name": "TechTech's Sound Mod",
+      "author": "TechTechcy",
+      "description": "A client-side mod for Among Us that can change in-game audio to custom .wav files",
+      "githubOwner": "techtechcy",
+      "githubRepo": "TechTechsSoundMod",
+      "category": "Fun",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["TechTechsSoundMod.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": null,
+          "optional": false
+        },
+        {
+          "modId": "MiraAPI",
+          "name": "MiraAPI",
+          "fileName": "MiraAPI.dll",
+          "githubOwner": "All-Of-Us-Mods",
+          "githubRepo": "MiraAPI",
+          "requiredVersion": null,
+          "optional": false
+        }
+      ],
+      "keepFiles": ["TechTechsSounds"],
+      "incompatibilities": []
+    },
+    {
+      "id": "DivaniMods",
+      "name": "Divani Mods",
+      "author": "DivaniNL",
+      "description": "An Among Us mod that adds new roles and modifiers on top of Town Of Us: Mira",
+      "githubOwner": "DivaniNL",
+      "githubRepo": "TownOfUsMiraDivaniModsAddOn",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["DivaniMods.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "TownOfUs",
+          "name": "Town of Us Mira",
+          "fileName": "TownOfUsMira.dll",
+          "githubOwner": "AU-Avengers",
+          "githubRepo": "TOU-Mira",
+          "requiredVersion": null,
+          "optional": false
+        },
+        {
+          "modId": "MiraAPI",
+          "name": "MiraAPI",
+          "fileName": "MiraAPI.dll",
+          "githubOwner": "All-Of-Us-Mods",
+          "githubRepo": "MiraAPI",
+          "requiredVersion": null,
+          "optional": false
+        },
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": null,
+          "optional": false
+        }
+      ],
+      "incompatibilities": []
+    },
+    {
+      "id": "PerfectComms",
+      "name": "Perfect Comms",
+      "author": "artriy",
+      "description": "Immersive proximity voice chat built directly inside Among Us",
+      "githubOwner": "artriy",
+      "githubRepo": "Perfect-Comms",
+      "category": "Utility",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["PerfectComms.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": ["BetterCrewLink"]
+    },
+    {
+      "id": "MiraNotePad",
+      "name": "NotePad Mod",
+      "author": "Maxi0fc",
+      "description": "An in-game notepad for MiraAPI and its mods, with role/modifier name coloring and integration with Town Of Us: Mira",
+      "githubOwner": "Maxi0fc",
+      "githubRepo": "Mira-NotePad",
+      "category": "Utility",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["NotePadMod.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "MiraAPI",
+          "name": "MiraAPI",
+          "fileName": "MiraAPI.dll",
+          "githubOwner": "All-Of-Us-Mods",
+          "githubRepo": "MiraAPI",
+          "requiredVersion": null,
+          "optional": false
+        },
+        {
+          "modId": "TownOfUs",
+          "name": "Town of Us Mira",
+          "fileName": "TownOfUsMira.dll",
+          "githubOwner": "AU-Avengers",
+          "githubRepo": "TOU-Mira",
+          "requiredVersion": null,
+          "optional": true
         }
       ],
       "incompatibilities": []

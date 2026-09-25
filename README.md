@@ -92,6 +92,7 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - Syzyfowy Town Of Us  
 - SuperNewRoles!!!!  
 - Nebula On The Ship  
+- Divani Mods  
 
 ### Host Mods
 - Town of Host Optimized (TOHO)  
@@ -105,6 +106,7 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - Cursed Among Us  
 - Poké Lobby  
 - Emojis In The Chat  
+- TechTech's Sound Mod  
 
 ### Map Mods
 - Unlock dleks ehT  
@@ -118,6 +120,8 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - Vanilla Enhancements  
 - Mod Explorer  
 - AleLuduMod  
+- Perfect Comms  
+- NotePad Mod  
 
 Note: Epic/MS Store versions are detected automatically. Mods requiring Steam depot downloads are handled internally.
 
