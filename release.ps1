@@ -19,7 +19,8 @@ if ($dirty) {
     exit 1
 }
 
-if (git rev-parse $tag 2>$null) {
+$existingTag = git tag --list $tag
+if ($existingTag) {
     Write-Error "Tag $tag already exists."
     exit 1
 }
