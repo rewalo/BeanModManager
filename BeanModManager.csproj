@@ -71,10 +71,6 @@
     <Reference Include="System.Web.Extensions" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Dialogs\EpicLoginDialog.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Helpers\CredentialHelper.cs" />
     <Compile Include="Helpers\DarkModeHelper.cs" />
     <Compile Include="Helpers\FileSystemHelper.cs" />
     <Compile Include="Helpers\GitHubCacheHelper.cs" />
@@ -110,7 +106,6 @@
     <Compile Include="Models\ModRegistry.cs" />
     <Compile Include="Themes\ThemeManager.cs" />
     <Compile Include="Services\AmongUsDetector.cs" />
-    <Compile Include="Services\EpicApiService.cs" />
     <Compile Include="Services\UpdateChecker.cs" />
     <Compile Include="Services\HttpDownloadHelper.cs" />
     <Compile Include="Services\ModDownloader.cs" />
@@ -193,6 +188,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="mod.ico" />
+    <Content Include="mod-registry.json" Condition="'$(Configuration)' == 'Debug'">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.8.1">

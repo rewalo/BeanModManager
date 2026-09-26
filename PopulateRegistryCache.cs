@@ -82,10 +82,18 @@ namespace BeanModManager
                 }
             }
 
+            var backupPath = cachePath + ".backup";
+            if (File.Exists(cachePath))
+            {
+                File.Copy(cachePath, backupPath, true);
+                Console.WriteLine($"✓ Backup created: {backupPath}\n");
+            }
+
             Console.WriteLine($"Found {registry.mods.Count} mods in registry.\n");
             Console.WriteLine("Starting to fetch release data...\n");
-            Console.WriteLine("(This may take a few minutes depending on rate limits)\n");
+            Console.WriteLine("(Progress is saved after each mod — re-run to resume after a rate limit)\n");
 
+            bool rateLimited = false;
             foreach (var mod in registry.mods)
             {
                 if (string.IsNullOrEmpty(mod.githubOwner) || string.IsNullOrEmpty(mod.githubRepo))
@@ -95,7 +103,14 @@ namespace BeanModManager
                     continue;
                 }
 
-                await UpdateModCache(mod, cache);
+                rateLimited = await UpdateModCache(mod, cache);
+                SaveCache(cachePath, cache);
+
+                if (rateLimited)
+                {
+                    Console.WriteLine("\n⚠ Rate limit hit. Progress saved — re-run later to continue where it left off.");
+                    break;
+                }
 
                 await Task.Delay(1000);
             }
@@ -107,22 +122,33 @@ namespace BeanModManager
             Console.WriteLine($"⏭  Skipped: {_skippedCount}");
             Console.WriteLine($"Total processed: {_successCount + _notModifiedCount + _failCount + _skippedCount}");
 
-            var cacheJson = JsonHelper.Serialize(cache);
-            var backupPath = cachePath + ".backup";
-
-            if (File.Exists(cachePath))
-            {
-                File.Copy(cachePath, backupPath, true);
-                Console.WriteLine($"\n✓ Backup created: {backupPath}");
-            }
-
-            File.WriteAllText(cachePath, cacheJson);
+            SaveCache(cachePath, cache);
             Console.WriteLine($"✓ Cache saved to: {Path.GetFullPath(cachePath)}");
-            Console.WriteLine($"✓ Cache contains {cache.mods.Count} mod entries");
-            Console.WriteLine("\nDone! You can now commit the updated mod-cache.json");
+
+            if (rateLimited)
+            {
+                Console.WriteLine($"⚠ Cache contains {cache.mods.Count}/{registry.mods.Count} mod entries (rate limited — re-run to finish)");
+            }
+            else
+            {
+                Console.WriteLine($"✓ Cache contains {cache.mods.Count}/{registry.mods.Count} mod entries");
+                Console.WriteLine("\nDone! You can now commit the updated mod-cache.json");
+            }
         }
 
-        static async Task UpdateModCache(ModRegistryEntry mod, ModCache cache)
+        static void SaveCache(string cachePath, ModCache cache)
+        {
+            try
+            {
+                File.WriteAllText(cachePath, JsonHelper.Serialize(cache));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠ Failed to write cache file: {ex.Message}");
+            }
+        }
+
+        static async Task<bool> UpdateModCache(ModRegistryEntry mod, ModCache cache)
         {
             try
             {
@@ -146,14 +172,15 @@ namespace BeanModManager
                         {
                             Console.WriteLine($"✓ Not modified (using existing cache)");
                             _notModifiedCount++;
-                            return;
+                            return false;
                         }
 
-                        if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                        if (response.StatusCode == System.Net.HttpStatusCode.Forbidden ||
+                            (int)response.StatusCode == 429)
                         {
                             Console.WriteLine($"✗ Rate limited! Please wait and try again later.");
                             _failCount++;
-                            return;
+                            return true;
                         }
 
                         response.EnsureSuccessStatusCode();
@@ -181,6 +208,7 @@ namespace BeanModManager
                             Console.WriteLine($"✗ No release data found");
                             _failCount++;
                         }
+                        return false;
                     }
                 }
             }
@@ -188,11 +216,13 @@ namespace BeanModManager
             {
                 Console.WriteLine($"✗ Rate limited! Please wait and try again later.");
                 _failCount++;
+                return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"✗ Error: {ex.Message}");
                 _failCount++;
+                return false;
             }
         }
 

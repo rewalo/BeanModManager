@@ -188,8 +188,25 @@ namespace BeanModManager.Wizard
                 if (!string.IsNullOrEmpty(SelectedPath) && AmongUsDetector.ValidateAmongUsPath(SelectedPath))
                 {
                     this.DialogResult = System.Windows.Forms.DialogResult.OK;
+                    return;
                 }
+#if DEBUG
+                var skip = MessageBox.Show(
+                    "No valid Among Us path set.\n\nDEBUG build: continue anyway without a game path?",
+                    "Skip Path Detection (Debug)",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+                if (skip == DialogResult.Yes)
+                {
+                    SelectedPath = null;
+                    IsEpicOrMsStore = false;
+                    this.DialogResult = System.Windows.Forms.DialogResult.OK;
+                }
+#endif
             };
+#if DEBUG
+            btnNext.Enabled = true;
+#endif
 
             var btnBack = new Button
             {

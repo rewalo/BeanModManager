@@ -53,6 +53,15 @@ namespace BeanModManager.Wizard
 
                                     if (string.IsNullOrEmpty(amongUsPath) || !AmongUsDetector.ValidateAmongUsPath(amongUsPath))
                                     {
+#if DEBUG
+                                        // The dialog only returns OK with an empty path when the
+                                        // user confirmed the debug skip, so just advance.
+                                        if (string.IsNullOrEmpty(amongUsPath))
+                                        {
+                                            stepIndex++;
+                                            break;
+                                        }
+#endif
                                         MessageBox.Show("Invalid Among Us path. Please try again.", "Error",
                                             MessageBoxButtons.OK, MessageBoxIcon.Error);
                                         continue;

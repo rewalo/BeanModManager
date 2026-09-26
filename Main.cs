@@ -1,5 +1,4 @@
-﻿using BeanModManager.Dialogs;
-using BeanModManager.Helpers;
+﻿using BeanModManager.Helpers;
 using BeanModManager.Models;
 using BeanModManager.Services;
 using BeanModManager.Themes;
@@ -279,7 +278,112 @@ namespace BeanModManager
                     RefreshModCards();
                 }
             };
+
+#if DEBUG
+            AddDebugMenu();
+#endif
         }
+
+#if DEBUG
+        private void AddDebugMenu()
+        {
+            var populateItem = new ToolStripMenuItem("Populate Mod Registry Cache");
+            populateItem.Click += async (s, e) => await PopulateRegistryCacheAsync(populateItem);
+
+            var loadModsItem = new ToolStripMenuItem("Load Mod Store");
+            loadModsItem.Click += async (s, e) =>
+            {
+                loadModsItem.Enabled = false;
+                try
+                {
+                    await LoadMods();
+                }
+                finally
+                {
+                    loadModsItem.Enabled = true;
+                }
+            };
+
+            var debugMenu = new ToolStripMenuItem("Debug");
+            debugMenu.DropDownItems.Add(loadModsItem);
+            debugMenu.DropDownItems.Add(populateItem);
+
+            var menu = new MenuStrip { Dock = DockStyle.Top };
+            menu.Items.Add(debugMenu);
+            this.MainMenuStrip = menu;
+            this.Controls.Add(menu);
+        }
+
+        private async Task PopulateRegistryCacheAsync(ToolStripItem item)
+        {
+            var registryPath = FindFileInAncestors("mod-registry.json");
+            if (registryPath == null)
+            {
+                MessageBox.Show(
+                    "mod-registry.json was not found in the output directory or any parent folder.",
+                    "Populate Cache", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var cachePath = Path.Combine(Path.GetDirectoryName(registryPath), "mod-cache.json");
+
+            item.Enabled = false;
+            var previousOut = Console.Out;
+            Console.SetOut(new StatusConsoleWriter(this));
+            try
+            {
+                UpdateStatus("Populating mod registry cache...");
+                await Task.Run(() => PopulateRegistryCache.Main(new[] { registryPath, cachePath }));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Cache population failed: {ex.Message}", "Populate Cache",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Console.SetOut(previousOut);
+                item.Enabled = true;
+            }
+        }
+
+        private static string FindFileInAncestors(string fileName)
+        {
+            // Prefer a copy sitting next to a .csproj (the real source folder)
+            // over build outputs like bin\Debug.
+            var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+            string firstMatch = null;
+            while (dir != null)
+            {
+                var candidate = Path.Combine(dir.FullName, fileName);
+                if (File.Exists(candidate))
+                {
+                    if (dir.GetFiles("*.csproj").Any())
+                        return candidate;
+                    if (firstMatch == null)
+                        firstMatch = candidate;
+                }
+                dir = dir.Parent;
+            }
+            return firstMatch;
+        }
+
+        private sealed class StatusConsoleWriter : System.IO.TextWriter
+        {
+            private readonly Main _form;
+
+            public StatusConsoleWriter(Main form) { _form = form; }
+            public override System.Text.Encoding Encoding => System.Text.Encoding.UTF8;
+
+            public override void Write(string value)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                    _form.UpdateStatus(value.TrimEnd());
+            }
+
+            public override void WriteLine(string value) => Write(value);
+        }
+#endif
 
         private void EnsureModpacksInitialized()
         {
@@ -1916,8 +2020,10 @@ namespace BeanModManager
                             }
                             LoadSettings();
                             _ = CheckForAppUpdatesAsync();
+#if !DEBUG
                             await Task.Delay(500);
                             await LoadMods();
+#endif
                         }
                         else
                         {
@@ -1943,7 +2049,11 @@ namespace BeanModManager
                 tabControl.SelectedIndex = 0;
             }
 
+#if !DEBUG
             _ = LoadMods();
+#else
+            UpdateStatus("Ready (debug: use the Debug menu to load the mod store)");
+#endif
         }
 
         private void InitializeThemeSystem()
