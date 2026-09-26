@@ -31,7 +31,16 @@ namespace Setup
                     })
             );
 
-            project.SourceBaseDir = System.IO.Path.GetFullPath(@"..\bin\Release");
+            // ARCH (x86|x64|arm64) picks the MSI platform; SOURCE_DIR picks the
+            // folder the files are harvested from. Both default to the legacy
+            // single-arch build so local usage is unchanged.
+            var arch = (Environment.GetEnvironmentVariable("ARCH") ?? "x64").Trim().ToLowerInvariant();
+            var sourceDir = Environment.GetEnvironmentVariable("SOURCE_DIR") ?? @"..\bin\Release";
+
+            project.Platform = arch == "x86" ? Platform.x86
+                : arch == "arm64" ? Platform.arm64
+                : Platform.x64;
+            project.SourceBaseDir = System.IO.Path.GetFullPath(sourceDir);
 
 
             project.GUID = new Guid("5939155f-c7e1-43ee-aad9-9bc67a35d9c5");
@@ -49,7 +58,8 @@ namespace Setup
             }
             
             project.Version = version;
-            Console.WriteLine($"Building MSI with version: {version}");
+            project.OutFileName = $"Bean Mod Manager-{arch}";
+            Console.WriteLine($"Building MSI with version: {version} ({arch})");
 
                         project.ControlPanelInfo.ProductIcon = @"..\mod.ico";
             project.ControlPanelInfo.Manufacturer = "rewalo";

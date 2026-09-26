@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.6.2)"
+        required: true
 
 # Required for creating GitHub Releases with the built-in GITHUB_TOKEN
 permissions:
@@ -15,7 +20,7 @@ jobs:
 
     env:
       SOLUTION: BeanModManager.sln
-      MSI_PATH: Setup/Bean Mod Manager.msi
+      ARCHES: "x86 x64 arm64"
 
     steps:
     - name: Checkout
@@ -24,13 +29,18 @@ jobs:
         fetch-depth: 0
 
     # --------------------------------------------
-    # Extract version from tag (v1.5.7 → 1.5.7)
+    # Resolve version (tag push or manual input)
     # --------------------------------------------
-    - name: Get version from tag
+    - name: Get version
       id: version
       shell: pwsh
       run: |
-        $version = "${{ github.ref_name }}".TrimStart("v")
+        if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          $version = "${{ inputs.version }}".TrimStart("v")
+        } else {
+          $version = "${{ github.ref_name }}".TrimStart("v")
+        }
+        if (-not $version) { Write-Error "No version resolved"; exit 1 }
         Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$version"
         Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version"
         Write-Host "Version: $version"
@@ -44,13 +54,14 @@ jobs:
         dotnet-version: '6.0.x'
 
     # --------------------------------------------
-    # Install WiX v4 CLI (required by WixSharp to build MSI)
+    # Install WiX CLI (required by WixSharp to build MSI)
     # --------------------------------------------
     - name: Install WiX tool
       shell: pwsh
       run: |
         dotnet tool install --global wix
         Add-Content -Path $env:GITHUB_PATH -Value "$env:USERPROFILE\.dotnet\tools"
+        wix eula accept wix7
         wix --version
 
     # --------------------------------------------
@@ -60,72 +71,61 @@ jobs:
       uses: microsoft/setup-msbuild@v2
 
     # --------------------------------------------
-    # Restore & Build (inject version)
+    # Restore once for the whole solution
     # --------------------------------------------
-    - name: Verify .NET SDK version
-      run: dotnet --version
-      
     - name: Restore
       shell: pwsh
       run: |
         msbuild -version
         msbuild $env:SOLUTION /t:Restore /p:RestoreLockedMode=false
 
-    - name: Build main project
+    # --------------------------------------------
+    # Build app + MSI for each architecture
+    # --------------------------------------------
+    - name: Build all architectures
       shell: pwsh
       run: |
         $version = "${{ steps.version.outputs.version }}"
-        msbuild BeanModManager.csproj `
-          /t:Build `
-          /p:Configuration=Release `
-          /p:Platform=AnyCPU `
-          /p:Version=$version `
-          /p:AssemblyVersion=$version `
-          /p:FileVersion=$version
+        foreach ($arch in $env:ARCHES.Split(" ")) {
+          Write-Host "=== Building $arch ==="
+          $outDir = "bin\Release-$arch"
+
+          msbuild BeanModManager.csproj `
+            /t:Build `
+            /p:Configuration=Release `
+            /p:Platform=AnyCPU `
+            /p:PlatformTarget=$arch `
+            /p:OutputPath="$outDir\" `
+            /p:Version=$version `
+            /p:AssemblyVersion=$version `
+            /p:FileVersion=$version
+          if ($LASTEXITCODE -ne 0) { Write-Error "App build failed for $arch"; exit 1 }
+
+          New-Item -ItemType Directory -Force -Path "publish/portable-$arch" | Out-Null
+          Copy-Item -Path "$outDir\BeanModManager.exe" -Destination "publish/portable-$arch\BeanModManager.exe"
+
+          $env:ARCH = $arch
+          $env:SOURCE_DIR = "..\$outDir"
+          $env:VERSION = $version
+          msbuild Setup\Setup.csproj `
+            /t:Build `
+            /p:Configuration=Release `
+            /p:Platform=AnyCPU `
+            /p:Version=$version
+          if ($LASTEXITCODE -ne 0) { Write-Error "MSI build failed for $arch"; exit 1 }
+        }
 
     # --------------------------------------------
-    # Build portable EXE (Costura.Fody embeds dependencies)
+    # Verify all MSIs exist
     # --------------------------------------------
-    - name: Build portable EXE
+    - name: Verify MSIs
       shell: pwsh
       run: |
-        $version = "${{ steps.version.outputs.version }}"
-        $env:VERSION = $version
-        # Build with Costura.Fody which embeds dependencies into the EXE
-        msbuild BeanModManager.csproj `
-          /t:Build `
-          /p:Configuration=Release `
-          /p:Platform=AnyCPU `
-          /p:Version=$version `
-          /p:AssemblyVersion=$version `
-          /p:FileVersion=$version
-        
-        # Create portable directory and copy the built EXE
-        New-Item -ItemType Directory -Force -Path "publish/portable" | Out-Null
-        Copy-Item -Path "bin\Release\BeanModManager.exe" -Destination "publish/portable\BeanModManager.exe"
-
-    # --------------------------------------------
-    # Build Setup project with version
-    # --------------------------------------------
-    - name: Build Setup project
-      shell: pwsh
-      run: |
-        $version = "${{ steps.version.outputs.version }}"
-        $env:VERSION = $version
-        msbuild Setup\Setup.csproj `
-          /t:Build `
-          /p:Configuration=Release `
-          /p:Platform=AnyCPU `
-          /p:Version=$version
-
-    # --------------------------------------------
-    # Verify MSI exists
-    # --------------------------------------------
-    - name: Verify MSI
-      shell: pwsh
-      run: |
-        if (!(Test-Path "$env:MSI_PATH")) {
-          Write-Error "MSI not found at $env:MSI_PATH"
+        foreach ($arch in $env:ARCHES.Split(" ")) {
+          $msi = "Setup/Bean Mod Manager-$arch.msi"
+          if (!(Test-Path $msi)) {
+            Write-Error "MSI not found at $msi"
+          }
         }
 
     # --------------------------------------------
@@ -154,7 +154,6 @@ jobs:
         $sdkRoot = "${env:ProgramFiles(x86)}\Microsoft SDKs"
         if (Test-Path $sdkRoot) { $candidates += Get-ChildItem -Path $sdkRoot -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue }
 
-        # Prefer x64 signtool if present (better default for signing 64-bit binaries)
         $signtool = $candidates |
           Sort-Object @{ Expression = { $_.FullName -match "\\x64\\signtool\.exe$" }; Descending = $true }, `
                      @{ Expression = { $_.FullName }; Descending = $true } |
@@ -166,7 +165,6 @@ jobs:
         }
 
         Write-Host "Found signtool: $($signtool.FullName)"
-        # PATH updates via GITHUB_PATH only apply to subsequent steps, so also store full path for direct invocation.
         Add-Content -Path $env:GITHUB_PATH -Value $signtool.Directory.FullName
         Add-Content -Path $env:GITHUB_ENV -Value "SIGNTOOL=$($signtool.FullName)"
         & $signtool.FullName /?
@@ -187,53 +185,31 @@ jobs:
     # --------------------------------------------
     - name: Prepare release files
       shell: pwsh
-      id: prepare-files
       run: |
         $version = "${{ steps.version.outputs.version }}"
-        
-        # Rename and copy MSI
-        $msiSource = "$env:MSI_PATH"
-        $msiDest = "BeanModManager-$version-Installer.msi"
-        Copy-Item -Path $msiSource -Destination $msiDest
-        Add-Content -Path $env:GITHUB_OUTPUT -Value "msi-file=$msiDest"
-        
-        # Rename and copy portable EXE
-        $exeSource = "publish/portable/BeanModManager.exe"
-        $exeDest = "BeanModManager-$version-Portable.exe"
-        Copy-Item -Path $exeSource -Destination $exeDest
-        Add-Content -Path $env:GITHUB_OUTPUT -Value "exe-file=$exeDest"
-        
-        Write-Host "Prepared files: $msiDest, $exeDest"
+        foreach ($arch in $env:ARCHES.Split(" ")) {
+          Copy-Item -Path "Setup/Bean Mod Manager-$arch.msi" -Destination "BeanModManager-$version-$arch-Installer.msi"
+          Copy-Item -Path "publish/portable-$arch/BeanModManager.exe" -Destination "BeanModManager-$version-$arch-Portable.exe"
+        }
+        Get-ChildItem "BeanModManager-*" | Select-Object Name
 
     # --------------------------------------------
-    # Sign EXE(s)
+    # Sign all release files
     # --------------------------------------------
-    - name: Sign portable EXE
+    - name: Sign release files
       shell: pwsh
       run: |
-        $exeFile = "${{ steps.prepare-files.outputs.exe-file }}"
-        & $env:SIGNTOOL sign `
-          /f codesign.pfx `
-          /p "${{ secrets.CODESIGN_PASSWORD }}" `
-          /fd sha256 `
-          /tr http://timestamp.digicert.com `
-          /td sha256 `
-          "$exeFile"
-
-    # --------------------------------------------
-    # Sign MSI (CRITICAL for SmartScreen)
-    # --------------------------------------------
-    - name: Sign MSI
-      shell: pwsh
-      run: |
-        $msiFile = "${{ steps.prepare-files.outputs.msi-file }}"
-        & $env:SIGNTOOL sign `
-          /f codesign.pfx `
-          /p "${{ secrets.CODESIGN_PASSWORD }}" `
-          /fd sha256 `
-          /tr http://timestamp.digicert.com `
-          /td sha256 `
-          "$msiFile"
+        Get-ChildItem "BeanModManager-*" -Include *.msi,*.exe | ForEach-Object {
+          Write-Host "Signing $($_.Name)"
+          & $env:SIGNTOOL sign `
+            /f codesign.pfx `
+            /p "${{ secrets.CODESIGN_PASSWORD }}" `
+            /fd sha256 `
+            /tr http://timestamp.digicert.com `
+            /td sha256 `
+            $_.FullName
+          if ($LASTEXITCODE -ne 0) { Write-Error "Signing failed for $($_.Name)"; exit 1 }
+        }
 
     # --------------------------------------------
     # Get previous tag for changelog
@@ -242,10 +218,10 @@ jobs:
       shell: pwsh
       id: prev-tag
       run: |
-        $currentTag = "${{ github.ref_name }}"
+        $currentTag = "v${{ steps.version.outputs.version }}"
         $prevTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null
         if ($LASTEXITCODE -ne 0) {
-          $prevTag = ""
+          $prevTag = git tag --sort=-creatordate | Where-Object { $_ -ne $currentTag } | Select-Object -First 1
         }
         Add-Content -Path $env:GITHUB_OUTPUT -Value "prev-tag=$prevTag"
         Write-Host "Previous tag: $prevTag"
@@ -255,18 +231,15 @@ jobs:
     # --------------------------------------------
     - name: Generate release notes
       shell: pwsh
-      id: release-notes
       run: |
         $version = "${{ steps.version.outputs.version }}"
         $prevTag = "${{ steps.prev-tag.outputs.prev-tag }}"
-        
+
         # Check if there's a release notes file for this version
         $notesFile = "RELEASE_NOTES_$version.md"
-        $hasCustomNotes = $false
         if (Test-Path $notesFile) {
           Write-Host "Using existing release notes file: $notesFile"
           $notes = Get-Content $notesFile -Raw
-          $hasCustomNotes = $true
         } else {
           # Generate from git commits
           Write-Host "Generating release notes from git commits"
@@ -277,7 +250,7 @@ jobs:
             $commits = git log --pretty=format:"%s" -n 50 | Where-Object { $_ -notmatch "^Merge|^chore|^docs" }
             $changelogUrl = "https://github.com/${{ github.repository }}/releases/tag/v$version"
           }
-          
+
           # Categorize commits
           $added = @()
           $fixed = @()
@@ -287,11 +260,10 @@ jobs:
             } elseif ($commit -match "^(fix|bug|patch)", "IgnoreCase") {
               $fixed += "- $commit"
             } else {
-              # Default to Fixed if no clear category
               $fixed += "- $commit"
             }
           }
-          
+
           # Build notes
           $notes = "## Release $version`n`n"
           if ($added.Count -gt 0) {
@@ -305,8 +277,7 @@ jobs:
           $notes += "**Full Changelog**: $changelogUrl`n`n"
           $notes += "Happy modding! ❤️`n"
         }
-        
-        # Save to file for release action
+
         $notes | Out-File -FilePath release-notes.md -Encoding utf8
         Write-Host "Release notes generated"
 
@@ -327,8 +298,8 @@ jobs:
         tag_name: v${{ steps.version.outputs.version }}
         body_path: release-notes.md
         files: |
-          ${{ steps.prepare-files.outputs.msi-file }}
-          ${{ steps.prepare-files.outputs.exe-file }}
+          BeanModManager-*-Installer.msi
+          BeanModManager-*-Portable.exe
         draft: false
         prerelease: false
       env:
