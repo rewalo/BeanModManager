@@ -31,13 +31,13 @@ if (Test-Path $assemblyInfo) {
     Write-Host "Updated $assemblyInfo -> $version.0"
 }
 else {
-    Write-Warning "$assemblyInfo not found — skipping. The CI build stamps the version via msbuild anyway."
+    Write-Warning "$assemblyInfo not found - skipping. The CI build stamps the version via msbuild anyway."
 }
 
 # Bump the MSI fallback version
 $setupProj = "Setup\Setup.csproj"
-(Get-Content $setupProj) -replace "<Version Condition=""'\$\(Version\)' == ''"">[\d.]+</Version>",
-    "<Version Condition=""'`$(Version)' == ''"">$version</Version>" | Set-Content $setupProj
+(Get-Content $setupProj) -replace '(<Version Condition[^>]*>)[\d.]+(</Version>)', "`${1}$version`${2}" |
+    Set-Content $setupProj
 Write-Host "Updated $setupProj -> $version"
 
 git add $setupProj
