@@ -53,7 +53,9 @@ if (Test-Path $notesFile) {
     $filesToAdd += $notesFile
 }
 
-git add $filesToAdd
+# Use --force for AssemblyInfo.cs because Properties/ may still be
+# gitignored in older clones. The file is tracked, so forcing it is safe.
+git add -f $filesToAdd
 $commitArgs = @("commit", "-m", "Bump version to $version")
 if (Test-Path $notesFile) {
     $commitArgs += @("-m", "See $notesFile for release notes.")
