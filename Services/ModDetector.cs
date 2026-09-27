@@ -140,7 +140,10 @@ namespace BeanModManager.Services
             }
 
             var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
-            if (Directory.Exists(pluginsPath))
+            if (!Directory.Exists(pluginsPath))
+                return installedMods;
+
+            try
             {
                 if (!installedMods.Any(m => m.ModId == "TOHE"))
                 {
@@ -241,6 +244,11 @@ namespace BeanModManager.Services
                         });
                     }
                 }
+            }
+            catch
+            {
+                // A broken profile junction or inaccessible plugins folder
+                // should not prevent detection of mods staged in Mods/.
             }
 
             return installedMods;

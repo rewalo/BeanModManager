@@ -74,6 +74,7 @@
     <Compile Include="Helpers\DarkModeHelper.cs" />
     <Compile Include="Helpers\FileSystemHelper.cs" />
     <Compile Include="Helpers\GitHubCacheHelper.cs" />
+    <Compile Include="Helpers\JunctionHelper.cs" />
     <Compile Include="Helpers\PathCompatibilityHelper.cs" />
     <Compile Include="Helpers\PromptDialog.cs" />
     <Compile Include="Helpers\VersionComparisonHelper.cs" />
@@ -104,6 +105,7 @@
     <Compile Include="Models\ModCache.cs" />
     <Compile Include="Models\ModPack.cs" />
     <Compile Include="Models\ModRegistry.cs" />
+    <Compile Include="Services\ModPackProfileService.cs" />
     <Compile Include="Themes\ThemeManager.cs" />
     <Compile Include="Services\AmongUsDetector.cs" />
     <Compile Include="Services\UpdateChecker.cs" />

@@ -272,7 +272,17 @@ namespace BeanModManager.Services
                 }
 
                 var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
-                if (!Directory.Exists(pluginsPath))
+                bool pluginsAccessible = false;
+                try
+                {
+                    pluginsAccessible = Directory.Exists(pluginsPath);
+                }
+                catch
+                {
+                    pluginsAccessible = false;
+                }
+
+                if (!pluginsAccessible)
                 {
                     if (Directory.Exists(modStoragePath))
                     {

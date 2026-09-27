@@ -27,6 +27,7 @@ namespace BeanModManager
         private ModImporter _modImporter;
         private BepInExInstaller _bepInExInstaller;
         private SteamDepotService _steamDepotService;
+        private ModPackProfileService _modPackProfileService;
         private UpdateChecker _updateChecker;
         private List<Mod> _availableMods;
         private Dictionary<string, ModCard> _modCards;
@@ -69,6 +70,8 @@ namespace BeanModManager
         private ContextMenuStrip _ctxInPackList;
         private ContextMenuStrip _ctxInstalledList;
         private Button _btnModpackNew;
+        private Button _btnModpackImport;
+        private ToolTip _modpackToolTip;
         private ListView _lvModpackMods;
         private bool _isApplyingModpackSelection;
         private ListView _lvInstalledMods;
@@ -91,6 +94,38 @@ namespace BeanModManager
 
             RefreshModpacksList();
             RefreshModpackDetails();
+        }
+
+        private static List<string> GetPackModIds(ModPack pack)
+        {
+            if (pack == null) return new List<string>();
+            if (pack.Mods != null && pack.Mods.Any())
+            {
+                return pack.Mods
+                    .Select(m => m.ModId)
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .ToList();
+            }
+            return (pack.ModIds ?? new List<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .ToList();
+        }
+
+        private void AddModToPack(ModPack pack, string modId)
+        {
+            if (pack == null || string.IsNullOrWhiteSpace(modId)) return;
+            if (pack.Mods == null) pack.Mods = new List<ProfileModEntry>();
+            if (!pack.Mods.Any(m => string.Equals(m.ModId, modId, StringComparison.OrdinalIgnoreCase)))
+            {
+                pack.Mods.Add(new ProfileModEntry { ModId = modId });
+            }
+        }
+
+        private void RemoveModsFromPack(ModPack pack, IEnumerable<string> modIds)
+        {
+            if (pack?.Mods == null) return;
+            var toRemove = new HashSet<string>(modIds.Where(id => !string.IsNullOrWhiteSpace(id)), StringComparer.OrdinalIgnoreCase);
+            pack.Mods.RemoveAll(m => toRemove.Contains(m.ModId));
         }
 
         private sealed class ThemedToolStripRenderer : ToolStripProfessionalRenderer
@@ -201,6 +236,7 @@ namespace BeanModManager
             InitializeUiPerformanceTweaks();
             _config = Config.Load();
             EnsureModpacksInitialized();
+            InitializeProfileService();
 
             if (!_config.FirstLaunchWizardCompleted)
             {
@@ -394,6 +430,74 @@ namespace BeanModManager
                 _config.Modpacks = new List<ModPack>();
         }
 
+        private void InitializeProfileService()
+        {
+            if (_config == null)
+                return;
+
+            _modPackProfileService = new ModPackProfileService(_config);
+
+            if (!_config.ModpackProfilesMigrated)
+            {
+                foreach (var pack in _config.Modpacks.ToList())
+                {
+                    _modPackProfileService.MigrateLegacyModPack(pack);
+                }
+
+                _config.ModpackProfilesMigrated = true;
+                _ = _config.SaveAsync();
+            }
+
+            foreach (var pack in _config.Modpacks)
+            {
+                _modPackProfileService.EnsureProfileFolderExists(pack.Id);
+            }
+
+            // Ensure a default profile exists so the Installed tab has a launch target.
+            _modPackProfileService.EnsureDefaultProfile();
+        }
+
+        private void CleanupGamePluginsJunction()
+        {
+            if (string.IsNullOrEmpty(_config?.AmongUsPath))
+                return;
+
+            var gamePluginsPath = Path.Combine(_config.AmongUsPath, "BepInEx", "plugins");
+            if (!JunctionHelper.IsJunctionOrSymlink(gamePluginsPath))
+                return;
+
+            // If Among Us is running, leave the link in place so the game
+            // can keep resolving files through it.
+            if (IsAmongUsRunning())
+                return;
+
+            try
+            {
+                JunctionHelper.RemoveLink(gamePluginsPath);
+                if (!Directory.Exists(gamePluginsPath))
+                {
+                    Directory.CreateDirectory(gamePluginsPath);
+                }
+                UpdateStatus("Cleaned up leftover modpack profile link");
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"Warning: Could not clean up profile link: {ex.Message}");
+            }
+        }
+
+        private bool IsAmongUsRunning()
+        {
+            try
+            {
+                return Process.GetProcessesByName("Among Us").Any();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private void InitializeModpacksUi()
         {
             if (tabControl == null || sidebarButtons == null)
@@ -492,6 +596,36 @@ namespace BeanModManager
                 return btn;
             }
 
+            void ConfigureIconButton(Button button, string accessibleName, bool drawImport)
+            {
+                button.Text = "";
+                button.Size = new Size(32, 32);
+                button.Padding = new Padding(0);
+                button.Anchor = AnchorStyles.Top;
+                button.AccessibleName = accessibleName;
+                button.Paint += (s, e) =>
+                {
+                    e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    using (var pen = new Pen(button.ForeColor, 2F))
+                    {
+                        pen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
+                        pen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
+                        if (drawImport)
+                        {
+                            e.Graphics.DrawLine(pen, 16, 7, 16, 20);
+                            e.Graphics.DrawLine(pen, 11, 15, 16, 20);
+                            e.Graphics.DrawLine(pen, 21, 15, 16, 20);
+                            e.Graphics.DrawLine(pen, 9, 24, 23, 24);
+                        }
+                        else
+                        {
+                            e.Graphics.DrawLine(pen, 16, 8, 16, 24);
+                            e.Graphics.DrawLine(pen, 8, 16, 24, 16);
+                        }
+                    }
+                };
+            }
+
             var root = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -534,33 +668,47 @@ namespace BeanModManager
             var headerBar = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 56,
-                Padding = new Padding(12),
+                Height = 48,
+                Padding = new Padding(8),
                 BackColor = palette.SurfaceAltColor,
                 Margin = new Padding(0, 0, 0, 8)
             };
 
             var headerRow = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
-                AutoSize = true,
-                ColumnCount = 2,
-                RowCount = 1
+                Dock = DockStyle.Top,
+                Height = 32,
+                ColumnCount = 3,
+                RowCount = 1,
+                Margin = new Padding(0)
             };
             headerRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            headerRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             headerRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             var headerLabel = new Label
             {
                 AutoSize = true,
+                Anchor = AnchorStyles.Left,
                 Text = "Modpacks",
                 Font = new Font("Segoe UI Semibold", 12F, FontStyle.Bold),
                 ForeColor = palette.HeadingTextColor,
-                Margin = new Padding(0, 6, 0, 0)
+                Margin = new Padding(0)
             };
-            _btnModpackNew = MakeActionButton("New modpack", primary: true);
+            _btnModpackImport = MakeActionButton("");
+            ConfigureIconButton(_btnModpackImport, "Import modpack", drawImport: true);
+            _btnModpackImport.Margin = new Padding(0, 0, 8, 0);
+            _btnModpackImport.Click += async (s, e) => await ImportModpack();
+            _btnModpackNew = MakeActionButton("", primary: true);
+            ConfigureIconButton(_btnModpackNew, "New modpack", drawImport: false);
+            _btnModpackNew.Margin = new Padding(0);
             _btnModpackNew.Click += (s, e) => CreateNewModpack(empty: true);
+            if (_modpackToolTip == null)
+                _modpackToolTip = new ToolTip();
+            _modpackToolTip.SetToolTip(_btnModpackImport, "Import modpack");
+            _modpackToolTip.SetToolTip(_btnModpackNew, "New modpack");
             headerRow.Controls.Add(headerLabel, 0, 0);
-            headerRow.Controls.Add(_btnModpackNew, 1, 0);
+            headerRow.Controls.Add(_btnModpackImport, 1, 0);
+            headerRow.Controls.Add(_btnModpackNew, 2, 0);
             headerBar.Controls.Add(headerRow);
 
             _lvModpacks = new ListView
@@ -623,9 +771,8 @@ namespace BeanModManager
             var titleBar = new Panel
             {
                 Dock = DockStyle.Top,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Padding = new Padding(12, 12, 12, 10),
+                Height = 48,
+                Padding = new Padding(8),
                 BackColor = palette.SurfaceAltColor,
                 Margin = new Padding(0, 0, 0, 8)
             };
@@ -634,10 +781,12 @@ namespace BeanModManager
             {
                 Dock = DockStyle.Fill,
                 AutoSize = true,
-                ColumnCount = 2,
-                RowCount = 1
+                ColumnCount = 3,
+                RowCount = 1,
+                Margin = new Padding(0)
             };
             titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             titleRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             _lblModpackTitle = new Label
             {
@@ -645,35 +794,28 @@ namespace BeanModManager
                 Font = new Font("Segoe UI Semibold", 12F, FontStyle.Bold),
                 ForeColor = palette.HeadingTextColor,
                 Text = "Select a modpack",
-                Margin = new Padding(0, 4, 0, 0)
+                Anchor = AnchorStyles.Left,
+                Margin = new Padding(0)
             };
             _btnModpackPlay = MakeActionButton("Play", success: true);
+            _btnModpackPlay.Height = 32;
+            _btnModpackPlay.Margin = new Padding(0);
             _btnModpackPlay.Click += (s, e) => PlaySelectedModpack();
-            titleRow.Controls.Add(_lblModpackTitle, 0, 0);
-            titleRow.Controls.Add(_btnModpackPlay, 1, 0);
 
             _lblModpackModCount = new Label
             {
                 AutoSize = true,
+                Anchor = AnchorStyles.Left,
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = palette.SecondaryTextColor,
                 Text = "",
-                Margin = new Padding(0, 2, 0, 0)
+                Margin = new Padding(0, 0, 12, 0)
             };
 
-            var titleBarLayout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                AutoSize = true,
-                ColumnCount = 1,
-                RowCount = 2
-            };
-            titleBarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            titleBarLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            titleBarLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            titleBarLayout.Controls.Add(titleRow, 0, 0);
-            titleBarLayout.Controls.Add(_lblModpackModCount, 0, 1);
-            titleBar.Controls.Add(titleBarLayout);
+            titleRow.Controls.Add(_lblModpackTitle, 0, 0);
+            titleRow.Controls.Add(_lblModpackModCount, 1, 0);
+            titleRow.Controls.Add(_btnModpackPlay, 2, 0);
+            titleBar.Controls.Add(titleRow);
 
             _lvModpackMods = new ListView
             {
@@ -1078,7 +1220,7 @@ namespace BeanModManager
                 _lvModpacks.Items.Clear();
                 foreach (var p in packs)
                 {
-                    var count = p.ModIds?.Distinct(StringComparer.OrdinalIgnoreCase).Count() ?? 0;
+                    var count = GetPackModIds(p).Distinct(StringComparer.OrdinalIgnoreCase).Count();
                     var item = new ListViewItem(p.Name ?? "Unnamed");
                     item.Tag = p.Id;
                     item.ImageIndex = 0;
@@ -1135,7 +1277,7 @@ namespace BeanModManager
                 }
                 else
                 {
-                    var count = pack.ModIds?.Distinct(StringComparer.OrdinalIgnoreCase).Count() ?? 0;
+                    var count = GetPackModIds(pack).Distinct(StringComparer.OrdinalIgnoreCase).Count();
                     _lblModpackModCount.Text = $"{count} mod{(count != 1 ? "s" : "")}";
                 }
             }
@@ -1155,8 +1297,7 @@ namespace BeanModManager
                 _lvModpackMods.Items.Clear();
                 if (pack != null)
                 {
-                    var ids = (pack.ModIds ?? new List<string>())
-    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    var ids = GetPackModIds(pack)
     .Distinct(StringComparer.OrdinalIgnoreCase)
     .Select(id => id.Trim())
     .ToList();
@@ -1206,12 +1347,15 @@ namespace BeanModManager
         {
             var name = GetNextModpackName("New Modpack");
 
-            var pack = new ModPack
+            ModPack pack;
+            if (_modPackProfileService != null)
             {
-                Name = name
-            };
-
-            pack.ModIds = new List<string>();
+                pack = _modPackProfileService.CreateProfile(name, _config.GameChannel);
+            }
+            else
+            {
+                pack = new ModPack { Name = name };
+            }
 
             _config.Modpacks.Add(pack);
             _config.Save();
@@ -1253,7 +1397,7 @@ namespace BeanModManager
             if (string.IsNullOrWhiteSpace(name))
                 return;
 
-            pack.Name = name.Trim();
+            _modPackProfileService?.RenameProfile(pack.Id, name.Trim());
             pack.UpdatedUtcTicks = DateTime.UtcNow.Ticks;
             _config.Save();
             RefreshModpacksList();
@@ -1278,10 +1422,138 @@ namespace BeanModManager
                 return;
 
             _config.Modpacks.RemoveAll(p => string.Equals(p.Id, pack.Id, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrEmpty(_config.AmongUsPath))
+            {
+                var gamePluginsPath = Path.Combine(_config.AmongUsPath, "BepInEx", "plugins");
+                if (JunctionHelper.IsJunctionOrSymlink(gamePluginsPath))
+                {
+                    try
+                    {
+                        JunctionHelper.RemoveLink(gamePluginsPath);
+                        Directory.CreateDirectory(gamePluginsPath);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+
+            _modPackProfileService?.DeleteProfile(pack.Id);
             _config.Save();
             RefreshModpacksList();
             RefreshModpackDetails();
             UpdateStatus($"Deleted modpack: {pack.Name}");
+        }
+
+        private void DuplicateSelectedModpack()
+        {
+            var pack = GetSelectedModpack();
+            if (pack == null || _modPackProfileService == null)
+                return;
+
+            var newName = PromptDialog.Show("Duplicate Modpack", "New modpack name:", initialValue: $"Copy of {pack.Name}");
+            if (string.IsNullOrWhiteSpace(newName))
+                return;
+
+            var newPack = _modPackProfileService.DuplicateProfile(pack.Id, newName.Trim());
+            if (newPack == null)
+                return;
+
+            _config.Save();
+            RefreshModpacksList();
+            SelectModpackById(newPack.Id);
+            RefreshModpackDetails();
+            UpdateStatus($"Duplicated modpack as {newPack.Name}");
+        }
+
+        private void ExportSelectedModpack()
+        {
+            var pack = GetSelectedModpack();
+            if (pack == null || _modPackProfileService == null)
+                return;
+
+            using (var dialog = new SaveFileDialog
+            {
+                Filter = "Bean modpack (*.beanpack)|*.beanpack|JSON files (*.json)|*.json",
+                FileName = $"{pack.Name}.beanpack",
+                Title = "Export Modpack"
+            })
+            {
+                if (dialog.ShowDialog() != DialogResult.OK)
+                    return;
+
+                try
+                {
+                    UpdateStatus($"Exporting {pack.Name}...");
+                    Application.DoEvents();
+                    foreach (var entry in pack.Mods ?? new List<ProfileModEntry>())
+                    {
+                        var installedVersion = FindModById(entry.ModId)?.InstalledVersion;
+                        entry.Version = installedVersion?.ReleaseTag ?? installedVersion?.Version ?? entry.Version;
+                    }
+                    _modPackProfileService.ExportProfile(pack.Id, dialog.FileName);
+                    UpdateStatus($"Exported {pack.Name} to {dialog.FileName}");
+                    MessageBox.Show($"Modpack manifest exported to:\n{dialog.FileName}", "Export Complete",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to export modpack: {ex.Message}", "Export Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private async Task ImportModpack()
+        {
+            if (_modPackProfileService == null)
+                return;
+
+            using (var dialog = new OpenFileDialog
+            {
+                Filter = "Bean modpack (*.beanpack)|*.beanpack",
+                Title = "Import Modpack"
+            })
+            {
+                if (dialog.ShowDialog() != DialogResult.OK)
+                    return;
+
+                try
+                {
+                    UpdateStatus("Importing modpack manifest...");
+                    var newPack = _modPackProfileService.ImportProfile(dialog.FileName);
+                    _config.Save();
+                    RefreshModpacksList();
+                    SelectModpackById(newPack.Id);
+                    RefreshModpackDetails();
+
+                    var entries = newPack.Mods?.Where(m => !string.IsNullOrWhiteSpace(m.ModId)).ToList()
+                        ?? new List<ProfileModEntry>();
+                    for (var i = 0; i < entries.Count; i++)
+                    {
+                        var entry = entries[i];
+                        var mod = FindModById(entry.ModId);
+                        if (mod == null || mod.IsInstalled)
+                            continue;
+
+                        var version = GetPreferredInstallVersion(mod, entry.Version);
+                        if (version == null)
+                            continue;
+
+                        UpdateStatus($"Importing {newPack.Name}: downloading {mod.Name} ({i + 1}/{entries.Count})...");
+                        await InstallMod(mod, version);
+                    }
+
+                    RefreshModpackDetails();
+                    UpdateStatus($"Imported modpack: {newPack.Name}");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to import modpack: {ex.Message}", "Import Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
         }
 
         private void RefreshInstalledModsForModpack()
@@ -1296,7 +1568,7 @@ namespace BeanModManager
                 return;
             }
 
-            var existing = new HashSet<string>((pack.ModIds ?? new List<string>())
+            var existing = new HashSet<string>(GetPackModIds(pack)
                 .Where(x => !string.IsNullOrWhiteSpace(x)), StringComparer.OrdinalIgnoreCase);
 
             var installed = _availableMods
@@ -1342,10 +1614,10 @@ namespace BeanModManager
             if (!selectedIds.Any())
                 return;
 
-            if (pack.ModIds == null)
-                pack.ModIds = new List<string>();
+            if (pack.Mods == null)
+                pack.Mods = new List<ProfileModEntry>();
 
-            var packIds = new HashSet<string>(pack.ModIds.Where(x => !string.IsNullOrWhiteSpace(x)), StringComparer.OrdinalIgnoreCase);
+            var packIds = new HashSet<string>(GetPackModIds(pack), StringComparer.OrdinalIgnoreCase);
             var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var skippedMissingDeps = new List<string>();
             var skippedConflicts = new List<string>();
@@ -1377,7 +1649,7 @@ namespace BeanModManager
                     }
                 }
 
-                pack.ModIds.Add(id);
+                AddModToPack(pack, id);
                 packIds.Add(id);
                 added.Add(id);
 
@@ -1402,7 +1674,15 @@ namespace BeanModManager
             }
 
             pack.UpdatedUtcTicks = DateTime.UtcNow.Ticks;
+            _modPackProfileService?.WriteProfileJson(pack);
             _config.Save();
+
+            var addedMods = added
+                .Select(id => FindModById(id))
+                .Where(m => m != null)
+                .ToList();
+            SyncProfilePlugins(pack, addedMods);
+
             RefreshModpackDetails();
             RefreshInstalledModsForModpack();
             RefreshModpacksList();
@@ -1473,9 +1753,13 @@ namespace BeanModManager
             miPlay.Click += (s, e) => PlaySelectedModpack();
             var miRename = new ToolStripMenuItem("Rename modpack");
             miRename.Click += (s, e) => RenameSelectedModpack();
+            var miDuplicate = new ToolStripMenuItem("Duplicate modpack");
+            miDuplicate.Click += (s, e) => DuplicateSelectedModpack();
+            var miExport = new ToolStripMenuItem("Export modpack");
+            miExport.Click += (s, e) => ExportSelectedModpack();
             var miDelete = new ToolStripMenuItem("Delete modpack");
             miDelete.Click += (s, e) => DeleteSelectedModpack();
-            _ctxModpackList.Items.AddRange(new ToolStripItem[] { miPlay, new ToolStripSeparator(), miRename, miDelete });
+            _ctxModpackList.Items.AddRange(new ToolStripItem[] { miPlay, new ToolStripSeparator(), miRename, miDuplicate, miExport, new ToolStripSeparator(), miDelete });
 
             _ctxInPackList = new ContextMenuStrip();
             var miRemove = new ToolStripMenuItem("Remove from modpack");
@@ -1510,6 +1794,8 @@ namespace BeanModManager
                 var hasPack = GetSelectedModpack() != null;
                 miPlay.Enabled = hasPack;
                 miRename.Enabled = hasPack;
+                miDuplicate.Enabled = hasPack;
+                miExport.Enabled = hasPack;
                 miDelete.Enabled = hasPack;
             };
             _ctxInPackList.Opening += (s, e) =>
@@ -1611,7 +1897,8 @@ namespace BeanModManager
             if (pack == null || _lvModpackMods == null)
                 return;
 
-            if (pack.ModIds == null || pack.ModIds.Count == 0)
+            var packIds = GetPackModIds(pack);
+            if (!packIds.Any())
                 return;
 
             var selectedIds = _lvModpackMods.SelectedItems
@@ -1624,8 +1911,7 @@ namespace BeanModManager
                 return;
 
             var toRemove = new HashSet<string>(selectedIds, StringComparer.OrdinalIgnoreCase);
-            var remaining = (pack.ModIds ?? new List<string>())
-                .Where(id => !string.IsNullOrWhiteSpace(id))
+            var remaining = packIds
                 .Where(id => !toRemove.Contains(id))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -1668,8 +1954,9 @@ namespace BeanModManager
                 return;
             }
 
-            pack.ModIds.RemoveAll(id => selectedIds.Any(sel => string.Equals(sel, id, StringComparison.OrdinalIgnoreCase)));
+            RemoveModsFromPack(pack, selectedIds);
             pack.UpdatedUtcTicks = DateTime.UtcNow.Ticks;
+            _modPackProfileService?.WriteProfileJson(pack);
             _config.Save();
             RefreshModpackDetails();
             RefreshInstalledModsForModpack();
@@ -1732,8 +2019,7 @@ namespace BeanModManager
                 return;
             }
 
-            var mods = (pack.ModIds ?? new List<string>())
-                .Where(id => !string.IsNullOrWhiteSpace(id))
+            var mods = GetPackModIds(pack)
                 .Select(id => _availableMods.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase)))
                 .Where(m => m != null && m.IsInstalled)
                 .ToList();
@@ -1762,7 +2048,7 @@ namespace BeanModManager
                     }
                 }
 
-                await LaunchModsAsync(expanded);
+                await LaunchModsAsync(expanded, pack);
             }
             catch (InvalidOperationException ex)
             {
@@ -1794,10 +2080,9 @@ namespace BeanModManager
                         desired.Add(id);
                 }
             }
-            foreach (var id in (pack.ModIds ?? new List<string>()))
+            foreach (var id in GetPackModIds(pack))
             {
-                if (!string.IsNullOrWhiteSpace(id))
-                    desired.Add(id);
+                desired.Add(id);
             }
 
             var missingOrSkipped = new List<string>();
@@ -1881,7 +2166,7 @@ namespace BeanModManager
             {
                 Id = pack?.Id ?? "";
                 Name = pack?.Name ?? "Unnamed";
-                Count = pack?.ModIds?.Distinct(StringComparer.OrdinalIgnoreCase).Count() ?? 0;
+                Count = GetPackModIds(pack).Distinct(StringComparer.OrdinalIgnoreCase).Count();
             }
 
             public override string ToString()
@@ -1950,6 +2235,7 @@ namespace BeanModManager
             }
 
             UpdateBepInExButtonState();
+            CleanupGamePluginsJunction();
         }
 
         private void Main_HandleCreated(object sender, EventArgs e)
@@ -2933,6 +3219,7 @@ namespace BeanModManager
             }
             var modpackSecondaryButtons = new[]
             {
+                _btnModpackImport,
                 _btnAddToModpack,
                 _btnRemoveFromModpack
             };
@@ -5246,6 +5533,7 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                         RefreshModDetectionCache(force: true);
                         _cachedPendingUpdatesCount = null;
                         RefreshModCards();
+                        RefreshModpackDetails();
                     });
                 }
                 catch (Exception ex)
@@ -5322,6 +5610,7 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                         RefreshModDetectionCache(force: true);
                         _cachedPendingUpdatesCount = null;
                         RefreshModCards();
+                        RefreshModpackDetails();
                     });
                 }
                 else
@@ -5592,6 +5881,15 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             var bepInExPath = Path.Combine(_config.AmongUsPath, "BepInEx");
             if (Directory.Exists(bepInExPath))
             {
+                // Remove any profile junction inside plugins so the backup move
+                // doesn't carry a live reference to a modpack folder.
+                var pluginsPath = Path.Combine(bepInExPath, "plugins");
+                if (JunctionHelper.IsJunctionOrSymlink(pluginsPath))
+                {
+                    JunctionHelper.RemoveLink(pluginsPath);
+                    Directory.CreateDirectory(pluginsPath);
+                }
+
                 bepInExBackup = Path.Combine(_config.AmongUsPath, "BepInEx.backup");
                 if (Directory.Exists(bepInExBackup))
                 {
@@ -6796,7 +7094,7 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             }
         }
 
-        private async Task LaunchModsAsync(List<Mod> mods)
+        private async Task LaunchModsAsync(List<Mod> mods, ModPack profile = null)
         {
             try
             {
@@ -6903,14 +7201,6 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                 }
 
                 var exePath = Path.Combine(_config.AmongUsPath, "Among Us.exe");
-                var pluginsPath = Path.Combine(_config.AmongUsPath, "BepInEx", "plugins");
-
-                if (!Directory.Exists(pluginsPath))
-                {
-                    Directory.CreateDirectory(pluginsPath);
-                }
-
-                UpdateStatus($"Preparing {mods.Count} mod(s)...");
 
                 var currentChannel = _config.GameChannel ?? "Steam/Itch.io";
                 if (currentChannel == "Steam/Itch.io")
@@ -6951,107 +7241,132 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     }
                 }
 
-                CleanPluginsFolder(pluginsPath, GetPreservedPluginDirs(mods));
-
-                foreach (var mod in mods)
+                if (profile != null)
                 {
-                    if (string.Equals(mod?.Category, "Utility", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    if (IsDependencyMod(mod))
+                    UpdateStatus($"Preparing profile {profile.Name}...");
+                    SyncProfilePlugins(profile, mods);
+                    var gamePluginsPath = Path.Combine(_config.AmongUsPath, "BepInEx", "plugins");
+                    var profilePluginsPath = _modPackProfileService.GetProfilePluginsPath(profile.Id);
+                    if (!JunctionHelper.CreateDirectoryJunction(gamePluginsPath, profilePluginsPath))
                     {
-                        bool isOptional = false;
-                        foreach (var otherMod in mods)
-                        {
-                            if (otherMod.Id == mod.Id || IsDependencyMod(otherMod))
-                                continue;
+                        MessageBox.Show("Failed to prepare modpack profile plugins folder. The game folder may not be writable.",
+                            "Launch Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                }
+                else
+                {
+                    var pluginsPath = Path.Combine(_config.AmongUsPath, "BepInEx", "plugins");
 
-                            var dependencies = _modStore.GetDependencies(otherMod.Id);
-                            if (dependencies != null)
-                            {
-                                var dep = dependencies.FirstOrDefault(d =>
-                                    string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
-                                if (dep != null && dep.optional)
-                                {
-                                    isOptional = true;
-                                    break;
-                                }
-                            }
+                    if (!Directory.Exists(pluginsPath))
+                    {
+                        Directory.CreateDirectory(pluginsPath);
+                    }
 
-                            if (otherMod.InstalledVersion != null)
-                            {
-                                var versionTag = !string.IsNullOrEmpty(otherMod.InstalledVersion.ReleaseTag)
-                                    ? otherMod.InstalledVersion.ReleaseTag
-                                    : otherMod.InstalledVersion.Version;
-                                var versionDeps = _modStore.GetVersionDependencies(otherMod.Id, versionTag);
-                                if (versionDeps != null)
-                                {
-                                    var vdep = versionDeps.FirstOrDefault(d =>
-                                        string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
-                                    if (vdep != null)
-                                    {
-                                        var defaultDeps = _modStore.GetDependencies(otherMod.Id);
-                                        var defaultDep = defaultDeps?.FirstOrDefault(d =>
-                                            string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
-                                        if (defaultDep != null && defaultDep.optional)
-                                        {
-                                            isOptional = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    UpdateStatus($"Preparing {mods.Count} mod(s)...");
 
-                        if (isOptional)
-                        {
+                    CleanPluginsFolder(pluginsPath, GetPreservedPluginDirs(mods));
+
+                    foreach (var mod in mods)
+                    {
+                        if (string.Equals(mod?.Category, "Utility", StringComparison.OrdinalIgnoreCase))
                             continue;
-                        }
 
-                        var dependencyFiles = GetDependencyFiles(mod);
-                        bool alreadyExists = false;
-
-                        foreach (var otherMod in mods)
+                        if (IsDependencyMod(mod))
                         {
-                            if (otherMod.Id == mod.Id || IsDependencyMod(otherMod))
-                                continue;
-
-                            var otherModPath = Path.Combine(_config.AmongUsPath, "Mods", otherMod.Id);
-                            if (Directory.Exists(otherModPath))
+                            bool isOptional = false;
+                            foreach (var otherMod in mods)
                             {
-                                foreach (var depFile in dependencyFiles)
-                                {
-                                    var fileName = Path.GetFileName(depFile);
-                                    var checkPath = Path.Combine(otherModPath, fileName);
-                                    var bepInExCheckPath = Path.Combine(otherModPath, "BepInEx", "plugins", fileName);
+                                if (otherMod.Id == mod.Id || IsDependencyMod(otherMod))
+                                    continue;
 
-                                    if (File.Exists(checkPath) || File.Exists(bepInExCheckPath))
+                                var dependencies = _modStore.GetDependencies(otherMod.Id);
+                                if (dependencies != null)
+                                {
+                                    var dep = dependencies.FirstOrDefault(d =>
+                                        string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                                    if (dep != null && dep.optional)
                                     {
-                                        alreadyExists = true;
+                                        isOptional = true;
                                         break;
                                     }
                                 }
 
-                                if (alreadyExists)
-                                    break;
+                                if (otherMod.InstalledVersion != null)
+                                {
+                                    var versionTag = !string.IsNullOrEmpty(otherMod.InstalledVersion.ReleaseTag)
+                                        ? otherMod.InstalledVersion.ReleaseTag
+                                        : otherMod.InstalledVersion.Version;
+                                    var versionDeps = _modStore.GetVersionDependencies(otherMod.Id, versionTag);
+                                    if (versionDeps != null)
+                                    {
+                                        var vdep = versionDeps.FirstOrDefault(d =>
+                                            string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                                        if (vdep != null)
+                                        {
+                                            var defaultDeps = _modStore.GetDependencies(otherMod.Id);
+                                            var defaultDep = defaultDeps?.FirstOrDefault(d =>
+                                                string.Equals(d.modId, mod.Id, StringComparison.OrdinalIgnoreCase));
+                                            if (defaultDep != null && defaultDep.optional)
+                                            {
+                                                isOptional = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (isOptional)
+                            {
+                                continue;
+                            }
+
+                            var dependencyFiles = GetDependencyFiles(mod);
+                            bool alreadyExists = false;
+
+                            foreach (var otherMod in mods)
+                            {
+                                if (otherMod.Id == mod.Id || IsDependencyMod(otherMod))
+                                    continue;
+
+                                var otherModPath = Path.Combine(_config.AmongUsPath, "Mods", otherMod.Id);
+                                if (Directory.Exists(otherModPath))
+                                {
+                                    foreach (var depFile in dependencyFiles)
+                                    {
+                                        var fileName = Path.GetFileName(depFile);
+                                        var checkPath = Path.Combine(otherModPath, fileName);
+                                        var bepInExCheckPath = Path.Combine(otherModPath, "BepInEx", "plugins", fileName);
+
+                                        if (File.Exists(checkPath) || File.Exists(bepInExCheckPath))
+                                        {
+                                            alreadyExists = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if (alreadyExists)
+                                        break;
+                                }
+                            }
+
+                            if (alreadyExists)
+                            {
+                                continue;
                             }
                         }
 
-                        if (alreadyExists)
+                        try
                         {
-                            continue;
+                            PrepareModForLaunch(mod, pluginsPath);
                         }
-                    }
-
-                    try
-                    {
-                        PrepareModForLaunch(mod, pluginsPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Failed to prepare {mod.Name}: {ex.Message}", "Launch Error",
-                            MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Failed to prepare {mod.Name}: {ex.Message}", "Launch Error",
+                                MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
                     }
                 }
 
@@ -7071,6 +7386,11 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     // in the game dir load the prepared plugins.
                     if (!await TryLaunchMsStoreGameAsync())
                         return;
+
+                    if (profile != null)
+                    {
+                        _ = Task.Delay(TimeSpan.FromSeconds(15)).ContinueWith(_ => RestoreGamePluginsFolderAfterProfileLaunch());
+                    }
 
                     UpdateStatus(mods.Count == 1
                         ? $"Launched {mods[0].Name}"
@@ -7104,6 +7424,10 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                     process.Exited += (s, e) =>
                     {
                         CheckAndDisplayErrorLog(_config.AmongUsPath);
+                        if (profile != null)
+                        {
+                            RestoreGamePluginsFolderAfterProfileLaunch();
+                        }
                     };
                 }
 
@@ -7121,6 +7445,83 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                 MessageBox.Show($"Error launching mods: {ex.Message}", "Launch Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 UpdateStatus($"Error launching mods: {ex.Message}");
+            }
+        }
+
+        private void RestoreGamePluginsFolderAfterProfileLaunch()
+        {
+            if (string.IsNullOrEmpty(_config?.AmongUsPath))
+                return;
+
+            var gamePluginsPath = Path.Combine(_config.AmongUsPath, "BepInEx", "plugins");
+            if (!JunctionHelper.IsJunctionOrSymlink(gamePluginsPath))
+                return;
+
+            try
+            {
+                JunctionHelper.RemoveLink(gamePluginsPath);
+                if (!Directory.Exists(gamePluginsPath))
+                {
+                    Directory.CreateDirectory(gamePluginsPath);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void SyncProfilePlugins(ModPack pack, List<Mod> mods)
+        {
+            if (pack == null || _modPackProfileService == null)
+                return;
+
+            var pluginsPath = _modPackProfileService.GetProfilePluginsPath(pack.Id);
+            Directory.CreateDirectory(pluginsPath);
+
+            var desiredIds = new HashSet<string>(
+                mods.Where(m => m != null).Select(m => m.Id),
+                StringComparer.OrdinalIgnoreCase);
+
+            // Remove mod folders that are no longer in this modpack.
+            foreach (var dir in Directory.GetDirectories(pluginsPath))
+            {
+                var dirName = Path.GetFileName(dir);
+                if (!desiredIds.Contains(dirName))
+                {
+                    try
+                    {
+                        Directory.Delete(dir, true);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+
+            foreach (var mod in mods)
+            {
+                if (mod == null)
+                    continue;
+                if (string.Equals(mod.Category, "Utility", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var sourcePath = Path.Combine(GetModsFolder(), mod.Id);
+                if (!Directory.Exists(sourcePath))
+                    continue;
+
+                var targetPath = Path.Combine(pluginsPath, mod.Id);
+                try
+                {
+                    if (Directory.Exists(targetPath))
+                        Directory.Delete(targetPath, true);
+
+                    CopyDirectoryContents(sourcePath, targetPath, true);
+                    UpdateStatus($"Synced {mod.Name}");
+                }
+                catch (Exception ex)
+                {
+                    UpdateStatus($"Warning: Could not sync {mod.Name}: {ex.Message}");
+                }
             }
         }
 
@@ -9720,6 +10121,9 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             ThemeManager.ThemeChanged -= ThemeManager_ThemeChanged;
+            _modpackToolTip?.Dispose();
+            _modpackToolTip = null;
+            CleanupGamePluginsJunction();
             base.OnFormClosed(e);
         }
     }

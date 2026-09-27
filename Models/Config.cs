@@ -24,6 +24,8 @@ namespace BeanModManager.Models
         public bool WizardInstalledBepInEx { get; set; }
         public string GameChannel { get; set; }
         public string MsStoreAppId { get; set; }
+        public string ActiveModpackId { get; set; }
+        public bool ModpackProfilesMigrated { get; set; }
 
         private static string ConfigPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -61,6 +63,13 @@ namespace BeanModManager.Models
                             config.Modpacks = new List<ModPack>();
                         if (string.IsNullOrWhiteSpace(config.ThemePreference))
                             config.ThemePreference = "Dark";
+                        foreach (var pack in config.Modpacks)
+                        {
+                            if (pack.Mods == null)
+                                pack.Mods = new List<ProfileModEntry>();
+                            if (pack.ModIds == null)
+                                pack.ModIds = new List<string>();
+                        }
                         return config;
                     }
                 }
