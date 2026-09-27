@@ -24,35 +24,24 @@ namespace BeanModManager
 
         public static async Task Main(string[] args)
         {
-            Console.WriteLine("=== Mod Cache Populator ===");
-            Console.WriteLine("This script will fetch release data for all mods and create/update mod-cache.json.\n");
-
-            var registryPath = "mod-registry.json";
-            var cachePath = "mod-cache.json";
-
-            if (args.Length > 0)
-            {
-                registryPath = args[0];
-            }
-            if (args.Length > 1)
-            {
-                cachePath = args[1];
-            }
+            var registryPath = args.Length > 0 ? args[0] : "mod-registry.json";
+            var cachePath = args.Length > 1 ? args[1] : "mod-cache.json";
 
             if (!File.Exists(registryPath))
             {
-                Console.WriteLine($"Error: {registryPath} not found!");
-                Console.WriteLine("Usage: BeanModManager.exe --populate-cache [path-to-mod-registry.json] [path-to-mod-cache.json]");
+                Console.WriteLine($"Error: {registryPath} not found.");
+                Console.WriteLine("Usage: BeanModManager.exe --populate-cache [registry] [cache]");
                 return;
             }
 
-            Console.WriteLine($"Reading registry from: {Path.GetFullPath(registryPath)}");
+            Console.WriteLine($"Reading registry: {Path.GetFullPath(registryPath)}");
+
             var json = File.ReadAllText(registryPath);
             var registry = JsonHelper.Deserialize<ModRegistry>(json);
 
             if (registry == null || registry.mods == null || !registry.mods.Any())
             {
-                Console.WriteLine("Error: No mods found in registry!");
+                Console.WriteLine("Error: No mods found in registry.");
                 return;
             }
 
@@ -64,41 +53,43 @@ namespace BeanModManager
 
             if (File.Exists(cachePath))
             {
-                Console.WriteLine($"Loading existing cache from: {Path.GetFullPath(cachePath)}");
+                Console.WriteLine($"Loading cache: {Path.GetFullPath(cachePath)}");
+
                 try
                 {
                     var existingCacheJson = File.ReadAllText(cachePath);
                     var existingCache = JsonHelper.Deserialize<ModCache>(existingCacheJson);
+
                     if (existingCache != null && existingCache.mods != null)
                     {
                         cache = existingCache;
-                        Console.WriteLine($"Found existing cache for {cache.mods.Count} mods\n");
+                        Console.WriteLine($"Existing entries: {cache.mods.Count}");
                     }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Warning: Could not load existing cache: {ex.Message}");
-                    Console.WriteLine("Starting fresh cache...\n");
                 }
             }
 
             var backupPath = cachePath + ".backup";
+
             if (File.Exists(cachePath))
             {
                 File.Copy(cachePath, backupPath, true);
-                Console.WriteLine($"✓ Backup created: {backupPath}\n");
+                Console.WriteLine($"Backup created: {backupPath}");
             }
 
-            Console.WriteLine($"Found {registry.mods.Count} mods in registry.\n");
-            Console.WriteLine("Starting to fetch release data...\n");
-            Console.WriteLine("(Progress is saved after each mod — re-run to resume after a rate limit)\n");
+            Console.WriteLine($"Mods in registry: {registry.mods.Count}");
 
             bool rateLimited = false;
+
             foreach (var mod in registry.mods)
             {
-                if (string.IsNullOrEmpty(mod.githubOwner) || string.IsNullOrEmpty(mod.githubRepo))
+                if (string.IsNullOrEmpty(mod.githubOwner) ||
+                    string.IsNullOrEmpty(mod.githubRepo))
                 {
-                    Console.WriteLine($"⏭  Skipping {mod.id}: No GitHub info");
+                    Console.WriteLine($"Skipping {mod.id}: No GitHub information.");
                     _skippedCount++;
                     continue;
                 }
@@ -108,31 +99,30 @@ namespace BeanModManager
 
                 if (rateLimited)
                 {
-                    Console.WriteLine("\n⚠ Rate limit hit. Progress saved — re-run later to continue where it left off.");
+                    Console.WriteLine("Rate limit reached. Progress has been saved.");
                     break;
                 }
 
                 await Task.Delay(1000);
             }
 
-            Console.WriteLine($"\n=== Summary ===");
-            Console.WriteLine($"✓ Successfully updated: {_successCount}");
-            Console.WriteLine($"⚡ Not modified (304): {_notModifiedCount}");
-            Console.WriteLine($"✗ Failed: {_failCount}");
-            Console.WriteLine($"⏭  Skipped: {_skippedCount}");
-            Console.WriteLine($"Total processed: {_successCount + _notModifiedCount + _failCount + _skippedCount}");
+            Console.WriteLine();
+            Console.WriteLine($"Updated: {_successCount}");
+            Console.WriteLine($"Not modified: {_notModifiedCount}");
+            Console.WriteLine($"Failed: {_failCount}");
+            Console.WriteLine($"Skipped: {_skippedCount}");
+            Console.WriteLine($"Total: {_successCount + _notModifiedCount + _failCount + _skippedCount}");
 
             SaveCache(cachePath, cache);
-            Console.WriteLine($"✓ Cache saved to: {Path.GetFullPath(cachePath)}");
+            Console.WriteLine($"Cache saved: {Path.GetFullPath(cachePath)}");
 
             if (rateLimited)
             {
-                Console.WriteLine($"⚠ Cache contains {cache.mods.Count}/{registry.mods.Count} mod entries (rate limited — re-run to finish)");
+                Console.WriteLine($"Cache entries: {cache.mods.Count}/{registry.mods.Count}");
             }
             else
             {
-                Console.WriteLine($"✓ Cache contains {cache.mods.Count}/{registry.mods.Count} mod entries");
-                Console.WriteLine("\nDone! You can now commit the updated mod-cache.json");
+                Console.WriteLine($"Cache entries: {cache.mods.Count}/{registry.mods.Count}");
             }
         }
 
@@ -144,7 +134,7 @@ namespace BeanModManager
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠ Failed to write cache file: {ex.Message}");
+                Console.WriteLine($"Error writing cache: {ex.Message}");
             }
         }
 
@@ -154,10 +144,10 @@ namespace BeanModManager
             {
                 var apiUrl = $"https://api.github.com/repos/{mod.githubOwner}/{mod.githubRepo}/releases/latest";
 
-                Console.Write($"Fetching: {mod.name} ({mod.githubOwner}/{mod.githubRepo})... ");
+                Console.Write($"Fetching {mod.name} ({mod.githubOwner}/{mod.githubRepo})... ");
 
                 cache.mods.TryGetValue(mod.id, out var existingCacheEntry);
-                string existingETag = existingCacheEntry?.cachedETag;
+                var existingETag = existingCacheEntry?.cachedETag;
 
                 using (var request = new HttpRequestMessage(HttpMethod.Get, apiUrl))
                 {
@@ -170,7 +160,7 @@ namespace BeanModManager
                     {
                         if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
                         {
-                            Console.WriteLine($"✓ Not modified (using existing cache)");
+                            Console.WriteLine("Not modified.");
                             _notModifiedCount++;
                             return false;
                         }
@@ -178,7 +168,7 @@ namespace BeanModManager
                         if (response.StatusCode == System.Net.HttpStatusCode.Forbidden ||
                             (int)response.StatusCode == 429)
                         {
-                            Console.WriteLine($"✗ Rate limited! Please wait and try again later.");
+                            Console.WriteLine("Rate limited.");
                             _failCount++;
                             return true;
                         }
@@ -199,28 +189,30 @@ namespace BeanModManager
                                 lastChecked = DateTime.UtcNow.ToString("o")
                             };
 
-                            var etagPreview = etag != null && etag.Length > 20 ? etag.Substring(0, 20) + "..." : etag;
-                            Console.WriteLine($"✓ Updated to {release.tag_name} (ETag: {etagPreview})");
+                            Console.WriteLine($"Updated to {release.tag_name}");
                             _successCount++;
                         }
                         else
                         {
-                            Console.WriteLine($"✗ No release data found");
+                            Console.WriteLine("No release data found.");
                             _failCount++;
                         }
+
                         return false;
                     }
                 }
             }
-            catch (HttpRequestException ex) when (ex.Message.Contains("403") || ex.Message.Contains("Forbidden"))
+            catch (HttpRequestException ex) when (
+                ex.Message.Contains("403") ||
+                ex.Message.Contains("Forbidden"))
             {
-                Console.WriteLine($"✗ Rate limited! Please wait and try again later.");
+                Console.WriteLine("Rate limited.");
                 _failCount++;
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"✗ Error: {ex.Message}");
+                Console.WriteLine($"Error: {ex.Message}");
                 _failCount++;
                 return false;
             }
@@ -231,12 +223,15 @@ namespace BeanModManager
             if (response?.Headers?.ETag != null)
             {
                 var etagValue = response.Headers.ETag.ToString();
+
                 if (etagValue.StartsWith("\"") && etagValue.EndsWith("\""))
                 {
                     return etagValue.Substring(1, etagValue.Length - 2);
                 }
+
                 return etagValue;
             }
+
             return null;
         }
 
