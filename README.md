@@ -13,7 +13,7 @@
 <h1 align="center">Bean Mod Manager</h1>
 
 <p align="center">
-A comprehensive mod manager for <strong>Among Us</strong>, built with Windows Forms. Easily install, manage, and switch between 30+ mods including TOHE, Town of Us Mira, Better CrewLink, TOR, StellarRoles, and many more without hassle.
+A comprehensive mod manager for <strong>Among Us</strong>, built with Windows Forms. Easily install, manage, and switch between 50+ mods including TOHE, Town of Us Mira, Better CrewLink, TOR, StellarRoles, and many more without hassle.
 </p>
 
 <p align="center">
@@ -93,12 +93,15 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - SuperNewRoles!!!!  
 - Nebula On The Ship  
 - Divani Mods  
+- Crewmeleon Redrawn  
+- Overloaded  
 
 ### Host Mods
 - Town of Host Optimized (TOHO)  
 - More Gamemodes  
 - Project Lotus: Continued  
 - Minimum Level  
+- Among Us Revamped  
 
 ### Fun Mods
 - SmolMod  
@@ -119,6 +122,9 @@ Need help, have questions, or want to connect with other users? Join our Discord
 - Impostor (private server)  
 - Vanilla Enhancements  
 - Mod Explorer  
+- Game Logger  
+- Outfit Changer  
+- StringNameUtils  
 - AleLuduMod  
 - Perfect Comms  
 - NotePad Mod  

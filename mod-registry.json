@@ -1181,6 +1181,163 @@
         }
       ],
       "incompatibilities": []
+    },
+    {
+      "id": "GameLogger",
+      "name": "Game Logger",
+      "author": "whichtwix",
+      "description": "A utility mod that logs the main events that occur during an Among Us game for later review.",
+      "githubOwner": "whichtwix",
+      "githubRepo": "GameLogger",
+      "category": "Utility",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["GameLogger.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "CrewmeleonRedrawn",
+      "name": "Crewmeleon Redrawn",
+      "author": "All-Of-Us-Mods",
+      "description": "A rewrite of Crewmeleon featuring improved stability, bug fixes, and new features.",
+      "githubOwner": "All-Of-Us-Mods",
+      "githubRepo": "Crewmeleon-Redrawn",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["Crewmeleon-Redrawn.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": null,
+          "optional": false
+        },
+        {
+          "modId": "MiraAPI",
+          "name": "MiraAPI",
+          "fileName": "MiraAPI.dll",
+          "githubOwner": "All-Of-Us-Mods",
+          "githubRepo": "MiraAPI",
+          "requiredVersion": null,
+          "optional": false
+        }
+      ],
+      "incompatibilities": []
+    },
+    {
+      "id": "OutfitChanger",
+      "name": "Outfit Changer",
+      "author": "whichtwix",
+      "description": "A utility mod for quickly switching between saved Among Us outfits.",
+      "githubOwner": "whichtwix",
+      "githubRepo": "OutfitChanger",
+      "category": "Utility",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["OutfitChanger.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
+    },
+    {
+      "id": "StringNameUtils",
+      "name": "StringNameUtils",
+      "author": "xChipseq",
+      "description": "A utility mod for dumping and replacing Among Us StringName translations.",
+      "githubOwner": "xChipseq",
+      "githubRepo": "StringNameUtils",
+      "category": "Utility",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["StringNameUtils.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": null,
+          "optional": false
+        }
+      ],
+      "incompatibilities": []
+    },
+    {
+      "id": "Overloaded",
+      "name": "Overloaded",
+      "author": "All-Of-Us-Mods",
+      "description": "A host-only mod that allows more than 15 players to join an Among Us lobby.",
+      "githubOwner": "All-Of-Us-Mods",
+      "githubRepo": "Overloaded",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["Overloaded.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": null,
+          "optional": false
+        }
+      ],
+      "incompatibilities": ["CrowdedMod"]
+    },
+    {
+      "id": "AmongUsRevamped",
+      "name": "Among Us Revamped",
+      "author": "ApeMV",
+      "description": "A host-only mod with custom game modes, moderation tools, quality-of-life features, and extensive lobby settings.",
+      "githubOwner": "ApeMV",
+      "githubRepo": "AmongUsRevamped",
+      "category": "Host Mod",
+      "assetFilters": {
+        "steam": {
+          "patterns": ["Steam_Itch"],
+          "exclude": ["Epic", "Microsoft", "Xbox"]
+        },
+        "epic": {
+          "patterns": ["Epic_Microsoft_Xbox"],
+          "exclude": ["Steam", "Itch"]
+        },
+        "dll": {
+          "patterns": ["AUR.v", "AUR.dll"],
+          "exclude": ["Steam", "Itch", "Epic", "Microsoft", "Xbox"]
+        }
+      },
+      "requiresDepot": false,
+      "incompatibilities": []
     }
   ]
 }
