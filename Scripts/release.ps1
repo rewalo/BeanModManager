@@ -4,6 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+Set-Location (Split-Path -Parent $PSScriptRoot)
 
 $version = $Version.TrimStart("v", "V")
 $tag = "v$version"

@@ -26,23 +26,23 @@
 </p>
 
 <p align="center">
-  <a href="Images/Screenshot.png">
-    <img src="Images/Screenshot.png" alt="Bean Mod Manager mod store" width="88%">
+  <a href="Assets/Images/Screenshot.png">
+    <img src="Assets/Images/Screenshot.png" alt="Bean Mod Manager mod store" width="88%">
   </a>
 </p>
 
 <table>
   <tr>
     <td width="33%" align="center">
-      <a href="Images/Screenshot_1.png"><img src="Images/Screenshot_1.png" alt="Installed mods view" width="100%"></a>
+      <a href="Assets/Images/Screenshot_1.png"><img src="Assets/Images/Screenshot_1.png" alt="Installed mods view" width="100%"></a>
       <sub><strong>Installed mods</strong></sub>
     </td>
     <td width="33%" align="center">
-      <a href="Images/Screenshot_3.png"><img src="Images/Screenshot_3.png" alt="Modpacks view" width="100%"></a>
+      <a href="Assets/Images/Screenshot_3.png"><img src="Assets/Images/Screenshot_3.png" alt="Modpacks view" width="100%"></a>
       <sub><strong>Modpacks</strong></sub>
     </td>
     <td width="33%" align="center">
-      <a href="Images/Screenshot_2.png"><img src="Images/Screenshot_2.png" alt="Settings view" width="100%"></a>
+      <a href="Assets/Images/Screenshot_2.png"><img src="Assets/Images/Screenshot_2.png" alt="Settings view" width="100%"></a>
       <sub><strong>Settings</strong></sub>
     </td>
   </tr>
