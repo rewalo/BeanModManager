@@ -25,7 +25,7 @@
             this.lblStatus = new System.Windows.Forms.ToolStripStatusLabel();
             this.progressBar = new System.Windows.Forms.ToolStripProgressBar();
             this.headerStrip = new System.Windows.Forms.Panel();
-            this.lblDiscordLink = new System.Windows.Forms.LinkLabel();
+            this.btnJoinDiscord = new System.Windows.Forms.Button();
             this.lblHeaderInfo = new System.Windows.Forms.Label();
             this.leftSidebar = new System.Windows.Forms.Panel();
             this.sidebarButtons = new System.Windows.Forms.Panel();
@@ -181,7 +181,7 @@
             // headerStrip
             // 
             this.headerStrip.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
-            this.headerStrip.Controls.Add(this.lblDiscordLink);
+            this.headerStrip.Controls.Add(this.btnJoinDiscord);
             this.headerStrip.Controls.Add(this.lblHeaderInfo);
             this.headerStrip.Dock = System.Windows.Forms.DockStyle.Top;
             this.headerStrip.Location = new System.Drawing.Point(0, 0);
@@ -191,19 +191,25 @@
             this.headerStrip.TabIndex = 2;
             this.headerStrip.Paint += new System.Windows.Forms.PaintEventHandler(this.HeaderStrip_Paint);
             // 
-            // lblDiscordLink
-            // 
-            this.lblDiscordLink.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.lblDiscordLink.AutoSize = true;
-            this.lblDiscordLink.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblDiscordLink.LinkBehavior = System.Windows.Forms.LinkBehavior.HoverUnderline;
-            this.lblDiscordLink.Location = new System.Drawing.Point(1251, 6);
-            this.lblDiscordLink.Name = "lblDiscordLink";
-            this.lblDiscordLink.Size = new System.Drawing.Size(106, 19);
-            this.lblDiscordLink.TabIndex = 1;
-            this.lblDiscordLink.TabStop = true;
-            this.lblDiscordLink.Text = "💬 Join Discord";
-            this.lblDiscordLink.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.lblDiscordLink_LinkClicked);
+            // btnJoinDiscord
+            //
+            this.btnJoinDiscord.AccessibleDescription = "Open the Bean Mod Manager Discord server";
+            this.btnJoinDiscord.AccessibleName = "Join Discord";
+            this.btnJoinDiscord.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnJoinDiscord.BackColor = System.Drawing.Color.Transparent;
+            this.btnJoinDiscord.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnJoinDiscord.FlatAppearance.BorderSize = 0;
+            this.btnJoinDiscord.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
+            this.btnJoinDiscord.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
+            this.btnJoinDiscord.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnJoinDiscord.Image = new System.Drawing.Bitmap(((System.Drawing.Image)(resources.GetObject("btnJoinDiscord.Image"))), new System.Drawing.Size(22, 22));
+            this.btnJoinDiscord.ImageAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnJoinDiscord.Location = new System.Drawing.Point(1329, 2);
+            this.btnJoinDiscord.Name = "btnJoinDiscord";
+            this.btnJoinDiscord.Size = new System.Drawing.Size(28, 28);
+            this.btnJoinDiscord.TabIndex = 1;
+            this.btnJoinDiscord.UseVisualStyleBackColor = false;
+            this.btnJoinDiscord.Click += new System.EventHandler(this.btnJoinDiscord_Click);
             // 
             // lblHeaderInfo
             // 
@@ -1529,7 +1535,7 @@
         private System.Windows.Forms.TabPage tabSettings;
         private System.Windows.Forms.Panel headerStrip;
         private System.Windows.Forms.Label lblHeaderInfo;
-        private System.Windows.Forms.LinkLabel lblDiscordLink;
+        private System.Windows.Forms.Button btnJoinDiscord;
         private System.Windows.Forms.Panel leftSidebar;
         private System.Windows.Forms.Panel sidebarHeader;
         private System.Windows.Forms.Label lblSidebarTitle;

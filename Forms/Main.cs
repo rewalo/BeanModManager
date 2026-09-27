@@ -71,7 +71,7 @@ namespace BeanModManager
         private ContextMenuStrip _ctxInstalledList;
         private Button _btnModpackNew;
         private Button _btnModpackImport;
-        private ToolTip _modpackToolTip;
+        private ToolTip _mainToolTip;
         private ListView _lvModpackMods;
         private bool _isApplyingModpackSelection;
         private ListView _lvInstalledMods;
@@ -229,6 +229,8 @@ namespace BeanModManager
         public Main()
         {
             InitializeComponent();
+            _mainToolTip = new ToolTip();
+            _mainToolTip.SetToolTip(btnJoinDiscord, "Join the Bean Mod Manager Discord server");
 
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             this.Text = $"Bean Mod Manager v{version.Major}.{version.Minor}.{version.Build}";
@@ -702,10 +704,10 @@ namespace BeanModManager
             ConfigureIconButton(_btnModpackNew, "New modpack", drawImport: false);
             _btnModpackNew.Margin = new Padding(0);
             _btnModpackNew.Click += (s, e) => CreateNewModpack(empty: true);
-            if (_modpackToolTip == null)
-                _modpackToolTip = new ToolTip();
-            _modpackToolTip.SetToolTip(_btnModpackImport, "Import modpack");
-            _modpackToolTip.SetToolTip(_btnModpackNew, "New modpack");
+            if (_mainToolTip == null)
+                _mainToolTip = new ToolTip();
+            _mainToolTip.SetToolTip(_btnModpackImport, "Import modpack");
+            _mainToolTip.SetToolTip(_btnModpackNew, "New modpack");
             headerRow.Controls.Add(headerLabel, 0, 0);
             headerRow.Controls.Add(_btnModpackImport, 1, 0);
             headerRow.Controls.Add(_btnModpackNew, 2, 0);
@@ -2984,13 +2986,6 @@ namespace BeanModManager
             if (lblHeaderInfo != null)
             {
                 lblHeaderInfo.ForeColor = palette.SecondaryTextColor;
-            }
-
-            if (lblDiscordLink != null)
-            {
-                lblDiscordLink.LinkColor = palette.LinkColor;
-                lblDiscordLink.ActiveLinkColor = palette.LinkActiveColor;
-                lblDiscordLink.VisitedLinkColor = palette.LinkColor;
             }
 
             if (leftSidebar != null)
@@ -9686,9 +9681,8 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
 });
         }
 
-        private void lblDiscordLink_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        private void btnJoinDiscord_Click(object sender, EventArgs e)
         {
-            e.Link.Visited = true;
             try
             {
                 Process.Start(new ProcessStartInfo
@@ -10121,8 +10115,8 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             ThemeManager.ThemeChanged -= ThemeManager_ThemeChanged;
-            _modpackToolTip?.Dispose();
-            _modpackToolTip = null;
+            _mainToolTip?.Dispose();
+            _mainToolTip = null;
             CleanupGamePluginsJunction();
             base.OnFormClosed(e);
         }
