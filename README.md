@@ -13,22 +13,42 @@
 <h1 align="center">Bean Mod Manager</h1>
 
 <p align="center">
-A comprehensive mod manager for <strong>Among Us</strong>, built with Windows Forms. Easily install, manage, and switch between 50+ mods including TOHE, Town of Us Mira, Better CrewLink, TOR, StellarRoles, and many more without hassle.
+  A straightforward mod manager for <strong>Among Us</strong> on Windows.<br>
+  Install, organize, update, and switch between 50+ mods from one place.
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/rewalo/BeanModManager/refs/heads/master/Images/Screenshot.png" width="80%" />
+  <strong><a href="https://github.com/rewalo/BeanModManager/releases/latest">Download</a></strong>
+  &nbsp;&middot;&nbsp;
+  <a href="https://discord.gg/2V6Vn4KCRf">Discord</a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://github.com/rewalo/BeanModManager/issues">Report an issue</a>
 </p>
 
----
+<p align="center">
+  <a href="Images/Screenshot.png">
+    <img src="Images/Screenshot.png" alt="Bean Mod Manager mod store" width="88%">
+  </a>
+</p>
 
-## Support & Community
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <a href="Images/Screenshot_1.png"><img src="Images/Screenshot_1.png" alt="Installed mods view" width="100%"></a>
+      <sub><strong>Installed mods</strong></sub>
+    </td>
+    <td width="33%" align="center">
+      <a href="Images/Screenshot_3.png"><img src="Images/Screenshot_3.png" alt="Modpacks view" width="100%"></a>
+      <sub><strong>Modpacks</strong></sub>
+    </td>
+    <td width="33%" align="center">
+      <a href="Images/Screenshot_2.png"><img src="Images/Screenshot_2.png" alt="Settings view" width="100%"></a>
+      <sub><strong>Settings</strong></sub>
+    </td>
+  </tr>
+</table>
 
-Need help, have questions, or want to connect with other users? Join our Discord server:
-
-**[💬 Join Discord](https://discord.gg/2V6Vn4KCRf)**
-
----
+<p align="center"><sub>Click any screenshot to view it at full size.</sub></p>
 
 ## Features
 
