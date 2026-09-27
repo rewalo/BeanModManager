@@ -11,6 +11,8 @@ riderModule.iml
 *.exe
 *.dll
 *.msi
+global.json
+mod-cache.json.backup
 
 .fake
 .REFERENCE
