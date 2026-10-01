@@ -1,7 +1,7 @@
-using BeanModManager.Services;
 using System;
 using System.Diagnostics;
 using System.Windows.Forms;
+using BeanModManager.Services;
 
 namespace BeanModManager
 {
@@ -10,7 +10,9 @@ namespace BeanModManager
         private void HandleUpdateCheckerProgress(string message)
         {
             if (_isInitialLoadInProgress)
+            {
                 return;
+            }
 
             UpdateStatus(message);
         }
@@ -19,7 +21,7 @@ namespace BeanModManager
         {
             try
             {
-                await _updateChecker.CheckForUpdatesAsync().ConfigureAwait(false);
+                _ = await _updateChecker.CheckForUpdatesAsync().ConfigureAwait(false);
             }
             catch
             {
@@ -30,7 +32,7 @@ namespace BeanModManager
         {
             SafeInvoke(() =>
             {
-                var result = MessageBox.Show(
+                DialogResult result = MessageBox.Show(
                     $"A new version of Bean Mod Manager is available!\n\n" +
                     $"Current version: {e.CurrentVersion}\n" +
                     $"Latest version: {e.LatestVersion}\n\n" +
@@ -44,7 +46,7 @@ namespace BeanModManager
                 {
                     try
                     {
-                        Process.Start(new ProcessStartInfo
+                        _ = Process.Start(new ProcessStartInfo
                         {
                             FileName = e.ReleaseUrl,
                             UseShellExecute = true
@@ -52,7 +54,7 @@ namespace BeanModManager
                     }
                     catch
                     {
-                        MessageBox.Show(
+                        _ = MessageBox.Show(
                             $"Failed to open the download page.\n\nPlease visit: {e.ReleaseUrl}",
                             "Error",
                             MessageBoxButtons.OK,

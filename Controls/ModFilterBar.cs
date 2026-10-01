@@ -1,10 +1,10 @@
-using BeanModManager.Themes;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
+using BeanModManager.Themes;
 
 namespace BeanModManager.Controls
 {
@@ -47,8 +47,6 @@ namespace BeanModManager.Controls
         private Rectangle _resetBounds;
         private Rectangle _summaryBounds;
         private object _hoverItem;
-        private string _selectedCategory = "All";
-        private ModSortOrder _sortOrder = ModSortOrder.Default;
         private string _summaryText = string.Empty;
         private bool _suppressEvents;
 
@@ -77,7 +75,11 @@ namespace BeanModManager.Controls
             _searchBox.TextChanged += (s, e) =>
             {
                 Invalidate(_searchBounds);
-                if (_suppressEvents) return;
+                if (_suppressEvents)
+                {
+                    return;
+                }
+
                 _searchDebounce.Stop();
                 _searchDebounce.Start();
             };
@@ -111,21 +113,21 @@ namespace BeanModManager.Controls
         public string ItemNoun { get; set; } = "mods";
 
         public string SearchText => _searchBox.Text ?? string.Empty;
-        public string SelectedCategory => _selectedCategory;
-        public ModSortOrder SortOrder => _sortOrder;
+        public string SelectedCategory { get; private set; } = "All";
+        public ModSortOrder SortOrder { get; private set; } = ModSortOrder.Default;
 
         public bool HasActiveFilters =>
             !string.IsNullOrWhiteSpace(SearchText) ||
-            !string.Equals(_selectedCategory, "All", StringComparison.OrdinalIgnoreCase) ||
-            _sortOrder != ModSortOrder.Default;
+            !string.Equals(SelectedCategory, "All", StringComparison.OrdinalIgnoreCase) ||
+            SortOrder != ModSortOrder.Default;
 
         public void SetCategories(IEnumerable<FilterCategory> categories)
         {
             _categories.Clear();
             _categories.AddRange(categories ?? Enumerable.Empty<FilterCategory>());
-            if (!_categories.Any(c => c.Key.Equals(_selectedCategory, StringComparison.OrdinalIgnoreCase)))
+            if (!_categories.Any(c => c.Key.Equals(SelectedCategory, StringComparison.OrdinalIgnoreCase)))
             {
-                _selectedCategory = "All";
+                SelectedCategory = "All";
             }
             PerformLayoutAndResize();
         }
@@ -140,12 +142,18 @@ namespace BeanModManager.Controls
 
         public void SelectCategory(string key, bool raiseEvent = true)
         {
-            var match = _categories.FirstOrDefault(c => c.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Key ?? "All";
-            if (string.Equals(match, _selectedCategory, StringComparison.OrdinalIgnoreCase))
+            string match = _categories.FirstOrDefault(c => c.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Key ?? "All";
+            if (string.Equals(match, SelectedCategory, StringComparison.OrdinalIgnoreCase))
+            {
                 return;
-            _selectedCategory = match;
+            }
+
+            SelectedCategory = match;
             Invalidate();
-            if (raiseEvent) RaiseFiltersChanged();
+            if (raiseEvent)
+            {
+                RaiseFiltersChanged();
+            }
         }
 
         public void SetSearchText(string text, bool raiseEvent = true)
@@ -153,7 +161,10 @@ namespace BeanModManager.Controls
             _suppressEvents = true;
             _searchBox.Text = text ?? string.Empty;
             _suppressEvents = false;
-            if (raiseEvent) RaiseFiltersChanged();
+            if (raiseEvent)
+            {
+                RaiseFiltersChanged();
+            }
         }
 
         public void Reset()
@@ -162,13 +173,16 @@ namespace BeanModManager.Controls
             _suppressEvents = true;
             _searchBox.Clear();
             _suppressEvents = false;
-            _selectedCategory = "All";
-            _sortOrder = ModSortOrder.Default;
+            SelectedCategory = "All";
+            SortOrder = ModSortOrder.Default;
             Invalidate();
             RaiseFiltersChanged();
         }
 
-        public void FocusSearch() => _searchBox.Focus();
+        public void FocusSearch()
+        {
+            _ = _searchBox.Focus();
+        }
 
         protected override void Dispose(bool disposing)
         {
@@ -186,8 +200,12 @@ namespace BeanModManager.Controls
 
         private void ThemeManager_ThemeChanged(object sender, EventArgs e)
         {
-            if (IsDisposed) return;
-            if (InvokeRequired) { if (IsHandleCreated) BeginInvoke(new Action(ApplyPalette)); return; }
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            if (InvokeRequired) { if (IsHandleCreated) { _ = BeginInvoke(new Action(ApplyPalette)); } return; }
             ApplyPalette();
         }
 
@@ -200,7 +218,10 @@ namespace BeanModManager.Controls
             Invalidate();
         }
 
-        private void RaiseFiltersChanged() => FiltersChanged?.Invoke(this, EventArgs.Empty);
+        private void RaiseFiltersChanged()
+        {
+            FiltersChanged?.Invoke(this, EventArgs.Empty);
+        }
 
         protected override void OnResize(EventArgs e)
         {
@@ -210,24 +231,27 @@ namespace BeanModManager.Controls
 
         private void PerformLayoutAndResize()
         {
-            if (Width <= 0) return;
+            if (Width <= 0)
+            {
+                return;
+            }
 
-            using (var g = CreateGraphics())
+            using (Graphics g = CreateGraphics())
             {
                 // Row 1: search (left) | action + sort segments (right)
                 _sortBounds.Clear();
-                var sortLabels = new[] { DefaultSortLabel, "Recently updated", "Name A–Z" };
+                string[] sortLabels = new[] { DefaultSortLabel, "Recently updated", "Name A–Z" };
                 int sortWidth = 0;
-                var segmentWidths = sortLabels.Select(l => TextRenderer.MeasureText(g, l, _chipFont).Width + 24).ToList();
+                List<int> segmentWidths = sortLabels.Select(l => TextRenderer.MeasureText(g, l, _chipFont).Width + 24).ToList();
                 sortWidth = segmentWidths.Sum();
 
                 int actionWidth = string.IsNullOrEmpty(ActionText) ? 0 : TextRenderer.MeasureText(g, ActionText, _chipFont).Width + 28;
-                int rightWidth = SortLabelWidth + sortWidth + (actionWidth > 0 ? actionWidth + Gap * 2 : 0);
+                int rightWidth = SortLabelWidth + sortWidth + (actionWidth > 0 ? actionWidth + (Gap * 2) : 0);
 
-                int searchWidth = Math.Max(160, Math.Min(380, Width - rightWidth - Gap * 2));
+                int searchWidth = Math.Max(160, Math.Min(380, Width - rightWidth - (Gap * 2)));
                 _searchBounds = new Rectangle(0, 0, searchWidth, RowHeight);
                 _clearSearchBounds = new Rectangle(_searchBounds.Right - 28, 0, 28, RowHeight);
-                _searchBox.SetBounds(_searchBounds.X + 32, _searchBounds.Y + (RowHeight - _searchBox.Height) / 2,
+                _searchBox.SetBounds(_searchBounds.X + 32, _searchBounds.Y + ((RowHeight - _searchBox.Height) / 2),
                     Math.Max(10, searchWidth - 32 - 30), _searchBox.Height);
 
                 int x = Width - sortWidth;
@@ -237,15 +261,15 @@ namespace BeanModManager.Controls
                     x += segmentWidths[i];
                 }
                 _actionBounds = actionWidth > 0
-                    ? new Rectangle(Width - sortWidth - SortLabelWidth - Gap * 2 - actionWidth, 0, actionWidth, RowHeight)
+                    ? new Rectangle(Width - sortWidth - SortLabelWidth - (Gap * 2) - actionWidth, 0, actionWidth, RowHeight)
                     : Rectangle.Empty;
 
                 // Row 2: chips (wrapping) | summary + reset (right)
                 _chipBounds.Clear();
                 int y = RowHeight + RowGap;
                 int cx = 0;
-                var rightReserve = 260;
-                foreach (var cat in _categories)
+                int rightReserve = 260;
+                foreach (FilterCategory cat in _categories)
                 {
                     int w = MeasureChip(g, cat);
                     if (cx > 0 && cx + w > Width - rightReserve)
@@ -273,20 +297,26 @@ namespace BeanModManager.Controls
 
         private int _preferredHeight = RowHeight + RowGap + ChipHeight;
 
-        public override Size GetPreferredSize(Size proposedSize) => new Size(Width, _preferredHeight);
+        public override Size GetPreferredSize(Size proposedSize)
+        {
+            return new Size(Width, _preferredHeight);
+        }
 
         private int MeasureChip(Graphics g, FilterCategory cat)
         {
             int w = TextRenderer.MeasureText(g, cat.Label, _chipFont).Width + 22;
             if (cat.Count > 0)
+            {
                 w += TextRenderer.MeasureText(g, cat.Count.ToString(), _countFont).Width + 8;
+            }
+
             return w;
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            var g = e.Graphics;
+            Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
@@ -300,22 +330,22 @@ namespace BeanModManager.Controls
         private void PaintSearch(Graphics g)
         {
             bool focused = _searchBox.Focused;
-            var border = focused ? _palette.PrimaryButtonColor : _palette.InputBorderColor;
-            using (var path = RoundedRect(_searchBounds, Radius))
-            using (var fill = new SolidBrush(_palette.InputBackColor))
-            using (var pen = new Pen(border, focused ? 1.5f : 1f))
+            Color border = focused ? _palette.PrimaryButtonColor : _palette.InputBorderColor;
+            using (GraphicsPath path = RoundedRect(_searchBounds, Radius))
+            using (SolidBrush fill = new SolidBrush(_palette.InputBackColor))
+            using (Pen pen = new Pen(border, focused ? 1.5f : 1f))
             {
                 g.FillPath(fill, path);
                 g.DrawPath(pen, path);
             }
 
-            var glyphRect = new Rectangle(_searchBounds.X + 8, _searchBounds.Y, 22, RowHeight);
+            Rectangle glyphRect = new Rectangle(_searchBounds.X + 8, _searchBounds.Y, 22, RowHeight);
             TextRenderer.DrawText(g, "\uE721", _glyphFont, glyphRect, _palette.MutedTextColor,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
 
             if (_searchBox.TextLength == 0 && !focused)
             {
-                var hint = new Rectangle(_searchBox.Left, _searchBounds.Y, _searchBox.Width, RowHeight);
+                Rectangle hint = new Rectangle(_searchBox.Left, _searchBounds.Y, _searchBox.Width, RowHeight);
                 TextRenderer.DrawText(g, SearchPlaceholder, _bodyFont, hint, _palette.MutedTextColor,
                     TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
             }
@@ -331,28 +361,36 @@ namespace BeanModManager.Controls
 
         private void PaintSegments(Graphics g)
         {
-            if (_sortBounds.Count == 0) return;
-            var labels = new[] { DefaultSortLabel, "Recently updated", "Name A–Z" };
-            var outer = Rectangle.Union(_sortBounds[0], _sortBounds[_sortBounds.Count - 1]);
+            if (_sortBounds.Count == 0)
+            {
+                return;
+            }
 
-            using (var path = RoundedRect(outer, Radius))
-            using (var fill = new SolidBrush(_palette.InputBackColor))
-            using (var pen = new Pen(_palette.InputBorderColor))
+            string[] labels = new[] { DefaultSortLabel, "Recently updated", "Name A–Z" };
+            Rectangle outer = Rectangle.Union(_sortBounds[0], _sortBounds[_sortBounds.Count - 1]);
+
+            using (GraphicsPath path = RoundedRect(outer, Radius))
+            using (SolidBrush fill = new SolidBrush(_palette.InputBackColor))
+            using (Pen pen = new Pen(_palette.InputBorderColor))
             {
                 g.FillPath(fill, path);
                 g.SetClip(path);
                 for (int i = 0; i < _sortBounds.Count; i++)
                 {
-                    var rect = _sortBounds[i];
-                    bool selected = (int)_sortOrder == i;
+                    Rectangle rect = _sortBounds[i];
+                    bool selected = (int)SortOrder == i;
                     bool hover = _hoverItem is ValueTuple<string, int> h && h.Item1 == "sort" && h.Item2 == i;
                     if (selected || hover)
                     {
-                        using (var b = new SolidBrush(selected ? _palette.PrimaryButtonColor : _palette.NeutralButtonColor))
+                        using (SolidBrush b = new SolidBrush(selected ? _palette.PrimaryButtonColor : _palette.NeutralButtonColor))
+                        {
                             g.FillRectangle(b, rect);
+                        }
                     }
                     if (i > 0)
+                    {
                         g.DrawLine(pen, rect.X, rect.Y + 6, rect.X, rect.Bottom - 6);
+                    }
 
                     TextRenderer.DrawText(g, labels[i], _chipFont, rect,
                         selected ? _palette.PrimaryButtonTextColor : _palette.SecondaryTextColor,
@@ -362,18 +400,22 @@ namespace BeanModManager.Controls
                 g.DrawPath(pen, path);
             }
 
-            var labelRect = new Rectangle(outer.X - SortLabelWidth, 0, SortLabelWidth - 6, RowHeight);
+            Rectangle labelRect = new Rectangle(outer.X - SortLabelWidth, 0, SortLabelWidth - 6, RowHeight);
             TextRenderer.DrawText(g, "Sort", _countFont, labelRect, _palette.MutedTextColor,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.NoPadding);
         }
 
         private void PaintAction(Graphics g)
         {
-            if (_actionBounds.IsEmpty) return;
+            if (_actionBounds.IsEmpty)
+            {
+                return;
+            }
+
             bool hover = ReferenceEquals(_hoverItem, "action");
-            var back = hover ? ControlPaint.Light(_palette.NeutralButtonColor, 0.1f) : _palette.NeutralButtonColor;
-            using (var path = RoundedRect(_actionBounds, Radius))
-            using (var fill = new SolidBrush(back))
+            Color back = hover ? ControlPaint.Light(_palette.NeutralButtonColor, 0.1f) : _palette.NeutralButtonColor;
+            using (GraphicsPath path = RoundedRect(_actionBounds, Radius))
+            using (SolidBrush fill = new SolidBrush(back))
             {
                 g.FillPath(fill, path);
             }
@@ -385,9 +427,9 @@ namespace BeanModManager.Controls
         {
             for (int i = 0; i < _chipBounds.Count && i < _categories.Count; i++)
             {
-                var cat = _categories[i];
-                var rect = _chipBounds[i];
-                bool selected = cat.Key.Equals(_selectedCategory, StringComparison.OrdinalIgnoreCase);
+                FilterCategory cat = _categories[i];
+                Rectangle rect = _chipBounds[i];
+                bool selected = cat.Key.Equals(SelectedCategory, StringComparison.OrdinalIgnoreCase);
                 bool hover = _hoverItem is ValueTuple<string, int> h && h.Item1 == "chip" && h.Item2 == i;
 
                 Color fill = selected ? _palette.PrimaryButtonColor
@@ -395,22 +437,22 @@ namespace BeanModManager.Controls
                 Color text = selected ? _palette.PrimaryButtonTextColor : _palette.PrimaryTextColor;
                 Color count = selected ? Color.FromArgb(220, _palette.PrimaryButtonTextColor) : _palette.MutedTextColor;
 
-                using (var path = RoundedRect(rect, ChipHeight / 2))
-                using (var b = new SolidBrush(fill))
-                using (var pen = new Pen(selected ? fill : _palette.CardBorderColor))
+                using (GraphicsPath path = RoundedRect(rect, ChipHeight / 2))
+                using (SolidBrush b = new SolidBrush(fill))
+                using (Pen pen = new Pen(selected ? fill : _palette.CardBorderColor))
                 {
                     g.FillPath(b, path);
                     g.DrawPath(pen, path);
                 }
 
-                var labelSize = TextRenderer.MeasureText(g, cat.Label, _chipFont);
-                var labelRect = new Rectangle(rect.X + 11, rect.Y, labelSize.Width, rect.Height);
+                Size labelSize = TextRenderer.MeasureText(g, cat.Label, _chipFont);
+                Rectangle labelRect = new Rectangle(rect.X + 11, rect.Y, labelSize.Width, rect.Height);
                 TextRenderer.DrawText(g, cat.Label, _chipFont, labelRect, text,
                     TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding);
 
                 if (cat.Count > 0)
                 {
-                    var countRect = new Rectangle(labelRect.Right + 6, rect.Y, rect.Right - labelRect.Right - 12, rect.Height);
+                    Rectangle countRect = new Rectangle(labelRect.Right + 6, rect.Y, rect.Right - labelRect.Right - 12, rect.Height);
                     TextRenderer.DrawText(g, cat.Count.ToString(), _countFont, countRect, count,
                         TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding);
                 }
@@ -420,37 +462,63 @@ namespace BeanModManager.Controls
         private void PaintSummary(Graphics g)
         {
             bool showReset = HasActiveFilters;
-            var summaryRect = showReset ? _summaryBounds : Rectangle.Union(_summaryBounds, _resetBounds);
+            Rectangle summaryRect = showReset ? _summaryBounds : Rectangle.Union(_summaryBounds, _resetBounds);
             TextRenderer.DrawText(g, _summaryText, _countFont, summaryRect, _palette.MutedTextColor,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
 
             if (showReset)
             {
                 bool hover = ReferenceEquals(_hoverItem, "reset");
-                var font = hover ? new Font(_countFont, FontStyle.Underline) : _countFont;
+                Font font = hover ? new Font(_countFont, FontStyle.Underline) : _countFont;
                 TextRenderer.DrawText(g, "Clear filters", font, _resetBounds, _palette.LinkColor,
                     TextFormatFlags.VerticalCenter | TextFormatFlags.Right | TextFormatFlags.NoPadding);
-                if (hover) font.Dispose();
+                if (hover)
+                {
+                    font.Dispose();
+                }
             }
         }
 
         private object HitTest(Point p)
         {
-            if (_searchBox.TextLength > 0 && _clearSearchBounds.Contains(p)) return "clearSearch";
-            if (_actionBounds.Contains(p)) return "action";
-            if (HasActiveFilters && _resetBounds.Contains(p)) return "reset";
+            if (_searchBox.TextLength > 0 && _clearSearchBounds.Contains(p))
+            {
+                return "clearSearch";
+            }
+
+            if (_actionBounds.Contains(p))
+            {
+                return "action";
+            }
+
+            if (HasActiveFilters && _resetBounds.Contains(p))
+            {
+                return "reset";
+            }
+
             for (int i = 0; i < _sortBounds.Count; i++)
-                if (_sortBounds[i].Contains(p)) return ("sort", i);
+            {
+                if (_sortBounds[i].Contains(p))
+                {
+                    return ("sort", i);
+                }
+            }
+
             for (int i = 0; i < _chipBounds.Count; i++)
-                if (_chipBounds[i].Contains(p)) return ("chip", i);
-            if (_searchBounds.Contains(p)) return "search";
-            return null;
+            {
+                if (_chipBounds[i].Contains(p))
+                {
+                    return ("chip", i);
+                }
+            }
+
+            return _searchBounds.Contains(p) ? "search" : (object)null;
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
-            var hit = HitTest(e.Location);
+            object hit = HitTest(e.Location);
             if (!Equals(hit, _hoverItem))
             {
                 _hoverItem = hit;
@@ -468,9 +536,12 @@ namespace BeanModManager.Controls
         protected override void OnMouseClick(MouseEventArgs e)
         {
             base.OnMouseClick(e);
-            if (e.Button != MouseButtons.Left) return;
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
 
-            var hit = HitTest(e.Location);
+            object hit = HitTest(e.Location);
             switch (hit)
             {
                 case "clearSearch":
@@ -481,7 +552,7 @@ namespace BeanModManager.Controls
                     RaiseFiltersChanged();
                     break;
                 case "search":
-                    _searchBox.Focus();
+                    _ = _searchBox.Focus();
                     break;
                 case "action":
                     ActionClicked?.Invoke(this, EventArgs.Empty);
@@ -490,8 +561,8 @@ namespace BeanModManager.Controls
                     Reset();
                     break;
                 case ValueTuple<string, int> t when t.Item1 == "sort":
-                    var order = (ModSortOrder)t.Item2;
-                    if (order != _sortOrder) { _sortOrder = order; Invalidate(); RaiseFiltersChanged(); }
+                    ModSortOrder order = (ModSortOrder)t.Item2;
+                    if (order != SortOrder) { SortOrder = order; Invalidate(); RaiseFiltersChanged(); }
                     break;
                 case ValueTuple<string, int> t when t.Item1 == "chip":
                     SelectCategory(_categories[t.Item2].Key);
@@ -501,7 +572,7 @@ namespace BeanModManager.Controls
 
         private static GraphicsPath RoundedRect(Rectangle rect, int radius)
         {
-            var path = new GraphicsPath();
+            GraphicsPath path = new GraphicsPath();
             int d = radius * 2;
             rect.Width = Math.Max(rect.Width - 1, d);
             rect.Height = Math.Max(rect.Height - 1, d);

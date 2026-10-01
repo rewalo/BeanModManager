@@ -1,15 +1,15 @@
-using BeanModManager.Helpers;
-using BeanModManager.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using BeanModManager.Helpers;
+using BeanModManager.Models;
 
 namespace BeanModManager
 {
-    class PopulateRegistryCache
+    internal class PopulateRegistryCache
     {
         private static readonly HttpClient _httpClient = new HttpClient();
         private static int _successCount = 0;
@@ -24,8 +24,8 @@ namespace BeanModManager
 
         public static async Task Main(string[] args)
         {
-            var registryPath = args.Length > 0 ? args[0] : "mod-registry.json";
-            var cachePath = args.Length > 1 ? args[1] : "mod-cache.json";
+            string registryPath = args.Length > 0 ? args[0] : "mod-registry.json";
+            string cachePath = args.Length > 1 ? args[1] : "mod-cache.json";
 
             if (!File.Exists(registryPath))
             {
@@ -36,8 +36,8 @@ namespace BeanModManager
 
             Console.WriteLine($"Reading registry: {Path.GetFullPath(registryPath)}");
 
-            var json = File.ReadAllText(registryPath);
-            var registry = JsonHelper.Deserialize<ModRegistry>(json);
+            string json = File.ReadAllText(registryPath);
+            ModRegistry registry = JsonHelper.Deserialize<ModRegistry>(json);
 
             if (registry == null || registry.mods == null || !registry.mods.Any())
             {
@@ -45,7 +45,7 @@ namespace BeanModManager
                 return;
             }
 
-            var cache = new ModCache
+            ModCache cache = new ModCache
             {
                 version = "1.0",
                 mods = new Dictionary<string, ModCacheEntry>()
@@ -57,8 +57,8 @@ namespace BeanModManager
 
                 try
                 {
-                    var existingCacheJson = File.ReadAllText(cachePath);
-                    var existingCache = JsonHelper.Deserialize<ModCache>(existingCacheJson);
+                    string existingCacheJson = File.ReadAllText(cachePath);
+                    ModCache existingCache = JsonHelper.Deserialize<ModCache>(existingCacheJson);
 
                     if (existingCache != null && existingCache.mods != null)
                     {
@@ -72,7 +72,7 @@ namespace BeanModManager
                 }
             }
 
-            var backupPath = cachePath + ".backup";
+            string backupPath = cachePath + ".backup";
 
             if (File.Exists(cachePath))
             {
@@ -84,7 +84,7 @@ namespace BeanModManager
 
             bool rateLimited = false;
 
-            foreach (var mod in registry.mods)
+            foreach (ModRegistryEntry mod in registry.mods)
             {
                 if (string.IsNullOrEmpty(mod.githubOwner) ||
                     string.IsNullOrEmpty(mod.githubRepo))
@@ -126,7 +126,7 @@ namespace BeanModManager
             }
         }
 
-        static void SaveCache(string cachePath, ModCache cache)
+        private static void SaveCache(string cachePath, ModCache cache)
         {
             try
             {
@@ -138,25 +138,25 @@ namespace BeanModManager
             }
         }
 
-        static async Task<bool> UpdateModCache(ModRegistryEntry mod, ModCache cache)
+        private static async Task<bool> UpdateModCache(ModRegistryEntry mod, ModCache cache)
         {
             try
             {
-                var apiUrl = $"https://api.github.com/repos/{mod.githubOwner}/{mod.githubRepo}/releases/latest";
+                string apiUrl = $"https://api.github.com/repos/{mod.githubOwner}/{mod.githubRepo}/releases/latest";
 
                 Console.Write($"Fetching {mod.name} ({mod.githubOwner}/{mod.githubRepo})... ");
 
-                cache.mods.TryGetValue(mod.id, out var existingCacheEntry);
-                var existingETag = existingCacheEntry?.cachedETag;
+                _ = cache.mods.TryGetValue(mod.id, out ModCacheEntry existingCacheEntry);
+                string existingETag = existingCacheEntry?.cachedETag;
 
-                using (var request = new HttpRequestMessage(HttpMethod.Get, apiUrl))
+                using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, apiUrl))
                 {
                     if (!string.IsNullOrEmpty(existingETag))
                     {
-                        request.Headers.TryAddWithoutValidation("If-None-Match", existingETag);
+                        _ = request.Headers.TryAddWithoutValidation("If-None-Match", existingETag);
                     }
 
-                    using (var response = await _httpClient.SendAsync(request))
+                    using (HttpResponseMessage response = await _httpClient.SendAsync(request))
                     {
                         if (response.StatusCode == System.Net.HttpStatusCode.NotModified)
                         {
@@ -173,11 +173,11 @@ namespace BeanModManager
                             return true;
                         }
 
-                        response.EnsureSuccessStatusCode();
+                        _ = response.EnsureSuccessStatusCode();
 
-                        var etag = GetETagFromResponse(response);
-                        var content = await response.Content.ReadAsStringAsync();
-                        var release = JsonHelper.Deserialize<GitHubRelease>(content);
+                        string etag = GetETagFromResponse(response);
+                        string content = await response.Content.ReadAsStringAsync();
+                        GitHubRelease release = JsonHelper.Deserialize<GitHubRelease>(content);
 
                         if (release != null && !string.IsNullOrEmpty(release.tag_name))
                         {
@@ -218,24 +218,19 @@ namespace BeanModManager
             }
         }
 
-        static string GetETagFromResponse(HttpResponseMessage response)
+        private static string GetETagFromResponse(HttpResponseMessage response)
         {
             if (response?.Headers?.ETag != null)
             {
-                var etagValue = response.Headers.ETag.ToString();
+                string etagValue = response.Headers.ETag.ToString();
 
-                if (etagValue.StartsWith("\"") && etagValue.EndsWith("\""))
-                {
-                    return etagValue.Substring(1, etagValue.Length - 2);
-                }
-
-                return etagValue;
+                return etagValue.StartsWith("\"") && etagValue.EndsWith("\"") ? etagValue.Substring(1, etagValue.Length - 2) : etagValue;
             }
 
             return null;
         }
 
-        class GitHubRelease
+        private class GitHubRelease
         {
             public string tag_name { get; set; }
             public string published_at { get; set; }
@@ -243,7 +238,7 @@ namespace BeanModManager
             public bool prerelease { get; set; }
         }
 
-        class GitHubAsset
+        private class GitHubAsset
         {
             public string browser_download_url { get; set; }
             public string name { get; set; }

@@ -1,5 +1,3 @@
-using BeanModManager.Helpers;
-using BeanModManager.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -8,6 +6,8 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using BeanModManager.Helpers;
+using BeanModManager.Models;
 
 namespace BeanModManager.Services
 {
@@ -52,12 +52,31 @@ namespace BeanModManager.Services
             }).ToList();
         }
 
+        public List<ModDetectionRule> GetModDetectionRules()
+        {
+            return _availableMods.Select(mod => new ModDetectionRule
+            {
+                ModId = mod.Id,
+                ModName = mod.Name,
+                DllFileNames = _registryEntries.Values
+                    .Where(entry => entry.dependencies != null)
+                    .SelectMany(entry => entry.dependencies)
+                    .Where(dependency =>
+                        string.Equals(dependency.modId, mod.Id, StringComparison.OrdinalIgnoreCase) &&
+                        !string.IsNullOrWhiteSpace(dependency.fileName))
+                    .Select(dependency => dependency.fileName)
+                    .Concat(new[] { $"{mod.Id}.dll", $"{mod.Name}.dll" })
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+            }).ToList();
+        }
+
         private static string TryReadBundledJson(string fileName)
         {
             try
             {
-                var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                var localPath = Path.Combine(baseDir, fileName);
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string localPath = Path.Combine(baseDir, fileName);
                 if (File.Exists(localPath))
                 {
                     return File.ReadAllText(localPath);
@@ -73,12 +92,12 @@ namespace BeanModManager.Services
         {
             try
             {
-                var json = TryReadBundledJson("mod-cache.json") ?? HttpDownloadHelper.DownloadString(_cacheUrl);
-                var cache = JsonHelper.Deserialize<ModCache>(json);
+                string json = TryReadBundledJson("mod-cache.json") ?? HttpDownloadHelper.DownloadString(_cacheUrl);
+                ModCache cache = JsonHelper.Deserialize<ModCache>(json);
 
                 if (cache != null && cache.mods != null)
                 {
-                    foreach (var entry in cache.mods)
+                    foreach (KeyValuePair<string, ModCacheEntry> entry in cache.mods)
                     {
                         _cacheEntries[entry.Key] = entry.Value;
                     }
@@ -93,14 +112,14 @@ namespace BeanModManager.Services
         {
             try
             {
-                var json = TryReadBundledJson("mod-registry.json") ?? HttpDownloadHelper.DownloadString(_registryUrl);
-                var registry = JsonHelper.Deserialize<ModRegistry>(json);
+                string json = TryReadBundledJson("mod-registry.json") ?? HttpDownloadHelper.DownloadString(_registryUrl);
+                ModRegistry registry = JsonHelper.Deserialize<ModRegistry>(json);
 
                 if (registry != null && registry.mods != null && registry.mods.Any())
                 {
-                    foreach (var entry in registry.mods)
+                    foreach (ModRegistryEntry entry in registry.mods)
                     {
-                        var mod = new Mod
+                        Mod mod = new Mod
                         {
                             Id = entry.id,
                             Name = entry.name,
@@ -125,19 +144,21 @@ namespace BeanModManager.Services
             catch
             {
             }
-            MessageBox.Show("Failed to load the mod registry.\n\n" + "Please check your internet connection and try again.", "Mod Registry Load Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            _ = MessageBox.Show("Failed to load the mod registry.\n\n" + "Please check your internet connection and try again.", "Mod Registry Load Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             Process.GetCurrentProcess().Kill();
         }
 
         public async Task<List<Mod>> GetAvailableMods()
         {
             _rateLimited = false;
-            var results = new List<Mod>();
+            List<Mod> results = new List<Mod>();
 
-            foreach (var mod in _availableMods)
+            foreach (Mod mod in _availableMods)
             {
                 if (_rateLimited)
+                {
                     break;
+                }
 
                 await FetchModVersions(mod);
                 results.Add(mod);
@@ -149,12 +170,14 @@ namespace BeanModManager.Services
         public async Task<List<Mod>> GetAvailableModsWithAllVersions()
         {
             _rateLimited = false;
-            var results = new List<Mod>();
+            List<Mod> results = new List<Mod>();
 
-            foreach (var mod in _availableMods)
+            foreach (Mod mod in _availableMods)
             {
                 if (_rateLimited)
+                {
                     break;
+                }
 
                 await FetchAllModVersions(mod);
                 results.Add(mod);
@@ -167,48 +190,52 @@ namespace BeanModManager.Services
         {
             _rateLimited = false;
 
-            var results = new List<Mod>(_availableMods);
-            var processedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            List<Mod> results = new List<Mod>(_availableMods);
+            HashSet<string> processedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            var installedMods = _availableMods.Where(m => installedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase)).ToList();
+            List<Mod> installedMods = _availableMods.Where(m => installedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase)).ToList();
 
-            foreach (var mod in installedMods)
+            foreach (Mod mod in installedMods)
             {
                 if (_rateLimited)
                 {
-                    processedModIds.Add(mod.Id);
+                    _ = processedModIds.Add(mod.Id);
                     continue;
                 }
 
                 try
                 {
                     await FetchAllModVersions(mod);
-                    processedModIds.Add(mod.Id);
+                    _ = processedModIds.Add(mod.Id);
                 }
                 catch
                 {
-                    processedModIds.Add(mod.Id);
+                    _ = processedModIds.Add(mod.Id);
                 }
             }
 
             if (!_rateLimited)
             {
-                var uninstalledMods = _availableMods.Where(m => !installedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase)).ToList();
-                foreach (var mod in uninstalledMods)
+                List<Mod> uninstalledMods = _availableMods.Where(m => !installedModIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase)).ToList();
+                foreach (Mod mod in uninstalledMods)
                 {
                     if (_rateLimited)
+                    {
                         break;
+                    }
 
                     try
                     {
                         await FetchAllModVersions(mod);
-                        processedModIds.Add(mod.Id);
+                        _ = processedModIds.Add(mod.Id);
                     }
                     catch
                     {
-                        processedModIds.Add(mod.Id);
+                        _ = processedModIds.Add(mod.Id);
                         if (_rateLimited)
+                        {
                             break;
+                        }
                     }
                 }
             }
@@ -216,45 +243,49 @@ namespace BeanModManager.Services
             return results;
         }
 
-        public bool IsRateLimited() => _rateLimited;
+        public bool IsRateLimited()
+        {
+            return _rateLimited;
+        }
 
         public bool ModRequiresDepot(string modId)
         {
-            if (_registryEntries.ContainsKey(modId))
-                return _registryEntries[modId].requiresDepot;
-
-            return modId == "AllTheRoles" || modId == "TheOtherRoles";
+            return _registryEntries.ContainsKey(modId)
+                ? _registryEntries[modId].requiresDepot
+                : modId == "AllTheRoles" || modId == "TheOtherRoles";
         }
 
         public DepotConfig GetDepotConfig(string modId)
         {
-            if (_registryEntries.ContainsKey(modId) && _registryEntries[modId].requiresDepot)
-                return _registryEntries[modId].depotConfig;
-
-            return null;
+            return _registryEntries.ContainsKey(modId) && _registryEntries[modId].requiresDepot ? _registryEntries[modId].depotConfig : null;
         }
 
         public List<Dependency> GetDependencies(string modId)
         {
-            if (_registryEntries.ContainsKey(modId) && _registryEntries[modId].dependencies != null)
-                return _registryEntries[modId].dependencies;
-
-            return new List<Dependency>();
+            return _registryEntries.ContainsKey(modId) && _registryEntries[modId].dependencies != null
+                ? _registryEntries[modId].dependencies
+                : new List<Dependency>();
         }
 
         public List<VersionDependency> GetVersionDependencies(string modId, string modVersion)
         {
             if (!_registryEntries.ContainsKey(modId))
+            {
                 return new List<VersionDependency>();
+            }
 
-            var entry = _registryEntries[modId];
+            ModRegistryEntry entry = _registryEntries[modId];
             if (entry.versionDependencies == null || entry.versionDependencies.Count == 0)
+            {
                 return new List<VersionDependency>();
+            }
 
             if (string.IsNullOrEmpty(modVersion))
+            {
                 return new List<VersionDependency>();
+            }
 
-            var normalizedVersion = modVersion.TrimStart('v', 'V').Trim();
+            string normalizedVersion = modVersion.TrimStart('v', 'V').Trim();
 
             if (entry.versionDependencies.ContainsKey(modVersion))
             {
@@ -266,7 +297,7 @@ namespace BeanModManager.Services
                 return entry.versionDependencies[normalizedVersion];
             }
 
-            foreach (var kvp in entry.versionDependencies)
+            foreach (KeyValuePair<string, List<VersionDependency>> kvp in entry.versionDependencies)
             {
                 if (string.Equals(kvp.Key, modVersion, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(kvp.Key, normalizedVersion, StringComparison.OrdinalIgnoreCase))
@@ -275,9 +306,9 @@ namespace BeanModManager.Services
                 }
             }
 
-            foreach (var kvp in entry.versionDependencies)
+            foreach (KeyValuePair<string, List<VersionDependency>> kvp in entry.versionDependencies)
             {
-                var normalizedKey = kvp.Key.TrimStart('v', 'V').Trim();
+                string normalizedKey = kvp.Key.TrimStart('v', 'V').Trim();
                 if (normalizedVersion.Equals(normalizedKey, StringComparison.OrdinalIgnoreCase) ||
                     normalizedVersion.Contains(normalizedKey) || normalizedKey.Contains(normalizedVersion))
                 {
@@ -290,34 +321,30 @@ namespace BeanModManager.Services
 
         public string GetPackageType(string modId)
         {
-            if (_registryEntries.ContainsKey(modId) && !string.IsNullOrEmpty(_registryEntries[modId].packageType))
-                return _registryEntries[modId].packageType;
-
-            return "flat";
+            return _registryEntries.ContainsKey(modId) && !string.IsNullOrEmpty(_registryEntries[modId].packageType)
+                ? _registryEntries[modId].packageType
+                : "flat";
         }
 
         public List<string> GetDontInclude(string modId)
         {
-            if (_registryEntries.ContainsKey(modId) && _registryEntries[modId].dontInclude != null)
-                return _registryEntries[modId].dontInclude;
-
-            return new List<string>();
+            return _registryEntries.ContainsKey(modId) && _registryEntries[modId].dontInclude != null
+                ? _registryEntries[modId].dontInclude
+                : new List<string>();
         }
 
         public List<string> GetKeepFiles(string modId)
         {
-            if (_registryEntries.ContainsKey(modId) && _registryEntries[modId].keepFiles != null)
-                return _registryEntries[modId].keepFiles;
-
-            return new List<string>();
+            return _registryEntries.ContainsKey(modId) && _registryEntries[modId].keepFiles != null
+                ? _registryEntries[modId].keepFiles
+                : new List<string>();
         }
 
         public List<string> GetDependents(string dependencyId)
         {
-            if (string.IsNullOrEmpty(dependencyId))
-                return new List<string>();
-
-            return _registryEntries.Values
+            return string.IsNullOrEmpty(dependencyId)
+                ? new List<string>()
+                : _registryEntries.Values
                 .Where(entry => entry.dependencies != null &&
                                 entry.dependencies.Any(dep =>
                                     !string.IsNullOrEmpty(dep.modId) &&
@@ -331,29 +358,33 @@ namespace BeanModManager.Services
         {
             try
             {
-                var apiUrl = $"https://api.github.com/repos/{githubOwner}/{githubRepo}/releases/latest";
-                var cacheKey = $"dep_{githubOwner}_{githubRepo}_latest";
+                string apiUrl = $"https://api.github.com/repos/{githubOwner}/{githubRepo}/releases/latest";
+                string cacheKey = $"dep_{githubOwner}_{githubRepo}_latest";
 
-                var cache = GitHubCacheHelper.GetCache(cacheKey);
+                GitHubCacheHelper.CacheEntry cache = GitHubCacheHelper.GetCache(cacheKey);
                 if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
                 {
                     if (!string.IsNullOrEmpty(cache.CachedData))
                     {
-                        var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                        GitHubRelease release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
                         if (release != null && release.assets != null)
                         {
-                            var dllAsset = release.assets.FirstOrDefault(a =>
+                            GitHubAsset dllAsset = release.assets.FirstOrDefault(a =>
                                 a.name != null &&
                                 a.name.Equals(fileName, StringComparison.OrdinalIgnoreCase));
 
                             if (dllAsset != null)
+                            {
                                 return dllAsset.browser_download_url;
+                            }
 
-                            var anyDll = release.assets.FirstOrDefault(a =>
+                            GitHubAsset anyDll = release.assets.FirstOrDefault(a =>
                                 a.name != null && a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
 
                             if (anyDll != null)
+                            {
                                 return anyDll.browser_download_url;
+                            }
                         }
                         return null;
                     }
@@ -361,7 +392,7 @@ namespace BeanModManager.Services
 
                 string json = null;
                 string etag = cache?.ETag;
-                var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
+                HttpDownloadHelper.DownloadResult result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
 
                 if (result.NotModified)
                 {
@@ -369,21 +400,25 @@ namespace BeanModManager.Services
                     {
                         GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
 
-                        var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                        GitHubRelease release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
                         if (release != null && release.assets != null)
                         {
-                            var dllAsset = release.assets.FirstOrDefault(a =>
+                            GitHubAsset dllAsset = release.assets.FirstOrDefault(a =>
                                 a.name != null &&
                                 a.name.Equals(fileName, StringComparison.OrdinalIgnoreCase));
 
                             if (dllAsset != null)
+                            {
                                 return dllAsset.browser_download_url;
+                            }
 
-                            var anyDll = release.assets.FirstOrDefault(a =>
+                            GitHubAsset anyDll = release.assets.FirstOrDefault(a =>
                                 a.name != null && a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
 
                             if (anyDll != null)
+                            {
                                 return anyDll.browser_download_url;
+                            }
                         }
                     }
                     return null;
@@ -397,7 +432,7 @@ namespace BeanModManager.Services
                     return null;
                 }
 
-                var releaseObj = JsonHelper.Deserialize<GitHubRelease>(json);
+                GitHubRelease releaseObj = JsonHelper.Deserialize<GitHubRelease>(json);
 
                 if (releaseObj != null)
                 {
@@ -405,18 +440,22 @@ namespace BeanModManager.Services
 
                     if (releaseObj.assets != null)
                     {
-                        var dllAsset = releaseObj.assets.FirstOrDefault(a =>
+                        GitHubAsset dllAsset = releaseObj.assets.FirstOrDefault(a =>
                             a.name != null &&
                             a.name.Equals(fileName, StringComparison.OrdinalIgnoreCase));
 
                         if (dllAsset != null)
+                        {
                             return dllAsset.browser_download_url;
+                        }
 
-                        var anyDll = releaseObj.assets.FirstOrDefault(a =>
+                        GitHubAsset anyDll = releaseObj.assets.FirstOrDefault(a =>
                             a.name != null && a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
 
                         if (anyDll != null)
+                        {
                             return anyDll.browser_download_url;
+                        }
                     }
                 }
             }
@@ -431,25 +470,25 @@ namespace BeanModManager.Services
         {
             try
             {
-                var apiUrl = $"https://api.github.com/repos/{mod.GitHubOwner}/{mod.GitHubRepo}/releases/latest";
-                var cacheKey = $"mod_{mod.Id}_latest";
+                string apiUrl = $"https://api.github.com/repos/{mod.GitHubOwner}/{mod.GitHubRepo}/releases/latest";
+                string cacheKey = $"mod_{mod.Id}_latest";
 
-                _registryEntries.TryGetValue(mod.Id, out var registryEntry);
+                _ = _registryEntries.TryGetValue(mod.Id, out ModRegistryEntry registryEntry);
 
                 string etag = null;
 
-                if (_cacheEntries.TryGetValue(mod.Id, out var cacheEntry) &&
+                if (_cacheEntries.TryGetValue(mod.Id, out ModCacheEntry cacheEntry) &&
                     !string.IsNullOrEmpty(cacheEntry.cachedReleaseData) &&
                     !string.IsNullOrEmpty(cacheEntry.cachedETag))
                 {
                     etag = cacheEntry.cachedETag;
                     try
                     {
-                        var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
+                        HttpDownloadHelper.DownloadResult result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
 
                         if (result.NotModified)
                         {
-                            var release = JsonHelper.Deserialize<GitHubRelease>(cacheEntry.cachedReleaseData);
+                            GitHubRelease release = JsonHelper.Deserialize<GitHubRelease>(cacheEntry.cachedReleaseData);
                             if (release != null && !string.IsNullOrEmpty(release.tag_name))
                             {
                                 mod.Versions.Clear();
@@ -464,7 +503,7 @@ namespace BeanModManager.Services
                         }
                         else if (!string.IsNullOrEmpty(result.Content))
                         {
-                            var release = JsonHelper.Deserialize<GitHubRelease>(result.Content);
+                            GitHubRelease release = JsonHelper.Deserialize<GitHubRelease>(result.Content);
                             if (release != null && !string.IsNullOrEmpty(release.tag_name))
                             {
                                 GitHubCacheHelper.SaveCache(cacheKey, result.ETag, result.Content, release.tag_name);
@@ -486,10 +525,10 @@ namespace BeanModManager.Services
                     {
                     }
 
-                    if (DateTime.TryParse(cacheEntry.lastChecked, out var lastChecked) &&
+                    if (DateTime.TryParse(cacheEntry.lastChecked, out DateTime lastChecked) &&
                         DateTime.UtcNow - lastChecked < TimeSpan.FromHours(24))
                     {
-                        var release = JsonHelper.Deserialize<GitHubRelease>(cacheEntry.cachedReleaseData);
+                        GitHubRelease release = JsonHelper.Deserialize<GitHubRelease>(cacheEntry.cachedReleaseData);
                         if (release != null && !string.IsNullOrEmpty(release.tag_name))
                         {
                             mod.Versions.Clear();
@@ -504,12 +543,12 @@ namespace BeanModManager.Services
                     }
                 }
 
-                var cache = GitHubCacheHelper.GetCache(cacheKey);
+                GitHubCacheHelper.CacheEntry cache = GitHubCacheHelper.GetCache(cacheKey);
                 if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
                 {
                     if (!string.IsNullOrEmpty(cache.CachedData))
                     {
-                        var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                        GitHubRelease release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
                         if (release != null && !string.IsNullOrEmpty(release.tag_name))
                         {
                             mod.Versions.Clear();
@@ -526,11 +565,11 @@ namespace BeanModManager.Services
                 string json = null;
                 if (string.IsNullOrEmpty(etag))
                 {
-                    etag = (_cacheEntries.TryGetValue(mod.Id, out var cacheFileEntry) ? cacheFileEntry.cachedETag : null) ?? cache?.ETag;
+                    etag = (_cacheEntries.TryGetValue(mod.Id, out ModCacheEntry cacheFileEntry) ? cacheFileEntry.cachedETag : null) ?? cache?.ETag;
                 }
                 try
                 {
-                    var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
+                    HttpDownloadHelper.DownloadResult result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
 
                     if (result.NotModified)
                     {
@@ -538,7 +577,7 @@ namespace BeanModManager.Services
                         {
                             GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
 
-                            var release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
+                            GitHubRelease release = JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
                             if (release != null && !string.IsNullOrEmpty(release.tag_name))
                             {
                                 mod.Versions.Clear();
@@ -567,17 +606,15 @@ namespace BeanModManager.Services
                     {
                         json = cache.CachedData;
                     }
-                    else if (_cacheEntries.TryGetValue(mod.Id, out var fallbackCacheEntry) && !string.IsNullOrEmpty(fallbackCacheEntry.cachedReleaseData))
-                    {
-                        json = fallbackCacheEntry.cachedReleaseData;
-                    }
                     else
                     {
-                        throw new Exception("No data available");
+                        json = _cacheEntries.TryGetValue(mod.Id, out ModCacheEntry fallbackCacheEntry) && !string.IsNullOrEmpty(fallbackCacheEntry.cachedReleaseData)
+                            ? fallbackCacheEntry.cachedReleaseData
+                            : throw new Exception("No data available");
                     }
                 }
 
-                var releaseObj = JsonHelper.Deserialize<GitHubRelease>(json);
+                GitHubRelease releaseObj = JsonHelper.Deserialize<GitHubRelease>(json);
 
                 if (releaseObj != null && !string.IsNullOrEmpty(releaseObj.tag_name))
                 {
@@ -613,7 +650,7 @@ namespace BeanModManager.Services
 
         private void AddVersionsFromRegistry(Mod mod, GitHubRelease release, ModRegistryEntry registryEntry, bool isPreRelease)
         {
-            var releaseDate = DateTime.Parse(release.published_at);
+            DateTime releaseDate = DateTime.Parse(release.published_at);
             if (!mod.LastUpdated.HasValue || releaseDate > mod.LastUpdated.Value)
             {
                 mod.LastUpdated = releaseDate;
@@ -621,43 +658,123 @@ namespace BeanModManager.Services
 
             if (registryEntry.assetFilters != null)
             {
+                List<KeyValuePair<GitHubAsset, GameChannels.BundleChannels>> bundleAssignments = new List<KeyValuePair<GitHubAsset, GameChannels.BundleChannels>>();
+
+                void assignChannels(GitHubAsset asset, GameChannels.BundleChannels channels)
+                {
+                    if (asset == null || channels == GameChannels.BundleChannels.None)
+                    {
+                        return;
+                    }
+
+                    int existingIndex = bundleAssignments.FindIndex(a => a.Key == asset);
+                    if (existingIndex >= 0)
+                    {
+                        GameChannels.BundleChannels existing = bundleAssignments[existingIndex].Value;
+
+                        if (existing != GameChannels.BundleChannels.None &&
+                            (existing & ~channels) != GameChannels.BundleChannels.None)
+                        {
+                            return;
+                        }
+
+                        bundleAssignments[existingIndex] = new KeyValuePair<GitHubAsset, GameChannels.BundleChannels>(
+                            asset, existing | channels);
+                        return;
+                    }
+
+                    bundleAssignments.Add(new KeyValuePair<GitHubAsset, GameChannels.BundleChannels>(asset, channels));
+                }
+
+                if (release.assets != null)
+                {
+                    foreach (GitHubAsset asset in release.assets)
+                    {
+                        if (string.IsNullOrEmpty(asset.name) ||
+                            !asset.name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        assignChannels(asset, GameChannels.ParseChannelsFromAssetName(asset.name));
+                    }
+                }
+
+                void assignFromFilter(GitHubAsset asset, GameChannels.BundleChannels impliedChannels)
+                {
+                    if (asset == null)
+                    {
+                        return;
+                    }
+
+                    int existingIndex = bundleAssignments.FindIndex(a => a.Key == asset);
+                    if (existingIndex >= 0)
+                    {
+                        GameChannels.BundleChannels existing = bundleAssignments[existingIndex].Value;
+
+                        if (existing == GameChannels.BundleChannels.Universal)
+                        {
+                            return;
+                        }
+
+                        if ((existing & ~impliedChannels) == GameChannels.BundleChannels.None)
+                        {
+                            bundleAssignments[existingIndex] = new KeyValuePair<GitHubAsset, GameChannels.BundleChannels>(
+                                asset, existing | impliedChannels);
+                        }
+                        return;
+                    }
+
+                    bundleAssignments.Add(new KeyValuePair<GitHubAsset, GameChannels.BundleChannels>(
+                        asset, GameChannels.BundleChannels.Universal));
+                }
+
                 if (registryEntry.assetFilters.steam != null)
                 {
-                    var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.steam);
-                    if (asset != null)
-                    {
-                        mod.Versions.Add(new ModVersion
-                        {
-                            Version = release.tag_name,
-                            ReleaseTag = release.tag_name,
-                            ReleaseDate = releaseDate,
-                            DownloadUrl = asset.browser_download_url,
-                            GameVersion = "Steam/Itch.io",
-                            IsPreRelease = isPreRelease
-                        });
-                    }
+                    assignFromFilter(FindAssetByFilter(release.assets, registryEntry.assetFilters.steam),
+                        GameChannels.BundleChannels.Steam);
                 }
 
                 if (registryEntry.assetFilters.epic != null)
                 {
-                    var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.epic);
-                    if (asset != null)
+                    assignFromFilter(FindAssetByFilter(release.assets, registryEntry.assetFilters.epic),
+                        GameChannels.BundleChannels.Epic | GameChannels.BundleChannels.Microsoft);
+                }
+
+                if (registryEntry.assetFilters.itch != null)
+                {
+                    assignFromFilter(FindAssetByFilter(release.assets, registryEntry.assetFilters.itch),
+                        GameChannels.BundleChannels.Itch);
+                }
+
+                if (bundleAssignments.Count == 0 && release.assets != null)
+                {
+                    GitHubAsset fallbackBundle = release.assets.FirstOrDefault(a =>
+                        !string.IsNullOrEmpty(a.name) &&
+                        a.name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                        a.name.IndexOf("source", StringComparison.OrdinalIgnoreCase) < 0);
+                    if (fallbackBundle != null)
                     {
-                        mod.Versions.Add(new ModVersion
-                        {
-                            Version = release.tag_name,
-                            ReleaseTag = release.tag_name,
-                            ReleaseDate = releaseDate,
-                            DownloadUrl = asset.browser_download_url,
-                            GameVersion = "Epic/MS Store",
-                            IsPreRelease = isPreRelease
-                        });
+                        assignChannels(fallbackBundle, GameChannels.BundleChannels.Universal);
                     }
+                }
+
+                foreach (KeyValuePair<GitHubAsset, GameChannels.BundleChannels> assignment in bundleAssignments)
+                {
+                    mod.Versions.Add(new ModVersion
+                    {
+                        Version = release.tag_name,
+                        ReleaseTag = release.tag_name,
+                        ReleaseDate = releaseDate,
+                        DownloadUrl = assignment.Key.browser_download_url,
+                        GameVersion = GameChannels.GetBundleLabel(assignment.Value),
+                        IsPreRelease = isPreRelease
+                    });
                 }
 
                 if (registryEntry.assetFilters.dll != null)
                 {
-                    var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.dll);
+                    GitHubAsset asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.dll);
                     if (asset != null)
                     {
                         mod.Versions.Add(new ModVersion
@@ -674,8 +791,8 @@ namespace BeanModManager.Services
 
                 if (registryEntry.assetFilters.@default != null)
                 {
-                    var asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.@default);
-                    if (asset != null)
+                    GitHubAsset asset = FindAssetByFilter(release.assets, registryEntry.assetFilters.@default);
+                    if (asset != null && !bundleAssignments.Any(a => a.Key == asset))
                     {
                         mod.Versions.Add(new ModVersion
                         {
@@ -694,27 +811,23 @@ namespace BeanModManager.Services
         private GitHubAsset FindAssetByFilter(List<GitHubAsset> assets, AssetFilter filter)
         {
             if (assets == null || filter == null || filter.patterns == null || !filter.patterns.Any())
+            {
                 return null;
+            }
 
-            foreach (var asset in assets)
+            foreach (GitHubAsset asset in assets)
             {
                 if (string.IsNullOrEmpty(asset.name))
+                {
                     continue;
-
-                var assetNameLower = asset.name.ToLower();
-                bool matches = false;
-
-                if (filter.exactMatch)
-                {
-                    matches = filter.patterns.Any(pattern =>
-                        assetNameLower.Equals(pattern.ToLower(), StringComparison.OrdinalIgnoreCase));
                 }
-                else
-                {
-                    matches = filter.patterns.Any(pattern =>
+
+                string assetNameLower = asset.name.ToLower();
+                bool matches = filter.exactMatch
+                    ? filter.patterns.Any(pattern =>
+                        assetNameLower.Equals(pattern.ToLower(), StringComparison.OrdinalIgnoreCase))
+                    : filter.patterns.Any(pattern =>
                         assetNameLower.Contains(pattern.ToLower()));
-                }
-
                 if (matches && filter.exclude != null && filter.exclude.Any())
                 {
                     matches = !filter.exclude.Any(exclude =>
@@ -722,7 +835,9 @@ namespace BeanModManager.Services
                 }
 
                 if (matches)
+                {
                     return asset;
+                }
             }
 
             return null;
@@ -732,17 +847,17 @@ namespace BeanModManager.Services
         {
             try
             {
-                var apiUrl = $"https://api.github.com/repos/{mod.GitHubOwner}/{mod.GitHubRepo}/releases";
-                var cacheKey = $"mod_{mod.Id}_all";
+                string apiUrl = $"https://api.github.com/repos/{mod.GitHubOwner}/{mod.GitHubRepo}/releases";
+                string cacheKey = $"mod_{mod.Id}_all";
 
-                _registryEntries.TryGetValue(mod.Id, out var registryEntry);
+                _ = _registryEntries.TryGetValue(mod.Id, out ModRegistryEntry registryEntry);
 
-                var cache = GitHubCacheHelper.GetCache(cacheKey);
+                GitHubCacheHelper.CacheEntry cache = GitHubCacheHelper.GetCache(cacheKey);
                 if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
                 {
                     if (!string.IsNullOrEmpty(cache.CachedData))
                     {
-                        var cachedReleases = JsonHelper.Deserialize<List<GitHubRelease>>(cache.CachedData);
+                        List<GitHubRelease> cachedReleases = JsonHelper.Deserialize<List<GitHubRelease>>(cache.CachedData);
                         if (cachedReleases != null && cachedReleases.Any())
                         {
                             ProcessAllReleases(mod, cachedReleases);
@@ -752,10 +867,10 @@ namespace BeanModManager.Services
                 }
 
                 string json = null;
-                string etag = (_cacheEntries.TryGetValue(mod.Id, out var cacheFileEntry) ? cacheFileEntry.cachedETag : null) ?? cache?.ETag;
+                string etag = (_cacheEntries.TryGetValue(mod.Id, out ModCacheEntry cacheFileEntry) ? cacheFileEntry.cachedETag : null) ?? cache?.ETag;
                 try
                 {
-                    var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
+                    HttpDownloadHelper.DownloadResult result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
 
                     if (result.NotModified)
                     {
@@ -763,7 +878,7 @@ namespace BeanModManager.Services
                         {
                             GitHubCacheHelper.UpdateCacheTimestamp(cacheKey);
 
-                            var cachedReleases = JsonHelper.Deserialize<List<GitHubRelease>>(cache.CachedData);
+                            List<GitHubRelease> cachedReleases = JsonHelper.Deserialize<List<GitHubRelease>>(cache.CachedData);
                             if (cachedReleases != null && cachedReleases.Any())
                             {
                                 ProcessAllReleases(mod, cachedReleases);
@@ -783,21 +898,14 @@ namespace BeanModManager.Services
 
                 if (string.IsNullOrEmpty(json))
                 {
-                    if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
-                    {
-                        json = cache.CachedData;
-                    }
-                    else
-                    {
-                        throw new Exception("No data available");
-                    }
+                    json = cache != null && !string.IsNullOrEmpty(cache.CachedData) ? cache.CachedData : throw new Exception("No data available");
                 }
 
-                var releases = JsonHelper.Deserialize<List<GitHubRelease>>(json);
+                List<GitHubRelease> releases = JsonHelper.Deserialize<List<GitHubRelease>>(json);
 
                 if (releases != null && releases.Any())
                 {
-                    var latestTag = releases.FirstOrDefault(r => !string.IsNullOrEmpty(r.tag_name))?.tag_name;
+                    string latestTag = releases.FirstOrDefault(r => !string.IsNullOrEmpty(r.tag_name))?.tag_name;
                     GitHubCacheHelper.SaveCache(cacheKey, etag, json, latestTag);
                 }
 
@@ -834,9 +942,9 @@ namespace BeanModManager.Services
             mod.Versions.Clear();
 
             DateTime? latestReleaseDate = null;
-            foreach (var release in releases)
+            foreach (GitHubRelease release in releases)
             {
-                if (release != null && DateTime.TryParse(release.published_at, out var publishedAt) &&
+                if (release != null && DateTime.TryParse(release.published_at, out DateTime publishedAt) &&
                     (!latestReleaseDate.HasValue || publishedAt > latestReleaseDate.Value))
                 {
                     latestReleaseDate = publishedAt;
@@ -844,22 +952,24 @@ namespace BeanModManager.Services
             }
             mod.LastUpdated = latestReleaseDate;
 
-            foreach (var release in releases)
+            foreach (GitHubRelease release in releases)
             {
                 if (release == null || string.IsNullOrEmpty(release.tag_name))
+                {
                     continue;
+                }
 
-                var releaseDate = DateTime.Parse(release.published_at);
+                _ = DateTime.Parse(release.published_at);
 
-                var isPreRelease = release.prerelease;
+                bool isPreRelease = release.prerelease;
 
                 if (mod.Id == "TOHE" && !isPreRelease)
                 {
-                    var versionLower = release.tag_name.ToLower();
-                    var betaIndex = versionLower.IndexOf('b');
+                    string versionLower = release.tag_name.ToLower();
+                    int betaIndex = versionLower.IndexOf('b');
                     if (betaIndex > 0 && betaIndex < versionLower.Length - 1)
                     {
-                        var afterB = versionLower.Substring(betaIndex + 1);
+                        string afterB = versionLower.Substring(betaIndex + 1);
                         if (afterB.Length > 0 && char.IsDigit(afterB[0]))
                         {
                             isPreRelease = true;
@@ -867,7 +977,7 @@ namespace BeanModManager.Services
                     }
                 }
 
-                if (_registryEntries.TryGetValue(mod.Id, out var registryEntry))
+                if (_registryEntries.TryGetValue(mod.Id, out ModRegistryEntry registryEntry))
                 {
                     AddVersionsFromRegistry(mod, release, registryEntry, isPreRelease);
                 }

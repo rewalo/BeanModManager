@@ -157,7 +157,7 @@ Steam depot support is reserved for mods specifically requested by users or mods
 - Perfect Comms  
 - NotePad Mod  
 
-Note: Epic/MS Store versions are detected automatically. Mods requiring Steam depot downloads are handled internally.
+Note: Steam, Epic Games, Microsoft Store, and itch.io versions are detected automatically. Mods requiring Steam depot downloads are handled internally.
 
 ---
 

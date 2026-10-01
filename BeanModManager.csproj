@@ -73,6 +73,7 @@
   <ItemGroup>
     <Compile Include="Helpers\DarkModeHelper.cs" />
     <Compile Include="Helpers\FileSystemHelper.cs" />
+    <Compile Include="Helpers\GameChannels.cs" />
     <Compile Include="Helpers\GitHubCacheHelper.cs" />
     <Compile Include="Helpers\JunctionHelper.cs" />
     <Compile Include="Helpers\PathCompatibilityHelper.cs" />

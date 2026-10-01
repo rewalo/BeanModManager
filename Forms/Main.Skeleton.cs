@@ -1,17 +1,20 @@
-using BeanModManager.Controls;
 using System.Collections.Generic;
 using System.Windows.Forms;
+using BeanModManager.Controls;
 
 namespace BeanModManager
 {
     public partial class Main : Form
     {
-        private List<SkeletonModCard> _skeletonInstalledCards = new List<SkeletonModCard>();
-        private List<SkeletonModCard> _skeletonStoreCards = new List<SkeletonModCard>();
+        private readonly List<SkeletonModCard> _skeletonInstalledCards = new List<SkeletonModCard>();
+        private readonly List<SkeletonModCard> _skeletonStoreCards = new List<SkeletonModCard>();
 
         private void ShowSkeletonLoaders(int installedCount, int storeCount)
         {
-            if (panelInstalled == null || panelStore == null) return;
+            if (panelInstalled == null || panelStore == null)
+            {
+                return;
+            }
 
             HideSkeletonLoaders();
 
@@ -27,16 +30,20 @@ namespace BeanModManager
 
                 for (int i = 0; i < installedCount; i++)
                 {
-                    var skeleton = new SkeletonModCard();
-                    skeleton.Visible = false;
+                    SkeletonModCard skeleton = new SkeletonModCard
+                    {
+                        Visible = false
+                    };
                     _skeletonInstalledCards.Add(skeleton);
                     panelInstalled.Controls.Add(skeleton);
                 }
 
                 for (int i = 0; i < storeCount; i++)
                 {
-                    var skeleton = new SkeletonModCard();
-                    skeleton.Visible = false;
+                    SkeletonModCard skeleton = new SkeletonModCard
+                    {
+                        Visible = false
+                    };
                     _skeletonStoreCards.Add(skeleton);
                     panelStore.Controls.Add(skeleton);
                 }
@@ -49,7 +56,7 @@ namespace BeanModManager
                 panelInstalled.ResumeLayout(true);
                 panelStore.ResumeLayout(true);
 
-                foreach (var skeleton in _skeletonInstalledCards)
+                foreach (SkeletonModCard skeleton in _skeletonInstalledCards)
                 {
                     if (skeleton != null && !skeleton.IsDisposed)
                     {
@@ -57,7 +64,7 @@ namespace BeanModManager
                     }
                 }
 
-                foreach (var skeleton in _skeletonStoreCards)
+                foreach (SkeletonModCard skeleton in _skeletonStoreCards)
                 {
                     if (skeleton != null && !skeleton.IsDisposed)
                     {
@@ -69,13 +76,13 @@ namespace BeanModManager
 
         private void HideSkeletonLoaders()
         {
-            foreach (var skeleton in _skeletonInstalledCards)
+            foreach (SkeletonModCard skeleton in _skeletonInstalledCards)
             {
                 skeleton?.Dispose();
             }
             _skeletonInstalledCards.Clear();
 
-            foreach (var skeleton in _skeletonStoreCards)
+            foreach (SkeletonModCard skeleton in _skeletonStoreCards)
             {
                 skeleton?.Dispose();
             }
@@ -84,9 +91,12 @@ namespace BeanModManager
 
         private void ShowStoreSkeletonLoaders(int storeCount)
         {
-            if (panelStore == null) return;
+            if (panelStore == null)
+            {
+                return;
+            }
 
-            foreach (var skeleton in _skeletonStoreCards)
+            foreach (SkeletonModCard skeleton in _skeletonStoreCards)
             {
                 skeleton?.Dispose();
             }
@@ -100,7 +110,7 @@ namespace BeanModManager
 
                 for (int i = 0; i < storeCount; i++)
                 {
-                    var skeleton = new SkeletonModCard { Visible = false };
+                    SkeletonModCard skeleton = new SkeletonModCard { Visible = false };
                     _skeletonStoreCards.Add(skeleton);
                     panelStore.Controls.Add(skeleton);
                 }
@@ -110,17 +120,19 @@ namespace BeanModManager
                 panelStore.SuppressScrollbarInvalidation(false);
                 panelStore.ResumeLayout(true);
 
-                foreach (var skeleton in _skeletonStoreCards)
+                foreach (SkeletonModCard skeleton in _skeletonStoreCards)
                 {
                     if (skeleton != null && !skeleton.IsDisposed)
+                    {
                         skeleton.Visible = true;
+                    }
                 }
             }
         }
 
         private void HideStoreSkeletonLoaders()
         {
-            foreach (var skeleton in _skeletonStoreCards)
+            foreach (SkeletonModCard skeleton in _skeletonStoreCards)
             {
                 skeleton?.Dispose();
             }
@@ -129,9 +141,12 @@ namespace BeanModManager
 
         private void ReplaceSkeletonsWithCards(List<ModCard> installedCards, List<ModCard> storeCards)
         {
-            if (panelInstalled == null || panelStore == null) return;
+            if (panelInstalled == null || panelStore == null)
+            {
+                return;
+            }
 
-            var skeletonsToDispose = new List<SkeletonModCard>();
+            List<SkeletonModCard> skeletonsToDispose = new List<SkeletonModCard>();
             skeletonsToDispose.AddRange(_skeletonInstalledCards);
             _skeletonInstalledCards.Clear();
             if (!_suppressStorePanelUpdates)
@@ -150,26 +165,35 @@ namespace BeanModManager
 
             try
             {
-                foreach (var card in installedCards)
+                foreach (ModCard card in installedCards)
                 {
                     if (panelInstalled.Controls.Contains(card))
+                    {
                         panelInstalled.Controls.Remove(card);
+                    }
                 }
 
                 if (!_suppressStorePanelUpdates)
                 {
-                    foreach (var card in installedCards)
+                    foreach (ModCard card in installedCards)
                     {
                         if (panelStore.Controls.Contains(card))
+                        {
                             panelStore.Controls.Remove(card);
+                        }
                     }
 
-                    foreach (var card in storeCards)
+                    foreach (ModCard card in storeCards)
                     {
                         if (panelInstalled.Controls.Contains(card))
+                        {
                             panelInstalled.Controls.Remove(card);
+                        }
+
                         if (panelStore.Controls.Contains(card))
+                        {
                             panelStore.Controls.Remove(card);
+                        }
                     }
                 }
 
@@ -179,7 +203,7 @@ namespace BeanModManager
                     panelStore.Controls.Clear();
                 }
 
-                foreach (var card in installedCards)
+                foreach (ModCard card in installedCards)
                 {
                     card.Visible = false;
                     panelInstalled.Controls.Add(card);
@@ -191,7 +215,7 @@ namespace BeanModManager
 
                 if (!_suppressStorePanelUpdates)
                 {
-                    foreach (var card in storeCards)
+                    foreach (ModCard card in storeCards)
                     {
                         card.Visible = false;
                         panelStore.Controls.Add(card);
@@ -216,7 +240,7 @@ namespace BeanModManager
                     panelStore.ResumeLayout(true);
                 }
 
-                foreach (var card in installedCards)
+                foreach (ModCard card in installedCards)
                 {
                     if (card != null && !card.IsDisposed && panelInstalled.Controls.Contains(card))
                     {
@@ -226,7 +250,7 @@ namespace BeanModManager
 
                 if (!_suppressStorePanelUpdates)
                 {
-                    foreach (var card in storeCards)
+                    foreach (ModCard card in storeCards)
                     {
                         if (card != null && !card.IsDisposed && panelStore.Controls.Contains(card))
                         {
@@ -235,7 +259,7 @@ namespace BeanModManager
                     }
                 }
 
-                foreach (var skeleton in skeletonsToDispose)
+                foreach (SkeletonModCard skeleton in skeletonsToDispose)
                 {
                     skeleton?.Dispose();
                 }

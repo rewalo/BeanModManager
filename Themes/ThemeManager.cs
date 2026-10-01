@@ -55,14 +55,11 @@ namespace BeanModManager.Themes
 
     public static class ThemeManager
     {
-        private static ThemeVariant _currentVariant = ThemeVariant.Dark;
-        private static ThemePalette _currentPalette = BuildPalette(ThemeVariant.Dark);
-
         public static event EventHandler ThemeChanged;
 
-        public static ThemePalette Current => _currentPalette;
+        public static ThemePalette Current { get; private set; } = BuildPalette(ThemeVariant.Dark);
 
-        public static ThemeVariant CurrentVariant => _currentVariant;
+        public static ThemeVariant CurrentVariant { get; private set; } = ThemeVariant.Dark;
 
         public static ThemeVariant FromName(string name)
         {
@@ -71,31 +68,25 @@ namespace BeanModManager.Themes
                 return ThemeVariant.Dark;
             }
 
-            if (Enum.TryParse(name, true, out ThemeVariant result))
-            {
-                return result;
-            }
-
-            return ThemeVariant.Dark;
+            return Enum.TryParse(name, true, out ThemeVariant result) ? result : ThemeVariant.Dark;
         }
 
         public static void SetTheme(ThemeVariant variant, bool force = false)
         {
-            if (!force && _currentVariant == variant)
+            if (!force && CurrentVariant == variant)
             {
                 return;
             }
 
-            _currentVariant = variant;
-            _currentPalette = BuildPalette(variant);
+            CurrentVariant = variant;
+            Current = BuildPalette(variant);
             ThemeChanged?.Invoke(null, EventArgs.Empty);
         }
 
         private static ThemePalette BuildPalette(ThemeVariant variant)
         {
-            if (variant == ThemeVariant.Dark)
-            {
-                return new ThemePalette
+            return variant == ThemeVariant.Dark
+                ? new ThemePalette
                 {
                     Variant = ThemeVariant.Dark,
                     WindowBackColor = Color.FromArgb(26, 32, 45),
@@ -137,52 +128,50 @@ namespace BeanModManager.Themes
                     FeaturedBadgeTextColor = Color.FromArgb(229, 178, 83),
                     ScrollbarTrackColor = Color.FromArgb(33, 42, 60),
                     ScrollbarThumbColor = Color.FromArgb(88, 103, 134)
+                }
+                : new ThemePalette
+                {
+                    Variant = ThemeVariant.Light,
+                    WindowBackColor = Color.FromArgb(249, 246, 240),
+                    SurfaceColor = Color.FromArgb(252, 249, 244),
+                    SurfaceAltColor = Color.FromArgb(244, 241, 236),
+                    CardBackground = Color.FromArgb(252, 249, 244),
+                    CardBackgroundInstalled = Color.FromArgb(248, 245, 240),
+                    CardBackgroundAlert = Color.FromArgb(255, 249, 237),
+                    CardBorderColor = Color.FromArgb(221, 216, 205),
+                    HeadingTextColor = Color.FromArgb(40, 55, 85),
+                    PrimaryTextColor = Color.FromArgb(58, 64, 80),
+                    SecondaryTextColor = Color.FromArgb(96, 106, 126),
+                    MutedTextColor = Color.FromArgb(148, 154, 170),
+                    LinkColor = Color.FromArgb(0, 122, 204),
+                    LinkActiveColor = Color.FromArgb(0, 92, 170),
+                    FilterBarBackground = Color.FromArgb(252, 249, 244),
+                    InputBackColor = Color.White,
+                    InputTextColor = Color.FromArgb(32, 38, 45),
+                    InputBorderColor = Color.FromArgb(210, 215, 225),
+                    FooterBackColor = Color.FromArgb(252, 249, 244),
+                    StatusStripBackColor = Color.FromArgb(244, 241, 236),
+                    StatusStripTextColor = Color.FromArgb(70, 82, 104),
+                    ProgressBackColor = Color.FromArgb(223, 229, 240),
+                    ProgressForeColor = Color.FromArgb(32, 120, 200),
+                    PrimaryButtonColor = Color.FromArgb(54, 132, 204),
+                    PrimaryButtonTextColor = Color.White,
+                    SuccessButtonColor = Color.FromArgb(46, 161, 118),
+                    SuccessButtonTextColor = Color.White,
+                    SecondaryButtonColor = Color.FromArgb(232, 236, 244),
+                    SecondaryButtonTextColor = Color.FromArgb(60, 72, 96),
+                    DangerButtonColor = Color.FromArgb(228, 96, 98),
+                    DangerButtonTextColor = Color.White,
+                    WarningButtonColor = Color.FromArgb(252, 200, 96),
+                    WarningButtonTextColor = Color.FromArgb(88, 60, 10),
+                    NeutralButtonColor = Color.FromArgb(236, 239, 245),
+                    NeutralButtonTextColor = Color.FromArgb(60, 72, 96),
+                    FeaturedBadgeFill = Color.FromArgb(255, 220, 140),
+                    FeaturedBadgeBorder = Color.FromArgb(255, 193, 7),
+                    FeaturedBadgeTextColor = Color.FromArgb(140, 90, 20),
+                    ScrollbarTrackColor = Color.FromArgb(232, 228, 220),
+                    ScrollbarThumbColor = Color.FromArgb(188, 184, 172)
                 };
-            }
-
-            return new ThemePalette
-            {
-                Variant = ThemeVariant.Light,
-                WindowBackColor = Color.FromArgb(249, 246, 240),
-                SurfaceColor = Color.FromArgb(252, 249, 244),
-                SurfaceAltColor = Color.FromArgb(244, 241, 236),
-                CardBackground = Color.FromArgb(252, 249, 244),
-                CardBackgroundInstalled = Color.FromArgb(248, 245, 240),
-                CardBackgroundAlert = Color.FromArgb(255, 249, 237),
-                CardBorderColor = Color.FromArgb(221, 216, 205),
-                HeadingTextColor = Color.FromArgb(40, 55, 85),
-                PrimaryTextColor = Color.FromArgb(58, 64, 80),
-                SecondaryTextColor = Color.FromArgb(96, 106, 126),
-                MutedTextColor = Color.FromArgb(148, 154, 170),
-                LinkColor = Color.FromArgb(0, 122, 204),
-                LinkActiveColor = Color.FromArgb(0, 92, 170),
-                FilterBarBackground = Color.FromArgb(252, 249, 244),
-                InputBackColor = Color.White,
-                InputTextColor = Color.FromArgb(32, 38, 45),
-                InputBorderColor = Color.FromArgb(210, 215, 225),
-                FooterBackColor = Color.FromArgb(252, 249, 244),
-                StatusStripBackColor = Color.FromArgb(244, 241, 236),
-                StatusStripTextColor = Color.FromArgb(70, 82, 104),
-                ProgressBackColor = Color.FromArgb(223, 229, 240),
-                ProgressForeColor = Color.FromArgb(32, 120, 200),
-                PrimaryButtonColor = Color.FromArgb(54, 132, 204),
-                PrimaryButtonTextColor = Color.White,
-                SuccessButtonColor = Color.FromArgb(46, 161, 118),
-                SuccessButtonTextColor = Color.White,
-                SecondaryButtonColor = Color.FromArgb(232, 236, 244),
-                SecondaryButtonTextColor = Color.FromArgb(60, 72, 96),
-                DangerButtonColor = Color.FromArgb(228, 96, 98),
-                DangerButtonTextColor = Color.White,
-                WarningButtonColor = Color.FromArgb(252, 200, 96),
-                WarningButtonTextColor = Color.FromArgb(88, 60, 10),
-                NeutralButtonColor = Color.FromArgb(236, 239, 245),
-                NeutralButtonTextColor = Color.FromArgb(60, 72, 96),
-                FeaturedBadgeFill = Color.FromArgb(255, 220, 140),
-                FeaturedBadgeBorder = Color.FromArgb(255, 193, 7),
-                FeaturedBadgeTextColor = Color.FromArgb(140, 90, 20),
-                ScrollbarTrackColor = Color.FromArgb(232, 228, 220),
-                ScrollbarThumbColor = Color.FromArgb(188, 184, 172)
-            };
         }
     }
 }

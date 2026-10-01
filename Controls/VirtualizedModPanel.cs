@@ -1,25 +1,25 @@
-using BeanModManager.Models;
-using BeanModManager.Themes;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using BeanModManager.Models;
+using BeanModManager.Themes;
 
 namespace BeanModManager.Controls
 {
     public class VirtualizedModPanel : Panel
     {
         private List<Mod> _allMods;
-        private Dictionary<string, ModCard> _cardCache;
-        private Dictionary<int, ModCard> _visibleCards;
+        private readonly Dictionary<string, ModCard> _cardCache;
+        private readonly Dictionary<int, ModCard> _visibleCards;
         private int _firstVisibleIndex = 0;
         private int _lastVisibleIndex = 0;
-        private int _cardHeight = 180;
-        private int _cardWidth = 320;
-        private int _cardSpacing = 10;
+        private readonly int _cardHeight = 180;
+        private readonly int _cardWidth = 320;
+        private readonly int _cardSpacing = 10;
         private int _cardsPerRow = 3;
-        private VScrollBar _vScrollBar;
+        private readonly VScrollBar _vScrollBar;
         private bool _isUpdating = false;
         private Config _config;
         private bool _isInstalledView;
@@ -49,7 +49,7 @@ namespace BeanModManager.Controls
             if (disposing)
             {
                 ThemeManager.ThemeChanged -= ThemeManager_ThemeChanged;
-                foreach (var card in _cardCache.Values)
+                foreach (ModCard card in _cardCache.Values)
                 {
                     card.Dispose();
                 }
@@ -83,16 +83,19 @@ namespace BeanModManager.Controls
 
         public void RefreshCards()
         {
-            if (_isUpdating) return;
-
-            foreach (var kvp in _visibleCards.ToList())
+            if (_isUpdating)
             {
-                var index = kvp.Key;
-                var card = kvp.Value;
+                return;
+            }
+
+            foreach (KeyValuePair<int, ModCard> kvp in _visibleCards.ToList())
+            {
+                int index = kvp.Key;
+                ModCard card = kvp.Value;
 
                 if (index >= 0 && index < _allMods.Count)
                 {
-                    var mod = _allMods[index];
+                    _ = _allMods[index];
                     card.Visible = true;
                 }
                 else
@@ -131,7 +134,7 @@ namespace BeanModManager.Controls
 
         private void CalculateCardsPerRow()
         {
-            var availableWidth = Width - _vScrollBar.Width - (_cardSpacing * 2);
+            int availableWidth = Width - _vScrollBar.Width - (_cardSpacing * 2);
             _cardsPerRow = Math.Max(1, (int)Math.Floor((availableWidth + _cardSpacing) / (float)(_cardWidth + _cardSpacing)));
         }
 
@@ -144,8 +147,8 @@ namespace BeanModManager.Controls
             }
 
             CalculateCardsPerRow();
-            var totalRows = (int)Math.Ceiling(_allMods.Count / (double)_cardsPerRow);
-            var visibleRows = (int)Math.Ceiling((Height - (_cardSpacing * 2)) / (double)(_cardHeight + _cardSpacing));
+            int totalRows = (int)Math.Ceiling(_allMods.Count / (double)_cardsPerRow);
+            int visibleRows = (int)Math.Ceiling((Height - (_cardSpacing * 2)) / (double)(_cardHeight + _cardSpacing));
 
             if (totalRows <= visibleRows)
             {
@@ -165,32 +168,36 @@ namespace BeanModManager.Controls
         {
             if (_allMods == null || _allMods.Count == 0)
             {
-                foreach (var card in _visibleCards.Values)
+                foreach (ModCard card in _visibleCards.Values)
                 {
                     card.Visible = false;
                 }
                 return;
             }
 
-            if (_isUpdating) return;
+            if (_isUpdating)
+            {
+                return;
+            }
+
             _isUpdating = true;
 
             try
             {
                 CalculateCardsPerRow();
-                var visibleRows = (int)Math.Ceiling((Height - (_cardSpacing * 2)) / (double)(_cardHeight + _cardSpacing));
-                var scrollOffset = _vScrollBar.Visible ? _vScrollBar.Value : 0;
+                int visibleRows = (int)Math.Ceiling((Height - (_cardSpacing * 2)) / (double)(_cardHeight + _cardSpacing));
+                int scrollOffset = _vScrollBar.Visible ? _vScrollBar.Value : 0;
 
                 _firstVisibleIndex = scrollOffset * _cardsPerRow;
                 _lastVisibleIndex = Math.Min(_allMods.Count - 1, _firstVisibleIndex + (visibleRows * _cardsPerRow) - 1);
 
-                var visibleIndices = new HashSet<int>();
+                HashSet<int> visibleIndices = new HashSet<int>();
                 for (int i = _firstVisibleIndex; i <= _lastVisibleIndex; i++)
                 {
-                    visibleIndices.Add(i);
+                    _ = visibleIndices.Add(i);
                 }
 
-                foreach (var kvp in _visibleCards.ToList())
+                foreach (KeyValuePair<int, ModCard> kvp in _visibleCards.ToList())
                 {
                     if (!visibleIndices.Contains(kvp.Key))
                     {
@@ -200,21 +207,23 @@ namespace BeanModManager.Controls
 
                 for (int i = _firstVisibleIndex; i <= _lastVisibleIndex; i++)
                 {
-                    if (i >= _allMods.Count) break;
+                    if (i >= _allMods.Count)
+                    {
+                        break;
+                    }
 
-                    var mod = _allMods[i];
-                    var row = (i / _cardsPerRow) - scrollOffset;
-                    var col = i % _cardsPerRow;
+                    Mod mod = _allMods[i];
+                    int row = (i / _cardsPerRow) - scrollOffset;
+                    int col = i % _cardsPerRow;
 
-                    var x = _cardSpacing + (col * (_cardWidth + _cardSpacing));
-                    var y = _cardSpacing + (row * (_cardHeight + _cardSpacing));
+                    int x = _cardSpacing + (col * (_cardWidth + _cardSpacing));
+                    int y = _cardSpacing + (row * (_cardHeight + _cardSpacing));
 
-                    ModCard card;
-                    if (!_visibleCards.TryGetValue(i, out card))
+                    if (!_visibleCards.TryGetValue(i, out ModCard card))
                     {
                         if (!_cardCache.TryGetValue(mod.Id, out card))
                         {
-                            var version = mod.Versions?.FirstOrDefault();
+                            ModVersion version = mod.Versions?.FirstOrDefault();
                             card = new ModCard(mod, version, _config, _isInstalledView);
                             card.SelectionChanged += (sender, selected) => SelectionChanged?.Invoke(sender, selected);
                             _cardCache[mod.Id] = card;
@@ -242,12 +251,12 @@ namespace BeanModManager.Controls
 
         public ModCard GetCardForMod(string modId)
         {
-            return _cardCache.TryGetValue(modId, out var card) ? card : null;
+            return _cardCache.TryGetValue(modId, out ModCard card) ? card : null;
         }
 
         public void ClearCache()
         {
-            foreach (var card in _cardCache.Values)
+            foreach (ModCard card in _cardCache.Values)
             {
                 if (!_visibleCards.Values.Contains(card))
                 {

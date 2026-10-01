@@ -40,7 +40,7 @@ namespace BeanModManager.Models
 
         public override string ToString()
         {
-            var result = Version ?? "Unknown";
+            string result = Version ?? "Unknown";
             if (!string.IsNullOrEmpty(GameVersion))
             {
                 result += $" ({GameVersion})";

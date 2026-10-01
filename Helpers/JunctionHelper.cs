@@ -1,8 +1,6 @@
-using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace BeanModManager.Helpers
 {
@@ -24,17 +22,21 @@ namespace BeanModManager.Helpers
         public static bool CreateDirectoryJunction(string linkPath, string targetPath)
         {
             if (string.IsNullOrWhiteSpace(linkPath) || string.IsNullOrWhiteSpace(targetPath))
+            {
                 return false;
+            }
 
-            Directory.CreateDirectory(targetPath);
+            _ = Directory.CreateDirectory(targetPath);
 
             // If linkPath exists as a junction/symlink or directory, remove it first.
-            RemoveLink(linkPath);
+            _ = RemoveLink(linkPath);
 
             try
             {
                 if (TryCreateJunction(linkPath, targetPath))
+                {
                     return true;
+                }
             }
             catch
             {
@@ -43,9 +45,11 @@ namespace BeanModManager.Helpers
             // Fallback: unprivileged directory symbolic link.
             try
             {
-                var flags = SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
+                int flags = SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
                 if (CreateSymbolicLink(linkPath, targetPath, flags))
+                {
                     return true;
+                }
             }
             catch
             {
@@ -67,7 +71,7 @@ namespace BeanModManager.Helpers
         private static bool TryCreateJunction(string linkPath, string targetPath)
         {
             // mklink /J is the most reliable way to create a junction without admin rights.
-            var psi = new ProcessStartInfo
+            ProcessStartInfo psi = new ProcessStartInfo
             {
                 FileName = "cmd.exe",
                 Arguments = $"/c mklink /J \"{linkPath}\" \"{targetPath}\"",
@@ -77,7 +81,7 @@ namespace BeanModManager.Helpers
                 RedirectStandardError = true,
             };
 
-            using (var process = Process.Start(psi))
+            using (Process process = Process.Start(psi))
             {
                 process.WaitForExit();
                 return process.ExitCode == 0;
@@ -90,11 +94,13 @@ namespace BeanModManager.Helpers
         public static bool RemoveLink(string linkPath)
         {
             if (!Directory.Exists(linkPath))
+            {
                 return true;
+            }
 
             try
             {
-                var attr = File.GetAttributes(linkPath);
+                FileAttributes attr = File.GetAttributes(linkPath);
                 if ((attr & FileAttributes.ReparsePoint) != 0)
                 {
                     Directory.Delete(linkPath, false);
@@ -117,26 +123,30 @@ namespace BeanModManager.Helpers
         public static bool IsJunctionOrSymlink(string path)
         {
             if (!Directory.Exists(path))
+            {
                 return false;
+            }
 
-            var attr = File.GetAttributes(path);
+            FileAttributes attr = File.GetAttributes(path);
             return (attr & FileAttributes.ReparsePoint) != 0;
         }
 
         private static void CopyDirectoryContents(string sourceDir, string destDir)
         {
             if (!Directory.Exists(destDir))
-                Directory.CreateDirectory(destDir);
-
-            foreach (var file in Directory.GetFiles(sourceDir))
             {
-                var destFile = Path.Combine(destDir, Path.GetFileName(file));
+                _ = Directory.CreateDirectory(destDir);
+            }
+
+            foreach (string file in Directory.GetFiles(sourceDir))
+            {
+                string destFile = Path.Combine(destDir, Path.GetFileName(file));
                 File.Copy(file, destFile, true);
             }
 
-            foreach (var dir in Directory.GetDirectories(sourceDir))
+            foreach (string dir in Directory.GetDirectories(sourceDir))
             {
-                var destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
+                string destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
                 CopyDirectoryContents(dir, destSubDir);
             }
         }

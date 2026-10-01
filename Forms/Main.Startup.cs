@@ -1,10 +1,10 @@
-using BeanModManager.Models;
-using BeanModManager.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using BeanModManager.Models;
+using BeanModManager.Services;
 
 namespace BeanModManager
 {
@@ -29,7 +29,7 @@ namespace BeanModManager
                 {
                     SafeInvoke(() =>
                     {
-                        MessageBox.Show("Could not automatically detect Among Us installation.\nYou can still browse the mod store, but you'll need to set the path to install mods.",
+                        _ = MessageBox.Show("Could not automatically detect Among Us installation.\nYou can still browse the mod store, but you'll need to set the path to install mods.",
                             "Detection Failed", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     });
                 }
@@ -38,8 +38,8 @@ namespace BeanModManager
                 List<InstalledModInfo> detectedMods = null;
                 if (!string.IsNullOrEmpty(_config.AmongUsPath))
                 {
-                    var modsFolder = GetModsFolder();
-                    detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, modsFolder);
+                    string modsFolder = GetModsFolder();
+                    detectedMods = ModDetector.DetectInstalledMods(_config.AmongUsPath, _modStore.GetModDetectionRules(), modsFolder);
                     installedModIds = new HashSet<string>(
                         detectedMods.Select(m => m.ModId)
                             .Concat(_config.InstalledMods.Select(m => m.ModId))
@@ -58,21 +58,21 @@ namespace BeanModManager
                 try
                 {
                     UpdateStatus("Loading installed mods...");
-                    var baseMods = _modStore.GetBaseMods();
-                    var installedMods = baseMods
+                    List<Mod> baseMods = _modStore.GetBaseMods();
+                    List<Mod> installedMods = baseMods
                         .Where(m => installedModIds.Contains(m.Id))
                         .ToList();
 
-                    foreach (var mod in installedMods)
+                    foreach (Mod mod in installedMods)
                     {
                         mod.IsInstalled = true;
 
-                        var cfg = _config.InstalledMods.FirstOrDefault(x =>
+                        InstalledMod cfg = _config.InstalledMods.FirstOrDefault(x =>
                             string.Equals(x.ModId, mod.Id, StringComparison.OrdinalIgnoreCase));
-                        var detected = detectedMods?.FirstOrDefault(x =>
+                        InstalledModInfo detected = detectedMods?.FirstOrDefault(x =>
                             string.Equals(x.ModId, mod.Id, StringComparison.OrdinalIgnoreCase));
 
-                        var installedVersion = (cfg != null && !string.IsNullOrWhiteSpace(cfg.Version))
+                        string installedVersion = (cfg != null && !string.IsNullOrWhiteSpace(cfg.Version))
                             ? cfg.Version
                             : (!string.IsNullOrWhiteSpace(detected?.Version) ? detected.Version : "Installed");
 
@@ -111,7 +111,7 @@ namespace BeanModManager
                 }
 
                 UpdateStatus("Loading mod store...");
-                var fullMods = await _modStore.GetAvailableModsWithAllVersions(installedModIds).ConfigureAwait(false);
+                List<Mod> fullMods = await _modStore.GetAvailableModsWithAllVersions(installedModIds).ConfigureAwait(false);
 
                 _availableMods = fullMods;
 
@@ -126,7 +126,7 @@ namespace BeanModManager
 
                 if (_modStore.IsRateLimited())
                 {
-                    SafeInvoke(() => MessageBox.Show(
+                    _ = SafeInvoke(() => MessageBox.Show(
                         "GitHub API rate limit reached. Installed mods have been loaded, but mod store versions are unavailable.\n\nPlease wait a few minutes and try again to see available mods in the store.",
                         "GitHub Rate Limit",
                         MessageBoxButtons.OK,
@@ -154,17 +154,17 @@ namespace BeanModManager
 
                     if (IsHandleCreated)
                     {
-                        var ensureRefreshTimer = new Timer { Interval = 300 };
+                        Timer ensureRefreshTimer = new Timer { Interval = 300 };
                         ensureRefreshTimer.Tick += (s, e) =>
                         {
                             ensureRefreshTimer.Stop();
                             ensureRefreshTimer.Dispose();
                             if (_availableMods != null && _availableMods.Any())
                             {
-                                var installedCount = _availableMods.Count(m => m.IsInstalled);
+                                int installedCount = _availableMods.Count(m => m.IsInstalled);
                                 if (installedCount > 0)
                                 {
-                                    var installedCardsCount = panelInstalled?.Controls.OfType<ModCard>().Count() ?? 0;
+                                    int installedCardsCount = panelInstalled?.Controls.OfType<ModCard>().Count() ?? 0;
                                     if (installedCardsCount < installedCount)
                                     {
                                         RefreshModCards();
@@ -186,7 +186,7 @@ namespace BeanModManager
                 SafeInvoke(() =>
                 {
                     HideSkeletonLoaders();
-                    MessageBox.Show($"Error loading mods: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    _ = MessageBox.Show($"Error loading mods: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 });
             }
             finally

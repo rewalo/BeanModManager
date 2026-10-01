@@ -76,6 +76,8 @@ namespace BeanModManager
             this.lblGameChannel = new System.Windows.Forms.Label();
             this.rbSteam = new System.Windows.Forms.RadioButton();
             this.rbEpic = new System.Windows.Forms.RadioButton();
+            this.rbMsStore = new System.Windows.Forms.RadioButton();
+            this.rbItch = new System.Windows.Forms.RadioButton();
             this.grpBepInEx = new System.Windows.Forms.GroupBox();
             this.flowBepInEx = new System.Windows.Forms.FlowLayoutPanel();
             this.btnInstallBepInEx = new System.Windows.Forms.Button();
@@ -953,6 +955,8 @@ namespace BeanModManager
             this.panelGameChannel.Controls.Add(this.lblGameChannel);
             this.panelGameChannel.Controls.Add(this.rbSteam);
             this.panelGameChannel.Controls.Add(this.rbEpic);
+            this.panelGameChannel.Controls.Add(this.rbMsStore);
+            this.panelGameChannel.Controls.Add(this.rbItch);
             this.panelGameChannel.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelGameChannel.Location = new System.Drawing.Point(12, 28);
             this.panelGameChannel.Name = "panelGameChannel";
@@ -979,7 +983,7 @@ namespace BeanModManager
             this.rbSteam.Size = new System.Drawing.Size(102, 19);
             this.rbSteam.TabIndex = 1;
             this.rbSteam.TabStop = true;
-            this.rbSteam.Text = "Steam / Itch.io";
+            this.rbSteam.Text = "Steam";
             this.rbSteam.UseVisualStyleBackColor = true;
             this.rbSteam.CheckedChanged += new System.EventHandler(this.rbSteam_CheckedChanged);
             // 
@@ -992,9 +996,35 @@ namespace BeanModManager
             this.rbEpic.Size = new System.Drawing.Size(178, 19);
             this.rbEpic.TabIndex = 2;
             this.rbEpic.TabStop = true;
-            this.rbEpic.Text = "Epic Games / Microsoft Store";
+            this.rbEpic.Text = "Epic Games";
             this.rbEpic.UseVisualStyleBackColor = true;
             this.rbEpic.CheckedChanged += new System.EventHandler(this.rbEpic_CheckedChanged);
+            // 
+            // rbMsStore
+            // 
+            this.rbMsStore.AutoSize = true;
+            this.rbMsStore.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.rbMsStore.Location = new System.Drawing.Point(200, 25);
+            this.rbMsStore.Name = "rbMsStore";
+            this.rbMsStore.Size = new System.Drawing.Size(102, 19);
+            this.rbMsStore.TabIndex = 3;
+            this.rbMsStore.TabStop = true;
+            this.rbMsStore.Text = "Microsoft Store";
+            this.rbMsStore.UseVisualStyleBackColor = true;
+            this.rbMsStore.CheckedChanged += new System.EventHandler(this.rbMsStore_CheckedChanged);
+            // 
+            // rbItch
+            // 
+            this.rbItch.AutoSize = true;
+            this.rbItch.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.rbItch.Location = new System.Drawing.Point(200, 50);
+            this.rbItch.Name = "rbItch";
+            this.rbItch.Size = new System.Drawing.Size(60, 19);
+            this.rbItch.TabIndex = 4;
+            this.rbItch.TabStop = true;
+            this.rbItch.Text = "itch.io";
+            this.rbItch.UseVisualStyleBackColor = true;
+            this.rbItch.CheckedChanged += new System.EventHandler(this.rbItch_CheckedChanged);
             // 
             // grpBepInEx
             // 
@@ -1438,6 +1468,8 @@ namespace BeanModManager
         private System.Windows.Forms.Label lblGameChannel;
         private System.Windows.Forms.RadioButton rbSteam;
         private System.Windows.Forms.RadioButton rbEpic;
+        private System.Windows.Forms.RadioButton rbMsStore;
+        private System.Windows.Forms.RadioButton rbItch;
         private System.Windows.Forms.GroupBox grpBepInEx;
         private System.Windows.Forms.FlowLayoutPanel flowBepInEx;
         private System.Windows.Forms.Button btnInstallBepInEx;

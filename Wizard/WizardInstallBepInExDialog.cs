@@ -1,9 +1,9 @@
-using BeanModManager.Helpers;
-using BeanModManager.Services;
-using BeanModManager.Themes;
 using System;
 using System.Linq;
 using System.Windows.Forms;
+using BeanModManager.Helpers;
+using BeanModManager.Services;
+using BeanModManager.Themes;
 
 namespace BeanModManager.Wizard
 {
@@ -24,41 +24,41 @@ namespace BeanModManager.Wizard
             InitializeComponent();
             ApplyTheme();
             CheckIfAlreadyInstalled();
-            this.HandleCreated += WizardInstallBepInExDialog_HandleCreated;
+            HandleCreated += WizardInstallBepInExDialog_HandleCreated;
         }
 
         private void WizardInstallBepInExDialog_HandleCreated(object sender, EventArgs e)
         {
             ApplyDarkMode();
-            this.BeginInvoke(new Action(() =>
+            _ = BeginInvoke(new Action(() =>
 {
     ApplyTheme();
-    this.Invalidate(true);
+    Invalidate(true);
 }));
         }
 
         private void InitializeComponent()
         {
-            this.SuspendLayout();
+            SuspendLayout();
 
-            this.Text = "Install BepInEx";
-            this.Size = new System.Drawing.Size(600, 400);
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.ShowInTaskbar = true;
+            Text = "Install BepInEx";
+            Size = new System.Drawing.Size(600, 400);
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            StartPosition = FormStartPosition.CenterScreen;
+            ShowInTaskbar = true;
 
-            var lblTitle = new Label
+            Label lblTitle = new Label
             {
                 Text = "Install BepInEx",
                 Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold),
                 AutoSize = true,
                 Location = new System.Drawing.Point(20, 20)
             };
-            this.Controls.Add(lblTitle);
+            Controls.Add(lblTitle);
 
-            var lblDescription = new Label
+            Label lblDescription = new Label
             {
                 Text = "BepInEx is required for mods to work.\n" +
            "We'll download and install it automatically.",
@@ -67,9 +67,9 @@ namespace BeanModManager.Wizard
                 Size = new System.Drawing.Size(560, 50),
                 Location = new System.Drawing.Point(20, 55)
             };
-            this.Controls.Add(lblDescription);
+            Controls.Add(lblDescription);
 
-            var lblStatus = new Label
+            Label lblStatus = new Label
             {
                 Text = "Checking installation status...",
                 Font = new System.Drawing.Font("Segoe UI", 9F),
@@ -77,18 +77,18 @@ namespace BeanModManager.Wizard
                 Size = new System.Drawing.Size(560, 100),
                 Location = new System.Drawing.Point(20, 120)
             };
-            this.Controls.Add(lblStatus);
+            Controls.Add(lblStatus);
 
-            var progressBar = new ProgressBar
+            ProgressBar progressBar = new ProgressBar
             {
                 Size = new System.Drawing.Size(560, 25),
                 Location = new System.Drawing.Point(20, 230),
                 Style = ProgressBarStyle.Marquee,
                 Visible = false
             };
-            this.Controls.Add(progressBar);
+            Controls.Add(progressBar);
 
-            var buttonPanel = new TableLayoutPanel
+            TableLayoutPanel buttonPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
                 Height = 70,
@@ -96,15 +96,15 @@ namespace BeanModManager.Wizard
                 RowCount = 1,
                 Padding = new Padding(10, 10, 10, 10)
             };
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140F));
-            buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140F));
+            _ = buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            var paletteInit = ThemeManager.Current;
+            ThemePalette paletteInit = ThemeManager.Current;
 
-            var btnInstall = new Button
+            Button btnInstall = new Button
             {
                 Text = "Install BepInEx",
                 Dock = DockStyle.Fill,
@@ -130,13 +130,13 @@ namespace BeanModManager.Wizard
                     if (InstallationSuccess)
                     {
                         lblStatus.Text = "BepInEx installed successfully!";
-                        if (this.InvokeRequired)
+                        if (InvokeRequired)
                         {
-                            this.Invoke(new Action(() => { this.DialogResult = System.Windows.Forms.DialogResult.OK; }));
+                            _ = Invoke(new Action(() => { DialogResult = System.Windows.Forms.DialogResult.OK; }));
                         }
                         else
                         {
-                            this.DialogResult = System.Windows.Forms.DialogResult.OK;
+                            DialogResult = System.Windows.Forms.DialogResult.OK;
                         }
                     }
                     else
@@ -156,7 +156,7 @@ namespace BeanModManager.Wizard
                 }
             };
 
-            var btnSkip = new Button
+            Button btnSkip = new Button
             {
                 Text = "Skip",
                 Dock = DockStyle.Fill,
@@ -171,10 +171,10 @@ namespace BeanModManager.Wizard
             btnSkip.Click += (s, e) =>
             {
                 SkipInstallation = true;
-                this.DialogResult = System.Windows.Forms.DialogResult.OK;
+                DialogResult = System.Windows.Forms.DialogResult.OK;
             };
 
-            var btnBack = new Button
+            Button btnBack = new Button
             {
                 Text = "Back",
                 Dock = DockStyle.Fill,
@@ -188,26 +188,26 @@ namespace BeanModManager.Wizard
             btnBack.FlatAppearance.BorderColor = paletteInit.SecondaryButtonColor;
             btnBack.Click += (s, e) =>
             {
-                this.DialogResult = System.Windows.Forms.DialogResult.Retry;
+                DialogResult = System.Windows.Forms.DialogResult.Retry;
             };
 
             buttonPanel.Controls.Add(new Panel(), 0, 0); buttonPanel.Controls.Add(btnBack, 1, 0);
             buttonPanel.Controls.Add(btnSkip, 2, 0);
             buttonPanel.Controls.Add(btnInstall, 3, 0);
-            this.Controls.Add(buttonPanel);
+            Controls.Add(buttonPanel);
 
-            var controlRefs = new ControlRefs { LblStatus = lblStatus, ProgressBar = progressBar, BtnInstall = btnInstall };
-            this.Tag = controlRefs;
+            ControlRefs controlRefs = new ControlRefs { LblStatus = lblStatus, ProgressBar = progressBar, BtnInstall = btnInstall };
+            Tag = controlRefs;
 
-            this.CancelButton = null;
+            CancelButton = null;
 
-            this.ResumeLayout(true);
-            this.PerformLayout();
+            ResumeLayout(true);
+            PerformLayout();
         }
 
         private void CheckIfAlreadyInstalled()
         {
-            var controls = this.Tag as ControlRefs;
+            ControlRefs controls = Tag as ControlRefs;
             if (ModDetector.IsBepInExInstalled(_amongUsPath))
             {
                 controls.LblStatus.Text = "BepInEx is already installed!\nYou can proceed to the next step.";
@@ -225,11 +225,11 @@ namespace BeanModManager.Wizard
         {
             if (InvokeRequired)
             {
-                Invoke(new Action(() => Installer_ProgressChanged(sender, message)));
+                _ = Invoke(new Action(() => Installer_ProgressChanged(sender, message)));
                 return;
             }
 
-            var controls = this.Tag as ControlRefs;
+            ControlRefs controls = Tag as ControlRefs;
             controls.LblStatus.Text = message;
         }
 
@@ -242,42 +242,40 @@ namespace BeanModManager.Wizard
 
         private void ApplyTheme()
         {
-            var palette = ThemeManager.Current;
-            this.BackColor = palette.WindowBackColor;
-            this.ForeColor = palette.PrimaryTextColor;
+            ThemePalette palette = ThemeManager.Current;
+            BackColor = palette.WindowBackColor;
+            ForeColor = palette.PrimaryTextColor;
 
-            var buttonPanel = this.Controls.OfType<TableLayoutPanel>().FirstOrDefault();
+            TableLayoutPanel buttonPanel = Controls.OfType<TableLayoutPanel>().FirstOrDefault();
             if (buttonPanel != null)
             {
                 buttonPanel.BackColor = palette.SurfaceColor;
             }
 
-            var labels = this.Controls.OfType<Label>().ToList();
-            foreach (var lbl in labels)
+            System.Collections.Generic.List<Label> labels = Controls.OfType<Label>().ToList();
+            foreach (Label lbl in labels)
             {
                 if (lbl.Text.Contains("Install BepInEx") && lbl.Font.Bold)
                 {
                     lbl.ForeColor = palette.HeadingTextColor;
                 }
-                else if (lbl.Text.Contains("Status") || lbl.Text.Contains("Checking") || lbl.Text.Contains("installed") || lbl.Text.Contains("failed"))
-                {
-                    lbl.ForeColor = palette.PrimaryTextColor;
-                }
                 else
                 {
-                    lbl.ForeColor = palette.PrimaryTextColor;
+                    lbl.ForeColor = lbl.Text.Contains("Status") || lbl.Text.Contains("Checking") || lbl.Text.Contains("installed") || lbl.Text.Contains("failed")
+                        ? palette.PrimaryTextColor
+                        : palette.PrimaryTextColor;
                 }
             }
 
-            var progressBars = this.Controls.OfType<ProgressBar>().ToList();
-            foreach (var pb in progressBars)
+            System.Collections.Generic.List<ProgressBar> progressBars = Controls.OfType<ProgressBar>().ToList();
+            foreach (ProgressBar pb in progressBars)
             {
                 pb.ForeColor = palette.ProgressForeColor;
                 pb.BackColor = palette.ProgressBackColor;
             }
 
-            var buttons = this.Controls.OfType<Button>().ToList();
-            foreach (var btn in buttons)
+            System.Collections.Generic.List<Button> buttons = Controls.OfType<Button>().ToList();
+            foreach (Button btn in buttons)
             {
                 btn.UseVisualStyleBackColor = false;
                 btn.FlatStyle = FlatStyle.Flat;
@@ -305,7 +303,9 @@ namespace BeanModManager.Wizard
         private void ApplyDarkMode()
         {
             if (!IsHandleCreated)
+            {
                 return;
+            }
 
             bool isDark = ThemeManager.CurrentVariant == ThemeVariant.Dark;
             DarkModeHelper.EnableDarkMode(this, isDark);

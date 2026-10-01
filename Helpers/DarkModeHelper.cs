@@ -30,12 +30,14 @@ namespace BeanModManager.Helpers
         public static void EnableDarkMode(Form form, bool enable)
         {
             if (form == null || !form.IsHandleCreated)
+            {
                 return;
+            }
 
             try
             {
                 int darkMode = enable ? 1 : 0;
-                DwmSetWindowAttribute(form.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
+                _ = DwmSetWindowAttribute(form.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref darkMode, sizeof(int));
 
                 ApplyThemeToControl(form, enable);
             }
@@ -47,13 +49,15 @@ namespace BeanModManager.Helpers
         public static void ApplyThemeToControl(Control control, bool darkMode)
         {
             if (control == null)
+            {
                 return;
+            }
 
             try
             {
                 if (control.IsHandleCreated)
                 {
-                    SetWindowTheme(control.Handle, darkMode ? "DarkMode_Explorer" : "", null);
+                    _ = SetWindowTheme(control.Handle, darkMode ? "DarkMode_Explorer" : "", null);
                 }
             }
             catch
@@ -70,7 +74,7 @@ namespace BeanModManager.Helpers
         {
             try
             {
-                SetPreferredAppMode(PreferredAppModeAllowDark);
+                _ = SetPreferredAppMode(PreferredAppModeAllowDark);
             }
             catch
             {

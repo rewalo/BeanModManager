@@ -7,7 +7,7 @@ namespace BeanModManager.Helpers
     {
         public static string FindBepInExFolder(string searchPath)
         {
-            var directPath = Path.Combine(searchPath, "BepInEx");
+            string directPath = Path.Combine(searchPath, "BepInEx");
             if (Directory.Exists(directPath))
             {
                 return directPath;
@@ -15,15 +15,15 @@ namespace BeanModManager.Helpers
 
             try
             {
-                foreach (var dir in Directory.GetDirectories(searchPath))
+                foreach (string dir in Directory.GetDirectories(searchPath))
                 {
-                    var bepInExPath = Path.Combine(dir, "BepInEx");
+                    string bepInExPath = Path.Combine(dir, "BepInEx");
                     if (Directory.Exists(bepInExPath))
                     {
                         return bepInExPath;
                     }
 
-                    var nested = FindBepInExFolder(dir);
+                    string nested = FindBepInExFolder(dir);
                     if (nested != null)
                     {
                         return nested;

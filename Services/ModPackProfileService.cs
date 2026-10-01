@@ -1,9 +1,9 @@
-using BeanModManager.Helpers;
-using BeanModManager.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using BeanModManager.Helpers;
+using BeanModManager.Models;
 
 namespace BeanModManager.Services
 {
@@ -14,50 +14,58 @@ namespace BeanModManager.Services
     /// </summary>
     public class ModPackProfileService
     {
-        private readonly string _profilesRoot;
         private readonly Config _config;
 
         public ModPackProfileService(Config config)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
-            _profilesRoot = Path.Combine(
+            ProfilesRoot = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "BeanModManager",
                 "profiles");
-            Directory.CreateDirectory(_profilesRoot);
+            _ = Directory.CreateDirectory(ProfilesRoot);
         }
 
-        public string ProfilesRoot => _profilesRoot;
+        public string ProfilesRoot { get; }
 
-        public string GetProfilePath(string id) => Path.Combine(_profilesRoot, id);
+        public string GetProfilePath(string id)
+        {
+            return Path.Combine(ProfilesRoot, id);
+        }
 
-        public string GetProfilePluginsPath(string id) =>
-            Path.Combine(GetProfilePath(id), "BepInEx", "plugins");
+        public string GetProfilePluginsPath(string id)
+        {
+            return Path.Combine(GetProfilePath(id), "BepInEx", "plugins");
+        }
 
-        public string GetProfileJsonPath(string id) =>
-            Path.Combine(GetProfilePath(id), "profile.json");
+        public string GetProfileJsonPath(string id)
+        {
+            return Path.Combine(GetProfilePath(id), "profile.json");
+        }
 
         public ModPack CreateProfile(string name, string gameChannel = null)
         {
-            var uniqueName = GetUniqueProfileName(name);
-            var id = Guid.NewGuid().ToString("N");
-            var pack = new ModPack
+            string uniqueName = GetUniqueProfileName(name);
+            string id = Guid.NewGuid().ToString("N");
+            ModPack pack = new ModPack
             {
                 Id = id,
                 Name = uniqueName,
-                GameChannel = gameChannel ?? _config.GameChannel ?? "Steam/Itch.io"
+                GameChannel = Helpers.GameChannels.NormalizeChannel(
+                    gameChannel ?? _config.GameChannel,
+                    AmongUsDetector.DetectChannelForPath(_config.AmongUsPath))
             };
 
-            var profilePath = GetProfilePath(id);
-            Directory.CreateDirectory(profilePath);
-            Directory.CreateDirectory(GetProfilePluginsPath(id));
+            string profilePath = GetProfilePath(id);
+            _ = Directory.CreateDirectory(profilePath);
+            _ = Directory.CreateDirectory(GetProfilePluginsPath(id));
             WriteProfileJson(pack);
             return pack;
         }
 
         public void DeleteProfile(string id)
         {
-            var path = GetProfilePath(id);
+            string path = GetProfilePath(id);
             if (Directory.Exists(path))
             {
                 Directory.Delete(path, true);
@@ -66,9 +74,12 @@ namespace BeanModManager.Services
 
         public ModPack RenameProfile(string id, string newName)
         {
-            var pack = _config.Modpacks.FirstOrDefault(p =>
+            ModPack pack = _config.Modpacks.FirstOrDefault(p =>
                 string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
-            if (pack == null) return null;
+            if (pack == null)
+            {
+                return null;
+            }
 
             pack.Name = GetUniqueProfileName(newName, excludeId: id);
             pack.UpdatedUtcTicks = DateTime.UtcNow.Ticks;
@@ -78,17 +89,20 @@ namespace BeanModManager.Services
 
         public ModPack DuplicateProfile(string sourceId, string newName = null)
         {
-            var source = _config.Modpacks.FirstOrDefault(p =>
+            ModPack source = _config.Modpacks.FirstOrDefault(p =>
                 string.Equals(p.Id, sourceId, StringComparison.OrdinalIgnoreCase));
-            if (source == null) return null;
+            if (source == null)
+            {
+                return null;
+            }
 
-            var name = !string.IsNullOrWhiteSpace(newName)
+            string name = !string.IsNullOrWhiteSpace(newName)
                 ? newName
                 : $"Copy of {source.Name}";
 
-            var newPack = CreateProfile(name, source.GameChannel);
-            var sourcePath = GetProfilePath(sourceId);
-            var destPath = GetProfilePath(newPack.Id);
+            ModPack newPack = CreateProfile(name, source.GameChannel);
+            string sourcePath = GetProfilePath(sourceId);
+            string destPath = GetProfilePath(newPack.Id);
 
             if (Directory.Exists(sourcePath))
             {
@@ -96,10 +110,10 @@ namespace BeanModManager.Services
             }
             else
             {
-                Directory.CreateDirectory(GetProfilePluginsPath(newPack.Id));
+                _ = Directory.CreateDirectory(GetProfilePluginsPath(newPack.Id));
             }
 
-            var copied = ReadProfileJson(newPack.Id) ?? newPack;
+            ModPack copied = ReadProfileJson(newPack.Id) ?? newPack;
             copied.Id = newPack.Id;
             copied.Name = newPack.Name;
             copied.CreatedUtcTicks = newPack.CreatedUtcTicks;
@@ -108,7 +122,7 @@ namespace BeanModManager.Services
             copied.TotalPlayTimeMs = 0;
             WriteProfileJson(copied);
 
-            var index = _config.Modpacks.FindIndex(p =>
+            int index = _config.Modpacks.FindIndex(p =>
                 string.Equals(p.Id, newPack.Id, StringComparison.OrdinalIgnoreCase));
             if (index >= 0)
             {
@@ -120,10 +134,12 @@ namespace BeanModManager.Services
 
         public void ExportProfile(string id, string manifestPath)
         {
-            var pack = _config.Modpacks.FirstOrDefault(p =>
+            ModPack pack = _config.Modpacks.FirstOrDefault(p =>
                 string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
             if (pack == null)
+            {
                 throw new InvalidOperationException($"Profile not found: {id}");
+            }
 
             File.WriteAllText(manifestPath, JsonHelper.Serialize(pack));
         }
@@ -131,12 +147,16 @@ namespace BeanModManager.Services
         public ModPack ImportProfile(string manifestPath)
         {
             if (!File.Exists(manifestPath))
+            {
                 throw new FileNotFoundException($"Modpack manifest not found: {manifestPath}");
+            }
 
-            var json = File.ReadAllText(manifestPath);
-            var pack = JsonHelper.Deserialize<ModPack>(json);
+            string json = File.ReadAllText(manifestPath);
+            ModPack pack = JsonHelper.Deserialize<ModPack>(json);
             if (pack == null)
+            {
                 throw new InvalidDataException("The selected file is not a valid modpack manifest.");
+            }
 
             pack.Id = Guid.NewGuid().ToString("N");
             pack.Name = GetUniqueProfileName(pack.Name);
@@ -144,13 +164,19 @@ namespace BeanModManager.Services
             pack.UpdatedUtcTicks = pack.CreatedUtcTicks;
             pack.LastLaunchedUtcTicks = null;
             pack.TotalPlayTimeMs = 0;
-            if (pack.Mods == null) pack.Mods = new List<ProfileModEntry>();
+            if (pack.Mods == null)
+            {
+                pack.Mods = new List<ProfileModEntry>();
+            }
+
             if (pack.ModIds != null)
             {
-                foreach (var modId in pack.ModIds.Where(id => !string.IsNullOrWhiteSpace(id)))
+                foreach (string modId in pack.ModIds.Where(id => !string.IsNullOrWhiteSpace(id)))
                 {
                     if (!pack.Mods.Any(m => string.Equals(m.ModId, modId, StringComparison.OrdinalIgnoreCase)))
+                    {
                         pack.Mods.Add(new ProfileModEntry { ModId = modId });
+                    }
                 }
             }
             pack.ModIds = null;
@@ -163,7 +189,7 @@ namespace BeanModManager.Services
 
         public ModPack EnsureDefaultProfile()
         {
-            var existing = _config.Modpacks.FirstOrDefault(p =>
+            ModPack existing = _config.Modpacks.FirstOrDefault(p =>
                 string.Equals(p.Name, "Default", StringComparison.OrdinalIgnoreCase));
             if (existing != null)
             {
@@ -175,8 +201,8 @@ namespace BeanModManager.Services
 
         public void EnsureProfileFolderExists(string id)
         {
-            Directory.CreateDirectory(GetProfilePath(id));
-            Directory.CreateDirectory(GetProfilePluginsPath(id));
+            _ = Directory.CreateDirectory(GetProfilePath(id));
+            _ = Directory.CreateDirectory(GetProfilePluginsPath(id));
         }
 
         /// <summary>
@@ -185,16 +211,21 @@ namespace BeanModManager.Services
         /// </summary>
         public void MigrateLegacyModPack(ModPack pack)
         {
-            if (pack == null) return;
+            if (pack == null)
+            {
+                return;
+            }
 
             EnsureProfileFolderExists(pack.Id);
 
             if (pack.Mods == null)
+            {
                 pack.Mods = new List<ProfileModEntry>();
+            }
 
             if (pack.ModIds != null)
             {
-                foreach (var modId in pack.ModIds.Where(id => !string.IsNullOrWhiteSpace(id)))
+                foreach (string modId in pack.ModIds.Where(id => !string.IsNullOrWhiteSpace(id)))
                 {
                     if (!pack.Mods.Any(m => string.Equals(m.ModId, modId, StringComparison.OrdinalIgnoreCase)))
                     {
@@ -205,30 +236,39 @@ namespace BeanModManager.Services
             }
 
             if (string.IsNullOrWhiteSpace(pack.GameChannel))
-                pack.GameChannel = _config.GameChannel ?? "Steam/Itch.io";
+            {
+                pack.GameChannel = Helpers.GameChannels.NormalizeChannel(
+                    _config.GameChannel,
+                    AmongUsDetector.DetectChannelForPath(_config.AmongUsPath));
+            }
 
             WriteProfileJson(pack);
         }
 
         public void WriteProfileJson(ModPack pack)
         {
-            var path = GetProfileJsonPath(pack.Id);
-            var dir = Path.GetDirectoryName(path);
+            string path = GetProfileJsonPath(pack.Id);
+            string dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
+            {
+                _ = Directory.CreateDirectory(dir);
+            }
 
-            var json = JsonHelper.Serialize(pack);
+            string json = JsonHelper.Serialize(pack);
             File.WriteAllText(path, json);
         }
 
         public ModPack ReadProfileJson(string id)
         {
-            var path = GetProfileJsonPath(id);
-            if (!File.Exists(path)) return null;
+            string path = GetProfileJsonPath(id);
+            if (!File.Exists(path))
+            {
+                return null;
+            }
 
             try
             {
-                var json = File.ReadAllText(path);
+                string json = File.ReadAllText(path);
                 return JsonHelper.Deserialize<ModPack>(json);
             }
             catch
@@ -241,20 +281,28 @@ namespace BeanModManager.Services
         {
             baseName = (baseName ?? "New Modpack").Trim();
             if (string.IsNullOrWhiteSpace(baseName))
+            {
                 baseName = "New Modpack";
+            }
 
-            var existing = _config.Modpacks
+            HashSet<string> existing = _config.Modpacks
                 .Where(p => !string.Equals(p.Id, excludeId, StringComparison.OrdinalIgnoreCase))
                 .Select(p => p.Name?.Trim())
                 .Where(n => !string.IsNullOrWhiteSpace(n))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            if (!existing.Contains(baseName)) return baseName;
+            if (!existing.Contains(baseName))
+            {
+                return baseName;
+            }
 
             for (int i = 2; i < 9999; i++)
             {
-                var candidate = $"{baseName} {i}";
-                if (!existing.Contains(candidate)) return candidate;
+                string candidate = $"{baseName} {i}";
+                if (!existing.Contains(candidate))
+                {
+                    return candidate;
+                }
             }
 
             return $"{baseName} {DateTime.Now:HHmmss}";
@@ -262,12 +310,12 @@ namespace BeanModManager.Services
 
         private static void CopyDirectory(string sourceDir, string destDir)
         {
-            Directory.CreateDirectory(destDir);
-            foreach (var file in Directory.GetFiles(sourceDir))
+            _ = Directory.CreateDirectory(destDir);
+            foreach (string file in Directory.GetFiles(sourceDir))
             {
                 File.Copy(file, Path.Combine(destDir, Path.GetFileName(file)), true);
             }
-            foreach (var dir in Directory.GetDirectories(sourceDir))
+            foreach (string dir in Directory.GetDirectories(sourceDir))
             {
                 CopyDirectory(dir, Path.Combine(destDir, Path.GetFileName(dir)));
             }

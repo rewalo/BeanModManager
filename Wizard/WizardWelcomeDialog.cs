@@ -1,8 +1,8 @@
-using BeanModManager.Helpers;
-using BeanModManager.Themes;
 using System;
 using System.Linq;
 using System.Windows.Forms;
+using BeanModManager.Helpers;
+using BeanModManager.Themes;
 
 namespace BeanModManager.Wizard
 {
@@ -12,42 +12,42 @@ namespace BeanModManager.Wizard
         {
             InitializeComponent();
             ApplyTheme();
-            this.HandleCreated += WizardWelcomeDialog_HandleCreated;
+            HandleCreated += WizardWelcomeDialog_HandleCreated;
         }
 
         private void WizardWelcomeDialog_HandleCreated(object sender, EventArgs e)
         {
             ApplyDarkMode();
-            this.BeginInvoke(new Action(() =>
+            _ = BeginInvoke(new Action(() =>
 {
     ApplyTheme();
-    this.Invalidate(true);
+    Invalidate(true);
 }));
         }
 
         private void InitializeComponent()
         {
-            this.SuspendLayout();
+            SuspendLayout();
 
-            this.Text = "Welcome to Bean Mod Manager";
-            this.Size = new System.Drawing.Size(600, 450);
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.ShowInTaskbar = true;
-            this.TopMost = false;
+            Text = "Welcome to Bean Mod Manager";
+            Size = new System.Drawing.Size(600, 450);
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            StartPosition = FormStartPosition.CenterScreen;
+            ShowInTaskbar = true;
+            TopMost = false;
 
-            var lblTitle = new Label
+            Label lblTitle = new Label
             {
                 Text = "Welcome to Bean Mod Manager!",
                 Font = new System.Drawing.Font("Segoe UI", 16F, System.Drawing.FontStyle.Bold),
                 AutoSize = true,
                 Location = new System.Drawing.Point(20, 20)
             };
-            this.Controls.Add(lblTitle);
+            Controls.Add(lblTitle);
 
-            var lblDescription = new Label
+            Label lblDescription = new Label
             {
                 Text = "This wizard will help you set up Bean Mod Manager for the first time.\n\n" +
            "We'll help you:\n" +
@@ -60,9 +60,9 @@ namespace BeanModManager.Wizard
                 Size = new System.Drawing.Size(560, 250),
                 Location = new System.Drawing.Point(20, 60)
             };
-            this.Controls.Add(lblDescription);
+            Controls.Add(lblDescription);
 
-            var buttonPanel = new TableLayoutPanel
+            TableLayoutPanel buttonPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
                 Height = 70,
@@ -70,14 +70,14 @@ namespace BeanModManager.Wizard
                 RowCount = 1,
                 Padding = new Padding(10, 10, 10, 10)
             };
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
-            buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            _ = buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            var palette = ThemeManager.Current;
+            ThemePalette palette = ThemeManager.Current;
 
-            var btnNext = new Button
+            Button btnNext = new Button
             {
                 Text = "Next",
                 Dock = DockStyle.Fill,
@@ -91,10 +91,10 @@ namespace BeanModManager.Wizard
             btnNext.FlatAppearance.BorderColor = palette.PrimaryButtonColor;
             btnNext.Click += (s, e) =>
             {
-                this.DialogResult = System.Windows.Forms.DialogResult.OK;
+                DialogResult = System.Windows.Forms.DialogResult.OK;
             };
 
-            var btnCancel = new Button
+            Button btnCancel = new Button
             {
                 Text = "Cancel",
                 Dock = DockStyle.Fill,
@@ -108,47 +108,40 @@ namespace BeanModManager.Wizard
             btnCancel.FlatAppearance.BorderColor = palette.SecondaryButtonColor;
             btnCancel.Click += (s, e) =>
             {
-                this.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+                DialogResult = System.Windows.Forms.DialogResult.Cancel;
             };
 
             buttonPanel.Controls.Add(new Panel(), 0, 0); buttonPanel.Controls.Add(btnCancel, 1, 0);
             buttonPanel.Controls.Add(btnNext, 2, 0);
-            this.Controls.Add(buttonPanel);
+            Controls.Add(buttonPanel);
 
-            this.AcceptButton = btnNext;
-            this.CancelButton = btnCancel;
+            AcceptButton = btnNext;
+            CancelButton = btnCancel;
 
-            this.ResumeLayout(true);
-            this.PerformLayout();
+            ResumeLayout(true);
+            PerformLayout();
         }
 
         private void ApplyTheme()
         {
-            var palette = ThemeManager.Current;
-            this.BackColor = palette.WindowBackColor;
-            this.ForeColor = palette.PrimaryTextColor;
+            ThemePalette palette = ThemeManager.Current;
+            BackColor = palette.WindowBackColor;
+            ForeColor = palette.PrimaryTextColor;
 
-            var buttonPanel = this.Controls.OfType<TableLayoutPanel>().FirstOrDefault();
+            TableLayoutPanel buttonPanel = Controls.OfType<TableLayoutPanel>().FirstOrDefault();
             if (buttonPanel != null)
             {
                 buttonPanel.BackColor = palette.SurfaceColor;
             }
 
-            var labels = this.Controls.OfType<Label>().ToList();
-            foreach (var lbl in labels)
+            System.Collections.Generic.List<Label> labels = Controls.OfType<Label>().ToList();
+            foreach (Label lbl in labels)
             {
-                if (lbl.Text.Contains("Welcome") && lbl.Font.Bold)
-                {
-                    lbl.ForeColor = palette.HeadingTextColor;
-                }
-                else
-                {
-                    lbl.ForeColor = palette.PrimaryTextColor;
-                }
+                lbl.ForeColor = lbl.Text.Contains("Welcome") && lbl.Font.Bold ? palette.HeadingTextColor : palette.PrimaryTextColor;
             }
 
-            var buttons = this.Controls.OfType<Button>().ToList();
-            foreach (var btn in buttons)
+            System.Collections.Generic.List<Button> buttons = Controls.OfType<Button>().ToList();
+            foreach (Button btn in buttons)
             {
                 btn.UseVisualStyleBackColor = false;
                 btn.FlatStyle = FlatStyle.Flat;
@@ -176,7 +169,9 @@ namespace BeanModManager.Wizard
         private void ApplyDarkMode()
         {
             if (!IsHandleCreated)
+            {
                 return;
+            }
 
             bool isDark = ThemeManager.CurrentVariant == ThemeVariant.Dark;
             DarkModeHelper.EnableDarkMode(this, isDark);

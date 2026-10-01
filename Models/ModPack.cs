@@ -28,8 +28,8 @@ namespace BeanModManager.Models
             Name = "New Modpack";
             ModIds = new List<string>();
             Mods = new List<ProfileModEntry>();
-            GameChannel = "Steam/Itch.io";
-            var nowTicks = DateTime.UtcNow.Ticks;
+            GameChannel = Helpers.GameChannels.Steam;
+            long nowTicks = DateTime.UtcNow.Ticks;
             CreatedUtcTicks = nowTicks;
             UpdatedUtcTicks = nowTicks;
         }

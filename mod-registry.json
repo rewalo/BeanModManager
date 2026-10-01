@@ -1,6 +1,6 @@
 
 {
-  "version": "1.1",
+  "version": "1.2",
   "mods": [
     {
       "id": "TOHE",
@@ -71,13 +71,22 @@
       "requiresDepot": false,
       "dependencies": [
         {
-          "modId": "MiraAPI",
-          "name": "MiraAPI",
-          "fileName": "MiraAPI.dll",
-          "githubOwner": "All-Of-Us-Mods",
-          "githubRepo": "MiraAPI",
-          "requiredVersion": null,
-          "optional": false
+            "modId": "MiraAPI",
+            "name": "MiraAPI",
+            "fileName": "MiraAPI.dll",
+            "githubOwner": "All-Of-Us-Mods",
+            "githubRepo": "MiraAPI",
+            "requiredVersion": null,
+            "optional": false
+        },
+        {
+            "modId": "Reactor",
+            "name": "Reactor",
+            "fileName": "Reactor.dll",
+            "githubOwner": "NuclearPowered",
+            "githubRepo": "Reactor",
+            "requiredVersion": null,
+            "optional": false
         }
       ],
       "packageType": "nested",

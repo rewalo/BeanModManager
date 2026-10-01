@@ -12,7 +12,7 @@ namespace BeanModManager.Helpers
 
         private static string GetCacheFilePath(string cacheKey)
         {
-            var sanitizedKey = string.Join("_", cacheKey.Split(Path.GetInvalidFileNameChars()));
+            string sanitizedKey = string.Join("_", cacheKey.Split(Path.GetInvalidFileNameChars()));
             return Path.Combine(CacheDirectory, $"{sanitizedKey}.json");
         }
 
@@ -28,10 +28,10 @@ namespace BeanModManager.Helpers
         {
             try
             {
-                var cachePath = GetCacheFilePath(cacheKey);
+                string cachePath = GetCacheFilePath(cacheKey);
                 if (File.Exists(cachePath))
                 {
-                    var json = File.ReadAllText(cachePath);
+                    string json = File.ReadAllText(cachePath);
                     return JsonHelper.Deserialize<CacheEntry>(json);
                 }
             }
@@ -48,10 +48,10 @@ namespace BeanModManager.Helpers
             {
                 if (!Directory.Exists(CacheDirectory))
                 {
-                    Directory.CreateDirectory(CacheDirectory);
+                    _ = Directory.CreateDirectory(CacheDirectory);
                 }
 
-                var cacheEntry = new CacheEntry
+                CacheEntry cacheEntry = new CacheEntry
                 {
                     LastChecked = DateTime.UtcNow,
                     ETag = etag,
@@ -59,8 +59,8 @@ namespace BeanModManager.Helpers
                     Version = version
                 };
 
-                var cachePath = GetCacheFilePath(cacheKey);
-                var json = JsonHelper.Serialize(cacheEntry);
+                string cachePath = GetCacheFilePath(cacheKey);
+                string json = JsonHelper.Serialize(cacheEntry);
                 File.WriteAllText(cachePath, json);
             }
             catch
@@ -72,13 +72,13 @@ namespace BeanModManager.Helpers
         {
             try
             {
-                var cache = GetCache(cacheKey);
+                CacheEntry cache = GetCache(cacheKey);
                 if (cache != null)
                 {
                     cache.LastChecked = DateTime.UtcNow;
 
-                    var cachePath = GetCacheFilePath(cacheKey);
-                    var json = JsonHelper.Serialize(cache);
+                    string cachePath = GetCacheFilePath(cacheKey);
+                    string json = JsonHelper.Serialize(cache);
                     File.WriteAllText(cachePath, json);
                 }
             }
@@ -89,11 +89,13 @@ namespace BeanModManager.Helpers
 
         public static bool IsCacheValid(string cacheKey, TimeSpan maxAge)
         {
-            var cache = GetCache(cacheKey);
+            CacheEntry cache = GetCache(cacheKey);
             if (cache == null)
+            {
                 return false;
+            }
 
-            var age = DateTime.UtcNow - cache.LastChecked;
+            TimeSpan age = DateTime.UtcNow - cache.LastChecked;
             return age < maxAge;
         }
 
@@ -110,7 +112,7 @@ namespace BeanModManager.Helpers
                 }
                 else
                 {
-                    var cachePath = GetCacheFilePath(cacheKey);
+                    string cachePath = GetCacheFilePath(cacheKey);
                     if (File.Exists(cachePath))
                     {
                         File.Delete(cachePath);

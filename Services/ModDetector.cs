@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,286 +7,78 @@ namespace BeanModManager.Services
 {
     public static class ModDetector
     {
-        public static List<InstalledModInfo> DetectInstalledMods(string amongUsPath, string modsFolder = null)
+        public static List<InstalledModInfo> DetectInstalledMods(string amongUsPath, IEnumerable<ModDetectionRule> rules, string modsFolder = null)
         {
-            var installedMods = new List<InstalledModInfo>();
+            Dictionary<string, InstalledModInfo> installedMods = new Dictionary<string, InstalledModInfo>(StringComparer.OrdinalIgnoreCase);
+            List<ModDetectionRule> detectionRules = (rules ?? Enumerable.Empty<ModDetectionRule>())
+                .Where(rule => rule != null && !string.IsNullOrWhiteSpace(rule.ModId))
+                .ToList();
 
-            if (string.IsNullOrEmpty(modsFolder))
+            if (string.IsNullOrEmpty(modsFolder) && !string.IsNullOrEmpty(amongUsPath) && Directory.Exists(amongUsPath))
             {
-                if (string.IsNullOrEmpty(amongUsPath) || !Directory.Exists(amongUsPath))
-                {
-                    return installedMods;
-                }
                 modsFolder = Path.Combine(amongUsPath, "Mods");
             }
 
-            if (Directory.Exists(modsFolder))
+            DetectFromFolder(modsFolder, detectionRules, installedMods);
+
+            if (!string.IsNullOrEmpty(amongUsPath) && Directory.Exists(amongUsPath))
             {
-                var toheModPath = Path.Combine(modsFolder, "TOHE");
-                if (Directory.Exists(toheModPath))
-                {
-                    var toheDll = FindModDll(toheModPath, "TOHE.dll");
-                    if (toheDll != null)
-                    {
-                        var version = GetDllVersion(toheDll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "TOHE",
-                            Version = version ?? "Unknown",
-                            DllPath = toheDll
-                        });
-                    }
-                }
-
-                var townOfUsModPath = Path.Combine(modsFolder, "TownOfUs");
-                if (Directory.Exists(townOfUsModPath))
-                {
-                    var townOfUsDll = FindModDll(townOfUsModPath, "*TownOfUs*.dll", "*Town-Of-Us*.dll", "*TOU-Mira*.dll");
-                    if (townOfUsDll != null)
-                    {
-                        var version = GetDllVersion(townOfUsDll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "TownOfUs",
-                            Version = version ?? "Unknown",
-                            DllPath = townOfUsDll
-                        });
-                    }
-                }
-
-                var bclModPath = Path.Combine(modsFolder, "BetterCrewLink");
-                if (Directory.Exists(bclModPath))
-                {
-                    var bclDll = FindModDll(bclModPath, "*BetterCrewLink*.dll");
-                    if (bclDll != null)
-                    {
-                        var version = GetDllVersion(bclDll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "BetterCrewLink",
-                            Version = version ?? "Unknown",
-                            DllPath = bclDll
-                        });
-                    }
-                }
-
-                var torModPath = Path.Combine(modsFolder, "TheOtherRoles");
-                if (Directory.Exists(torModPath))
-                {
-                    var torDll = FindModDll(torModPath, "TheOtherRoles.dll");
-                    if (torDll != null)
-                    {
-                        var version = GetDllVersion(torDll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "TheOtherRoles",
-                            Version = version ?? "Unknown",
-                            DllPath = torDll
-                        });
-                    }
-                }
-
-                var atrModPath = Path.Combine(modsFolder, "AllTheRoles");
-                if (Directory.Exists(atrModPath))
-                {
-                    var atrDll = FindModDll(atrModPath, "*AllTheRoles*.dll", "*ATR*.dll");
-                    if (atrDll != null)
-                    {
-                        var version = GetDllVersion(atrDll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "AllTheRoles",
-                            Version = version ?? "Unknown",
-                            DllPath = atrDll
-                        });
-                    }
-                }
-
-                var reactorModPath = Path.Combine(modsFolder, "Reactor");
-                if (Directory.Exists(reactorModPath))
-                {
-                    var reactorDll = FindModDll(reactorModPath, "Reactor.dll");
-                    if (reactorDll != null)
-                    {
-                        var version = GetDllVersion(reactorDll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "Reactor",
-                            Version = version ?? "Unknown",
-                            DllPath = reactorDll
-                        });
-                    }
-                }
-
-                var miraModPath = Path.Combine(modsFolder, "MiraAPI");
-                if (Directory.Exists(miraModPath))
-                {
-                    var miraDll = FindModDll(miraModPath, "MiraAPI.dll");
-                    if (miraDll != null)
-                    {
-                        var version = GetDllVersion(miraDll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "MiraAPI",
-                            Version = version ?? "Unknown",
-                            DllPath = miraDll
-                        });
-                    }
-                }
+                DetectFromFolder(Path.Combine(amongUsPath, "BepInEx", "plugins"), detectionRules, installedMods);
             }
 
-            if (string.IsNullOrEmpty(amongUsPath) || !Directory.Exists(amongUsPath))
-            {
-                return installedMods;
-            }
+            return installedMods.Values.ToList();
+        }
 
-            var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
-            if (!Directory.Exists(pluginsPath))
-                return installedMods;
+        private static void DetectFromFolder(string folder, List<ModDetectionRule> rules, Dictionary<string, InstalledModInfo> installedMods)
+        {
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
+            {
+                return;
+            }
 
             try
             {
-                if (!installedMods.Any(m => m.ModId == "TOHE"))
+                foreach (string dllPath in Directory.GetFiles(folder, "*.dll", SearchOption.AllDirectories))
                 {
-                    var toheDll = Path.Combine(pluginsPath, "TOHE.dll");
-                    if (File.Exists(toheDll))
-                    {
-                        var version = GetDllVersion(toheDll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "TOHE",
-                            Version = version ?? "Unknown",
-                            DllPath = toheDll
-                        });
-                    }
-                }
+                    string fileName = Path.GetFileName(dllPath);
+                    string normalizedFileName = NormalizeName(Path.GetFileNameWithoutExtension(fileName));
+                    ModDetectionRule rule = rules.FirstOrDefault(candidate =>
+                        candidate.DllFileNames.Any(name => string.Equals(name, fileName, StringComparison.OrdinalIgnoreCase)) ||
+                        NormalizeName(candidate.ModId) == normalizedFileName ||
+                        NormalizeName(candidate.ModName) == normalizedFileName);
 
-                if (!installedMods.Any(m => m.ModId == "TownOfUs"))
-                {
-                    var townOfUsPatterns = new[] { "*TownOfUs*.dll", "*Town-Of-Us*.dll", "*Town.of.Us*.dll", "*TOU-Mira*.dll" };
-                    foreach (var pattern in townOfUsPatterns)
+                    if (rule == null || installedMods.ContainsKey(rule.ModId))
                     {
-                        var townOfUsDlls = Directory.GetFiles(pluginsPath, pattern, SearchOption.TopDirectoryOnly);
-                        if (townOfUsDlls.Any())
-                        {
-                            var dll = townOfUsDlls.First();
-                            var version = GetDllVersion(dll);
-                            installedMods.Add(new InstalledModInfo
-                            {
-                                ModId = "TownOfUs",
-                                Version = version ?? "Unknown",
-                                DllPath = dll
-                            });
-                            break;
-                        }
+                        continue;
                     }
-                }
 
-                if (!installedMods.Any(m => m.ModId == "BetterCrewLink"))
-                {
-                    var bclDlls = Directory.GetFiles(pluginsPath, "*BetterCrewLink*.dll", SearchOption.TopDirectoryOnly);
-                    if (bclDlls.Any())
+                    installedMods[rule.ModId] = new InstalledModInfo
                     {
-                        var dll = bclDlls.First();
-                        var version = GetDllVersion(dll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "BetterCrewLink",
-                            Version = version ?? "Unknown",
-                            DllPath = dll
-                        });
-                    }
-                }
-
-                if (!installedMods.Any(m => m.ModId == "TheOtherRoles"))
-                {
-                    var torDlls = Directory.GetFiles(pluginsPath, "TheOtherRoles.dll", SearchOption.TopDirectoryOnly);
-                    if (torDlls.Any())
-                    {
-                        var dll = torDlls.First();
-                        var version = GetDllVersion(dll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "TheOtherRoles",
-                            Version = version ?? "Unknown",
-                            DllPath = dll
-                        });
-                    }
-                }
-
-                if (!installedMods.Any(m => m.ModId == "Reactor"))
-                {
-                    var reactorDlls = Directory.GetFiles(pluginsPath, "Reactor.dll", SearchOption.TopDirectoryOnly);
-                    if (reactorDlls.Any())
-                    {
-                        var dll = reactorDlls.First();
-                        var version = GetDllVersion(dll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "Reactor",
-                            Version = version ?? "Unknown",
-                            DllPath = dll
-                        });
-                    }
-                }
-
-                if (!installedMods.Any(m => m.ModId == "MiraAPI"))
-                {
-                    var miraDlls = Directory.GetFiles(pluginsPath, "MiraAPI.dll", SearchOption.TopDirectoryOnly);
-                    if (miraDlls.Any())
-                    {
-                        var dll = miraDlls.First();
-                        var version = GetDllVersion(dll);
-                        installedMods.Add(new InstalledModInfo
-                        {
-                            ModId = "MiraAPI",
-                            Version = version ?? "Unknown",
-                            DllPath = dll
-                        });
-                    }
+                        ModId = rule.ModId,
+                        Version = GetDllVersion(dllPath) ?? "Unknown",
+                        DllPath = dllPath
+                    };
                 }
             }
             catch
             {
                 // A broken profile junction or inaccessible plugins folder
-                // should not prevent detection of mods staged in Mods/.
+                // should not prevent detection of mods in other locations.
             }
-
-            return installedMods;
         }
 
-        private static string FindModDll(string modPath, params string[] patterns)
+        private static string NormalizeName(string value)
         {
-            var pluginsPath = Path.Combine(modPath, "BepInEx", "plugins");
-            if (Directory.Exists(pluginsPath))
-            {
-                foreach (var pattern in patterns)
-                {
-                    var dlls = Directory.GetFiles(pluginsPath, pattern, SearchOption.AllDirectories);
-                    if (dlls.Any())
-                    {
-                        return dlls.First();
-                    }
-                }
-            }
-
-            foreach (var pattern in patterns)
-            {
-                var dlls = Directory.GetFiles(modPath, pattern, SearchOption.AllDirectories);
-                if (dlls.Any())
-                {
-                    return dlls.First();
-                }
-            }
-
-            return null;
+            return string.IsNullOrEmpty(value)
+                ? string.Empty
+                : new string(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
         }
 
         private static string GetDllVersion(string dllPath)
         {
             try
             {
-                var fileInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(dllPath);
+                System.Diagnostics.FileVersionInfo fileInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(dllPath);
                 if (!string.IsNullOrEmpty(fileInfo.FileVersion))
                 {
                     return fileInfo.FileVersion;
@@ -304,19 +97,27 @@ namespace BeanModManager.Services
         public static bool IsBepInExInstalled(string amongUsPath)
         {
             if (string.IsNullOrEmpty(amongUsPath))
+            {
                 return false;
+            }
 
-            var bepInExPath = Path.Combine(amongUsPath, "BepInEx");
+            string bepInExPath = Path.Combine(amongUsPath, "BepInEx");
             if (!Directory.Exists(bepInExPath))
+            {
                 return false;
+            }
 
-            var corePath = Path.Combine(bepInExPath, "core");
-            if (!Directory.Exists(corePath))
-                return false;
-
-            return File.Exists(Path.Combine(corePath, "BepInEx.dll")) ||
-       File.Exists(Path.Combine(corePath, "BepInEx.Core.dll"));
+            string corePath = Path.Combine(bepInExPath, "core");
+            return Directory.Exists(corePath) && (File.Exists(Path.Combine(corePath, "BepInEx.dll")) ||
+       File.Exists(Path.Combine(corePath, "BepInEx.Core.dll")));
         }
+    }
+
+    public class ModDetectionRule
+    {
+        public string ModId { get; set; }
+        public string ModName { get; set; }
+        public List<string> DllFileNames { get; set; } = new List<string>();
     }
 
     public class InstalledModInfo
@@ -326,4 +127,3 @@ namespace BeanModManager.Services
         public string DllPath { get; set; }
     }
 }
-

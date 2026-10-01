@@ -1,11 +1,11 @@
-using BeanModManager.Helpers;
-using BeanModManager.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
+using BeanModManager.Helpers;
+using BeanModManager.Models;
 
 namespace BeanModManager.Services
 {
@@ -32,23 +32,23 @@ namespace BeanModManager.Services
 
                 if (!Directory.Exists(extractToPath))
                 {
-                    Directory.CreateDirectory(extractToPath);
+                    _ = Directory.CreateDirectory(extractToPath);
                 }
 
 
-                var downloadUrlLower = version.DownloadUrl.ToLower();
+                string downloadUrlLower = version.DownloadUrl.ToLower();
                 bool isDirectDll = downloadUrlLower.EndsWith(".dll");
 
                 if (isDirectDll)
                 {
-                    var fileName = Path.GetFileName(version.DownloadUrl);
+                    string fileName = Path.GetFileName(version.DownloadUrl);
                     if (string.IsNullOrEmpty(fileName))
                     {
                         fileName = $"{mod.Id}.dll";
                     }
-                    var destinationPath = Path.Combine(extractToPath, fileName);
+                    string destinationPath = Path.Combine(extractToPath, fileName);
 
-                    var progress = new Progress<int>(percent =>
+                    Progress<int> progress = new Progress<int>(percent =>
                     {
                         OnProgressChanged($"Downloading... {percent}%");
                     });
@@ -74,9 +74,9 @@ namespace BeanModManager.Services
                 }
                 else
                 {
-                    var tempZipPath = Path.Combine(Path.GetTempPath(), $"mod_{Guid.NewGuid()}.zip");
+                    string tempZipPath = Path.Combine(Path.GetTempPath(), $"mod_{Guid.NewGuid()}.zip");
 
-                    var progress = new Progress<int>(percent =>
+                    Progress<int> progress = new Progress<int>(percent =>
                     {
                         OnProgressChanged($"Downloading... {percent}%");
                     });
@@ -153,7 +153,7 @@ namespace BeanModManager.Services
 
                 OnProgressChanged($"{mod.Name} downloaded successfully!");
 
-                var downloadableDependencies = dependencies?
+                List<Dependency> downloadableDependencies = dependencies?
 .Where(d => string.IsNullOrEmpty(d.modId))
 .ToList();
 
@@ -171,11 +171,11 @@ namespace BeanModManager.Services
                         dependencyPath = Path.Combine(extractToPath, "BepInEx", "plugins");
                         if (!Directory.Exists(dependencyPath))
                         {
-                            Directory.CreateDirectory(dependencyPath);
+                            _ = Directory.CreateDirectory(dependencyPath);
                         }
                     }
 
-                    foreach (var dependency in downloadableDependencies)
+                    foreach (Dependency dependency in downloadableDependencies)
                     {
                         try
                         {
@@ -189,7 +189,7 @@ namespace BeanModManager.Services
                                 {
                                     string apiUrl;
                                     string cacheKey;
-                                    var requiredVersion = dependency.GetRequiredVersion();
+                                    string requiredVersion = dependency.GetRequiredVersion();
                                     if (!string.IsNullOrEmpty(requiredVersion))
                                     {
                                         apiUrl = $"https://api.github.com/repos/{dependency.githubOwner}/{dependency.githubRepo}/releases/tags/{requiredVersion}";
@@ -201,7 +201,7 @@ namespace BeanModManager.Services
                                         cacheKey = $"dep_{dependency.githubOwner}_{dependency.githubRepo}_latest";
                                     }
 
-                                    var cache = GitHubCacheHelper.GetCache(cacheKey);
+                                    GitHubCacheHelper.CacheEntry cache = GitHubCacheHelper.GetCache(cacheKey);
                                     GitHubRelease release = null;
 
                                     if (cache != null && GitHubCacheHelper.IsCacheValid(cacheKey, TimeSpan.FromHours(1)))
@@ -215,7 +215,7 @@ namespace BeanModManager.Services
                                     if (release == null)
                                     {
                                         string etag = cache?.ETag;
-                                        var result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
+                                        HttpDownloadHelper.DownloadResult result = await HttpDownloadHelper.DownloadStringWithETagAsync(apiUrl, etag).ConfigureAwait(false);
 
                                         if (result.NotModified)
                                         {
@@ -244,7 +244,7 @@ namespace BeanModManager.Services
 
                                     if (release != null && release.assets != null)
                                     {
-                                        var dllAsset = release.assets.FirstOrDefault(a =>
+                                        GitHubAsset dllAsset = release.assets.FirstOrDefault(a =>
 !string.IsNullOrEmpty(a.name) &&
 a.name.Equals(dependency.fileName, StringComparison.OrdinalIgnoreCase));
 
@@ -280,12 +280,12 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
                                 continue;
                             }
 
-                            var fileName = dependency.fileName ?? Path.GetFileName(downloadUrl);
+                            string fileName = dependency.fileName ?? Path.GetFileName(downloadUrl);
                             if (string.IsNullOrEmpty(fileName))
                             {
                                 fileName = $"{dependency.name}.dll";
                             }
-                            var dependencyFilePath = Path.Combine(dependencyPath, fileName);
+                            string dependencyFilePath = Path.Combine(dependencyPath, fileName);
 
                             await HttpDownloadHelper.DownloadFileAsync(downloadUrl, dependencyFilePath).ConfigureAwait(false);
 
@@ -326,7 +326,7 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
                 throw new FileNotFoundException($"ZIP file not found: {zipPath}");
             }
 
-            var fileInfo = new FileInfo(zipPath);
+            FileInfo fileInfo = new FileInfo(zipPath);
             if (fileInfo.Length == 0)
             {
                 throw new InvalidDataException("ZIP file is empty");
@@ -342,18 +342,18 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
                     throw new InvalidDataException("ZIP file contains no entries");
                 }
 
-                var dllEntries = archive.Entries.Where(e => !string.IsNullOrEmpty(e.Name) && e.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
-                var hasBepInExStructure = archive.Entries.Any(e => !string.IsNullOrEmpty(e.FullName) && e.FullName.StartsWith("BepInEx/", StringComparison.OrdinalIgnoreCase));
+                List<ZipArchiveEntry> dllEntries = archive.Entries.Where(e => !string.IsNullOrEmpty(e.Name) && e.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+                bool hasBepInExStructure = archive.Entries.Any(e => !string.IsNullOrEmpty(e.FullName) && e.FullName.StartsWith("BepInEx/", StringComparison.OrdinalIgnoreCase));
 
                 if (dllEntries.Count == 1 && !hasBepInExStructure)
                 {
-                    var dllEntry = dllEntries.First();
-                    var destinationPath = Path.Combine(extractPath, dllEntry.Name);
-                    var destinationDir = Path.GetDirectoryName(destinationPath);
+                    ZipArchiveEntry dllEntry = dllEntries.First();
+                    string destinationPath = Path.Combine(extractPath, dllEntry.Name);
+                    string destinationDir = Path.GetDirectoryName(destinationPath);
 
                     if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
                     {
-                        Directory.CreateDirectory(destinationDir);
+                        _ = Directory.CreateDirectory(destinationDir);
                     }
 
                     dllEntry.ExtractToFile(destinationPath, true);
@@ -372,7 +372,7 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
 
                     if (string.IsNullOrEmpty(rootPrefix))
                     {
-                        var rootFolders = archive.Entries
+                        List<string> rootFolders = archive.Entries
                             .Where(e => !string.IsNullOrEmpty(e.FullName))
                             .Select(e => e.FullName.Split('/')[0].Split('\\')[0])
                             .Distinct()
@@ -381,7 +381,7 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
 
                         if (rootFolders.Count == 1)
                         {
-                            var firstEntry = archive.Entries.FirstOrDefault(e => !string.IsNullOrEmpty(e.FullName));
+                            ZipArchiveEntry firstEntry = archive.Entries.FirstOrDefault(e => !string.IsNullOrEmpty(e.FullName));
                             if (firstEntry != null && firstEntry.FullName.StartsWith(rootFolders[0] + "/"))
                             {
                                 rootPrefix = rootFolders[0] + "/";
@@ -391,10 +391,12 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
 
                     dontInclude = dontInclude ?? new List<string>();
 
-                    foreach (var entry in archive.Entries)
+                    foreach (ZipArchiveEntry entry in archive.Entries)
                     {
                         if (string.IsNullOrEmpty(entry.Name))
+                        {
                             continue;
+                        }
 
                         string relativePath = entry.FullName;
                         if (!string.IsNullOrEmpty(rootPrefix) && relativePath.StartsWith(rootPrefix))
@@ -402,9 +404,9 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
                             relativePath = relativePath.Substring(rootPrefix.Length);
                         }
 
-                        var entryName = Path.GetFileName(relativePath);
-                        var entryDir = Path.GetDirectoryName(relativePath);
-                        var topLevelDir = relativePath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                        string entryName = Path.GetFileName(relativePath);
+                        string entryDir = Path.GetDirectoryName(relativePath);
+                        string topLevelDir = relativePath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
 
                         bool shouldSkip = false;
                         if (!string.IsNullOrEmpty(entryName))
@@ -421,12 +423,12 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
                             continue;
                         }
 
-                        var destinationPath = Path.Combine(extractPath, relativePath);
-                        var destinationDir = Path.GetDirectoryName(destinationPath);
+                        string destinationPath = Path.Combine(extractPath, relativePath);
+                        string destinationDir = Path.GetDirectoryName(destinationPath);
 
                         if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
                         {
-                            Directory.CreateDirectory(destinationDir);
+                            _ = Directory.CreateDirectory(destinationDir);
                         }
 
                         try
@@ -456,33 +458,31 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
 
         private string FindNestedBepInExPrefix(IEnumerable<ZipArchiveEntry> entries)
         {
-            var bepInExEntries = entries
+            List<ZipArchiveEntry> bepInExEntries = entries
     .Where(e => !string.IsNullOrEmpty(e.FullName) &&
                e.FullName.IndexOf("BepInEx", StringComparison.OrdinalIgnoreCase) >= 0)
     .ToList();
 
             if (!bepInExEntries.Any())
+            {
                 return null;
+            }
 
-
-            var firstBepInExEntry = bepInExEntries.First();
-            var fullPath = firstBepInExEntry.FullName;
-            var bepInExIndex = fullPath.IndexOf("BepInEx", StringComparison.OrdinalIgnoreCase);
+            ZipArchiveEntry firstBepInExEntry = bepInExEntries.First();
+            string fullPath = firstBepInExEntry.FullName;
+            int bepInExIndex = fullPath.IndexOf("BepInEx", StringComparison.OrdinalIgnoreCase);
 
             if (bepInExIndex <= 0)
+            {
                 return null;
+            }
 
-            var prefix = fullPath.Substring(0, bepInExIndex);
+            string prefix = fullPath.Substring(0, bepInExIndex);
 
             bool allSharePrefix = bepInExEntries.All(e =>
     e.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
 
-            if (allSharePrefix)
-            {
-                return prefix;
-            }
-
-            return null;
+            return allSharePrefix ? prefix : null;
         }
 
         private bool ValidateZipFile(string zipPath)
@@ -490,21 +490,27 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
             try
             {
                 if (!File.Exists(zipPath))
+                {
                     return false;
+                }
 
-                var fileInfo = new FileInfo(zipPath);
+                FileInfo fileInfo = new FileInfo(zipPath);
                 if (fileInfo.Length == 0)
+                {
                     return false;
+                }
 
-                using (var archive = ZipFile.OpenRead(zipPath))
+                using (ZipArchive archive = ZipFile.OpenRead(zipPath))
                 {
                     if (archive.Entries.Count == 0)
+                    {
                         return false;
+                    }
 
-                    var firstEntry = archive.Entries.FirstOrDefault();
+                    ZipArchiveEntry firstEntry = archive.Entries.FirstOrDefault();
                     if (firstEntry != null)
                     {
-                        var _ = firstEntry.Length;
+                        long _ = firstEntry.Length;
                     }
                 }
 

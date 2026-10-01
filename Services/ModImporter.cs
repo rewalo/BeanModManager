@@ -1,7 +1,7 @@
-using BeanModManager.Helpers;
 using System;
 using System.IO;
 using System.IO.Compression;
+using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
@@ -13,16 +13,16 @@ namespace BeanModManager.Services
         {
             try
             {
-                if (string.IsNullOrEmpty(sourcePath) || !File.Exists(sourcePath) && !Directory.Exists(sourcePath))
+                if (string.IsNullOrEmpty(sourcePath) || (!File.Exists(sourcePath) && !Directory.Exists(sourcePath)))
                 {
                     OnProgressChanged("Invalid source path provided.");
                     return false;
                 }
 
-                var destDir = Path.GetDirectoryName(modStoragePath);
+                string destDir = Path.GetDirectoryName(modStoragePath);
                 if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
                 {
-                    Directory.CreateDirectory(destDir);
+                    _ = Directory.CreateDirectory(destDir);
                 }
 
                 if (Directory.Exists(modStoragePath))
@@ -37,11 +37,11 @@ namespace BeanModManager.Services
                     }
                 }
 
-                Directory.CreateDirectory(modStoragePath);
+                _ = Directory.CreateDirectory(modStoragePath);
 
                 if (File.Exists(sourcePath))
                 {
-                    var extension = Path.GetExtension(sourcePath).ToLower();
+                    string extension = Path.GetExtension(sourcePath).ToLower();
                     if (extension == ".dll")
                     {
                         return ImportDll(sourcePath, modStoragePath);
@@ -77,11 +77,11 @@ namespace BeanModManager.Services
             {
                 OnProgressChanged("Importing DLL file...");
 
-                var pluginsPath = Path.Combine(modStoragePath, "BepInEx", "plugins");
-                Directory.CreateDirectory(pluginsPath);
+                string pluginsPath = Path.Combine(modStoragePath, "BepInEx", "plugins");
+                _ = Directory.CreateDirectory(pluginsPath);
 
-                var fileName = Path.GetFileName(dllPath);
-                var destPath = Path.Combine(pluginsPath, fileName);
+                string fileName = Path.GetFileName(dllPath);
+                string destPath = Path.Combine(pluginsPath, fileName);
 
                 File.Copy(dllPath, destPath, true);
                 OnProgressChanged($"Copied {fileName} to plugins folder");
@@ -101,10 +101,10 @@ namespace BeanModManager.Services
             {
                 OnProgressChanged("Importing mod directory...");
 
-                var sourceBepInEx = Path.Combine(sourceDir, "BepInEx");
+                string sourceBepInEx = Path.Combine(sourceDir, "BepInEx");
                 if (!Directory.Exists(sourceBepInEx))
                 {
-                    var nestedBepInEx = FileSystemHelper.FindBepInExFolder(sourceDir);
+                    string nestedBepInEx = FileSystemHelper.FindBepInExFolder(sourceDir);
                     if (nestedBepInEx != null)
                     {
                         sourceDir = Directory.GetParent(nestedBepInEx).FullName;
@@ -117,7 +117,7 @@ namespace BeanModManager.Services
                     }
                 }
 
-                var sourcePluginsPath = Path.Combine(sourceBepInEx, "plugins");
+                string sourcePluginsPath = Path.Combine(sourceBepInEx, "plugins");
                 if (!Directory.Exists(sourcePluginsPath))
                 {
                     OnProgressChanged("Error: Directory does not contain BepInEx/plugins folder. Mods must follow the standard BepInEx structure.");
@@ -143,8 +143,8 @@ namespace BeanModManager.Services
             {
                 OnProgressChanged("Extracting ZIP file...");
 
-                var tempDir = Path.Combine(Path.GetTempPath(), "BeanModManager_Import_" + Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(tempDir);
+                string tempDir = Path.Combine(Path.GetTempPath(), "BeanModManager_Import_" + Guid.NewGuid().ToString("N"));
+                _ = Directory.CreateDirectory(tempDir);
 
                 try
                 {
@@ -153,20 +153,20 @@ namespace BeanModManager.Services
 
                     string modContentRoot = tempDir;
 
-                    var directBepInEx = Path.Combine(tempDir, "BepInEx");
+                    string directBepInEx = Path.Combine(tempDir, "BepInEx");
                     if (!Directory.Exists(directBepInEx))
                     {
-                        var nestedBepInEx = FileSystemHelper.FindBepInExFolder(tempDir);
+                        string nestedBepInEx = FileSystemHelper.FindBepInExFolder(tempDir);
                         if (nestedBepInEx != null)
                         {
                             modContentRoot = Directory.GetParent(nestedBepInEx).FullName;
                         }
                         else
                         {
-                            var subdirs = Directory.GetDirectories(tempDir);
+                            string[] subdirs = Directory.GetDirectories(tempDir);
                             if (subdirs.Length == 1)
                             {
-                                var singleDir = subdirs[0];
+                                string singleDir = subdirs[0];
                                 if (Directory.Exists(Path.Combine(singleDir, "BepInEx")))
                                 {
                                     modContentRoot = singleDir;
@@ -175,14 +175,14 @@ namespace BeanModManager.Services
                         }
                     }
 
-                    var bepInExPath = Path.Combine(modContentRoot, "BepInEx");
+                    string bepInExPath = Path.Combine(modContentRoot, "BepInEx");
                     if (!Directory.Exists(bepInExPath))
                     {
                         OnProgressChanged("Error: ZIP file does not contain a BepInEx folder structure. Mods must follow the standard BepInEx structure.");
                         return false;
                     }
 
-                    var pluginsPath = Path.Combine(bepInExPath, "plugins");
+                    string pluginsPath = Path.Combine(bepInExPath, "plugins");
                     if (!Directory.Exists(pluginsPath))
                     {
                         OnProgressChanged("Error: ZIP file does not contain BepInEx/plugins folder. Mods must follow the standard BepInEx structure.");
@@ -223,19 +223,19 @@ namespace BeanModManager.Services
 
             if (!Directory.Exists(destDir))
             {
-                Directory.CreateDirectory(destDir);
+                _ = Directory.CreateDirectory(destDir);
             }
 
-            foreach (var file in Directory.GetFiles(sourceDir))
+            foreach (string file in Directory.GetFiles(sourceDir))
             {
-                var fileName = Path.GetFileName(file);
+                string fileName = Path.GetFileName(file);
 
                 if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                var destFile = Path.Combine(destDir, fileName);
+                string destFile = Path.Combine(destDir, fileName);
                 try
                 {
                     File.Copy(file, destFile, true);
@@ -246,9 +246,9 @@ namespace BeanModManager.Services
                 }
             }
 
-            foreach (var dir in Directory.GetDirectories(sourceDir))
+            foreach (string dir in Directory.GetDirectories(sourceDir))
             {
-                var dirName = Path.GetFileName(dir);
+                string dirName = Path.GetFileName(dir);
 
                 if (dirName.Equals("temp", StringComparison.OrdinalIgnoreCase) ||
                     dirName.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
@@ -258,7 +258,7 @@ namespace BeanModManager.Services
                     continue;
                 }
 
-                var destSubDir = Path.Combine(destDir, dirName);
+                string destSubDir = Path.Combine(destDir, dirName);
                 CopyDirectoryContents(dir, destSubDir);
             }
         }

@@ -1,10 +1,10 @@
-using BeanModManager.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using BeanModManager.Helpers;
 
 namespace BeanModManager.Models
 {
@@ -51,24 +51,41 @@ namespace BeanModManager.Models
             {
                 if (File.Exists(ConfigPath))
                 {
-                    var json = File.ReadAllText(ConfigPath);
-                    var config = JsonHelper.Deserialize<Config>(json);
+                    string json = File.ReadAllText(ConfigPath);
+                    Config config = JsonHelper.Deserialize<Config>(json);
                     if (config != null)
                     {
                         if (config.InstalledMods == null)
+                        {
                             config.InstalledMods = new List<InstalledMod>();
+                        }
+
                         if (config.SelectedMods == null)
+                        {
                             config.SelectedMods = new List<string>();
+                        }
+
                         if (config.Modpacks == null)
+                        {
                             config.Modpacks = new List<ModPack>();
+                        }
+
                         if (string.IsNullOrWhiteSpace(config.ThemePreference))
+                        {
                             config.ThemePreference = "Dark";
-                        foreach (var pack in config.Modpacks)
+                        }
+
+                        foreach (ModPack pack in config.Modpacks)
                         {
                             if (pack.Mods == null)
+                            {
                                 pack.Mods = new List<ProfileModEntry>();
+                            }
+
                             if (pack.ModIds == null)
+                            {
                                 pack.ModIds = new List<string>();
+                            }
                         }
                         return config;
                     }
@@ -91,17 +108,17 @@ namespace BeanModManager.Models
             _saveLock.Wait();
             try
             {
-                var directory = Path.GetDirectoryName(ConfigPath);
+                string directory = Path.GetDirectoryName(ConfigPath);
                 if (!Directory.Exists(directory))
                 {
-                    Directory.CreateDirectory(directory);
+                    _ = Directory.CreateDirectory(directory);
                 }
 
-                var json = JsonHelper.Serialize(this);
+                string json = JsonHelper.Serialize(this);
 
                 const int MaxSaveRetries = 5;
                 const int InitialRetryDelayMs = 100;
-                var tempPath = ConfigPath + ".tmp";
+                string tempPath = ConfigPath + ".tmp";
                 int retries = MaxSaveRetries;
                 int delay = InitialRetryDelayMs;
 
@@ -131,7 +148,7 @@ namespace BeanModManager.Models
             }
             finally
             {
-                _saveLock.Release();
+                _ = _saveLock.Release();
             }
         }
 
@@ -142,17 +159,17 @@ namespace BeanModManager.Models
             {
                 await Task.Run(() =>
                 {
-                    var directory = Path.GetDirectoryName(ConfigPath);
+                    string directory = Path.GetDirectoryName(ConfigPath);
                     if (!Directory.Exists(directory))
                     {
-                        Directory.CreateDirectory(directory);
+                        _ = Directory.CreateDirectory(directory);
                     }
 
-                    var json = JsonHelper.Serialize(this);
+                    string json = JsonHelper.Serialize(this);
 
                     const int MaxSaveRetries = 5;
                     const int InitialRetryDelayMs = 100;
-                    var tempPath = ConfigPath + ".tmp";
+                    string tempPath = ConfigPath + ".tmp";
                     int retries = MaxSaveRetries;
                     int delay = InitialRetryDelayMs;
 
@@ -183,13 +200,13 @@ namespace BeanModManager.Models
             }
             finally
             {
-                _saveLock.Release();
+                _ = _saveLock.Release();
             }
         }
 
         public void AddInstalledMod(string modId, string version)
         {
-            InstalledMods.RemoveAll(m => m.ModId == modId);
+            _ = InstalledMods.RemoveAll(m => m.ModId == modId);
 
             if (!string.IsNullOrEmpty(version))
             {
@@ -201,21 +218,17 @@ namespace BeanModManager.Models
         {
             if (version == null)
             {
-                InstalledMods.RemoveAll(m => m.ModId == modId);
+                _ = InstalledMods.RemoveAll(m => m.ModId == modId);
             }
             else
             {
-                InstalledMods.RemoveAll(m => m.ModId == modId && m.Version == version);
+                _ = InstalledMods.RemoveAll(m => m.ModId == modId && m.Version == version);
             }
         }
 
         public bool IsModInstalled(string modId, string version = null)
         {
-            if (version == null)
-            {
-                return InstalledMods.Any(m => m.ModId == modId);
-            }
-            return InstalledMods.Any(m => m.ModId == modId && m.Version == version);
+            return version == null ? InstalledMods.Any(m => m.ModId == modId) : InstalledMods.Any(m => m.ModId == modId && m.Version == version);
         }
     }
 
