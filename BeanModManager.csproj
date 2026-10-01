@@ -134,6 +134,11 @@
     <Compile Include="Controls\SkeletonModCard.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Controls\ThemedDropDown.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\CardShapes.cs" />
+    <Compile Include="Controls\RoundedButtons.cs" />
     <Compile Include="Controls\VirtualizedModPanel.cs">
       <SubType>Component</SubType>
     </Compile>

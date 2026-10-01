@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
+using BeanModManager.Controls;
 using BeanModManager.Models;
 using BeanModManager.Themes;
 
@@ -16,7 +17,8 @@ namespace BeanModManager
         private Label _lblDescription;
         private Label _lblVersion;
         private Label _lblLastUpdated;
-        private ComboBox _cmbVersion;
+        private ThemedDropDown _cmbVersion;
+        private const int CornerRadius = 8;
         private Button _btnInstall;
         private Button _btnUninstall;
         private Button _btnPlay;
@@ -183,6 +185,7 @@ namespace BeanModManager
         protected override void OnResize(EventArgs eventargs)
         {
             base.OnResize(eventargs);
+            UpdateRegion();
             LayoutTextAreas();
             LayoutFooterPanel();
             if (_lblFeatured != null && _lblFeatured.Visible)
@@ -231,15 +234,24 @@ namespace BeanModManager
         {
             base.OnPaint(e);
 
-            Rectangle rect = ClientRectangle;
-            rect.Width -= 1;
-            rect.Height -= 1;
-
+            using (GraphicsPath path = CardShapes.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), CornerRadius))
             using (Pen pen = new Pen(_palette?.CardBorderColor ?? Color.FromArgb(225, 228, 236)))
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                e.Graphics.DrawRectangle(pen, rect);
+                e.Graphics.DrawPath(pen, path);
             }
+        }
+
+        private void UpdateRegion()
+        {
+            if (Width <= 0 || Height <= 0)
+            {
+                return;
+            }
+
+            Region old = Region;
+            Region = CardShapes.RoundedRegion(ClientRectangle, CornerRadius);
+            old?.Dispose();
         }
 
 
@@ -459,34 +471,12 @@ namespace BeanModManager
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
-            _cmbVersion = new ComboBox
+            _cmbVersion = new ThemedDropDown
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Size = new Size(220, 25),
-                Location = new Point(10, 116),
-                Font = new Font("Segoe UI", 8f),
-                Visible = false,
-                DrawMode = DrawMode.OwnerDrawFixed
-            };
-            _cmbVersion.DrawItem += (s, e) =>
-            {
-                e.DrawBackground();
-                if (e.Index >= 0 && e.Index < _cmbVersion.Items.Count)
-                {
-                    ModVersion version = (ModVersion)_cmbVersion.Items[e.Index];
-                    string text = version.ToString();
-                    bool isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-                    Color color = isSelected
-                        ? SystemColors.HighlightText
-                        : (_palette?.PrimaryTextColor ?? Color.Black);
-
-                    using (SolidBrush brush = new SolidBrush(color))
-                    {
-                        e.Graphics.DrawString(text, _cmbVersion.Font, brush, e.Bounds);
-                    }
-                }
-
-                e.DrawFocusRectangle();
+                Size = new Size(220, 28),
+                Location = new Point(10, 114),
+                Font = new Font("Segoe UI", 8.2f),
+                Visible = false
             };
             _cmbVersion.SelectedIndexChanged += _cmbVersion_SelectedIndexChanged;
 
@@ -747,7 +737,7 @@ namespace BeanModManager
 
                     foreach (ModVersion version in versionsList)
                     {
-                        _ = _cmbVersion.Items.Add(version);
+                        _cmbVersion.Items.Add(version);
                     }
 
                     _cmbVersion.EndUpdate();
@@ -923,9 +913,6 @@ namespace BeanModManager
             StyleButton(_btnOpenFolder, _palette.NeutralButtonColor, _palette.NeutralButtonTextColor);
             StyleButton(_btnUpdate, _palette.WarningButtonColor, _palette.WarningButtonTextColor);
 
-            _cmbVersion.BackColor = _palette.InputBackColor;
-            _cmbVersion.ForeColor = _palette.InputTextColor;
-
             Invalidate();
         }
 
@@ -951,9 +938,10 @@ namespace BeanModManager
             Color borderColor = _palette.Variant == ThemeVariant.Dark
     ? Color.FromArgb(100, 120, 150)
     : Color.FromArgb(180, 190, 200);
+            using (GraphicsPath boxPath = CardShapes.RoundedRect(boxRect, 3))
             using (Pen borderPen = new Pen(borderColor, 1.5f))
             {
-                e.Graphics.DrawRectangle(borderPen, boxRect);
+                e.Graphics.DrawPath(borderPen, boxPath);
             }
 
             if (checkbox.Checked)
@@ -987,17 +975,9 @@ namespace BeanModManager
                 return;
             }
 
-            button.UseVisualStyleBackColor = false;
             button.BackColor = backColor;
             button.ForeColor = textColor;
-            button.FlatStyle = FlatStyle.Flat;
-            button.FlatAppearance.BorderSize = 0;
-            button.FlatAppearance.BorderColor = backColor;
-
-            Color hoverColor = ControlPaint.Light(backColor, 0.1f);
-            Color pressedColor = ControlPaint.Dark(backColor, 0.1f);
-            button.FlatAppearance.MouseOverBackColor = hoverColor;
-            button.FlatAppearance.MouseDownBackColor = pressedColor;
+            RoundedButtons.Attach(button);
         }
     }
 }

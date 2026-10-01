@@ -69,6 +69,11 @@ namespace BeanModManager
         private ContextMenuStrip _ctxInstalledList;
         private Button _btnModpackNew;
         private Button _btnModpackImport;
+        private readonly List<Control> _modpacksWindowSurfaces = new List<Control>();
+        private readonly List<Control> _modpacksSurfaces = new List<Control>();
+        private readonly List<Control> _modpacksAltSurfaces = new List<Control>();
+        private readonly List<Label> _modpacksHeadingLabels = new List<Label>();
+        private readonly List<Label> _modpacksSecondaryLabels = new List<Label>();
         private ToolTip _mainToolTip;
         private ListView _lvModpackMods;
         private bool _isApplyingModpackSelection;
@@ -681,27 +686,27 @@ namespace BeanModManager
                 button.Padding = new Padding(0);
                 button.Anchor = AnchorStyles.Top;
                 button.AccessibleName = accessibleName;
-                button.Paint += (s, e) =>
+                RoundedButtons.Attach(button, RoundedButtons.DefaultRadius, (b, g) =>
                 {
-                    e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                    using (Pen pen = new Pen(button.ForeColor, 2F))
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    using (Pen pen = new Pen(b.ForeColor, 2F))
                     {
                         pen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
                         pen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
                         if (drawImport)
                         {
-                            e.Graphics.DrawLine(pen, 16, 7, 16, 20);
-                            e.Graphics.DrawLine(pen, 11, 15, 16, 20);
-                            e.Graphics.DrawLine(pen, 21, 15, 16, 20);
-                            e.Graphics.DrawLine(pen, 9, 24, 23, 24);
+                            g.DrawLine(pen, 16, 7, 16, 20);
+                            g.DrawLine(pen, 11, 15, 16, 20);
+                            g.DrawLine(pen, 21, 15, 16, 20);
+                            g.DrawLine(pen, 9, 24, 23, 24);
                         }
                         else
                         {
-                            e.Graphics.DrawLine(pen, 16, 8, 16, 24);
-                            e.Graphics.DrawLine(pen, 8, 16, 24, 16);
+                            g.DrawLine(pen, 16, 8, 16, 24);
+                            g.DrawLine(pen, 8, 16, 24, 16);
                         }
                     }
-                };
+                });
             }
 
             TableLayoutPanel root = new TableLayoutPanel
@@ -1044,6 +1049,17 @@ namespace BeanModManager
             split.Panel1.Controls.Add(_modpacksLeftOuter);
             split.Panel2.Controls.Add(_modpacksRightOuter);
             root.Controls.Add(split);
+
+            _modpacksWindowSurfaces.Clear();
+            _modpacksWindowSurfaces.AddRange(new Control[] { root, split, split.Panel1, split.Panel2 });
+            _modpacksSurfaces.Clear();
+            _modpacksSurfaces.AddRange(new Control[] { leftPanel, leftLayout, rightPanel, rightLayout, editor, buttonsMid, buttonsMidInner });
+            _modpacksAltSurfaces.Clear();
+            _modpacksAltSurfaces.AddRange(new Control[] { headerBar, headerRow, titleBar, titleRow });
+            _modpacksHeadingLabels.Clear();
+            _modpacksHeadingLabels.Add(headerLabel);
+            _modpacksSecondaryLabels.Clear();
+            _modpacksSecondaryLabels.AddRange(new[] { lblInPack, lblInstalled });
 
             _tabModpacks.Controls.Add(root);
 
@@ -2524,8 +2540,11 @@ namespace BeanModManager
                             LoadSettings();
                             _ = CheckForAppUpdatesAsync();
 #if !DEBUG
-                            await Task.Delay(500);
-                            await LoadMods();
+                            _ = Task.Run(async () =>
+                            {
+                                await Task.Delay(500);
+                                await LoadMods();
+                            });
 #endif
                         }
                         else
@@ -2553,7 +2572,7 @@ namespace BeanModManager
             }
 
 #if !DEBUG
-            _ = LoadMods();
+            _ = Task.Run(async () => await LoadMods());
 #else
             UpdateStatus("Ready (debug: use the Debug menu to load the mod store)");
 #endif
@@ -3439,6 +3458,13 @@ namespace BeanModManager
                 _tabModpacks.BackColor = palette.WindowBackColor;
                 _tabModpacks.ForeColor = palette.PrimaryTextColor;
             }
+            foreach (Control c in _modpacksWindowSurfaces) { c.BackColor = palette.WindowBackColor; }
+            foreach (Control c in _modpacksSurfaces) { c.BackColor = palette.SurfaceColor; }
+            foreach (Control c in _modpacksAltSurfaces) { c.BackColor = palette.SurfaceAltColor; }
+            foreach (Label l in _modpacksHeadingLabels) { l.ForeColor = palette.HeadingTextColor; }
+            foreach (Label l in _modpacksSecondaryLabels) { l.ForeColor = palette.SecondaryTextColor; }
+            if (_lblModpackTitle != null) { _lblModpackTitle.ForeColor = palette.HeadingTextColor; }
+            if (_lblModpackModCount != null) { _lblModpackModCount.ForeColor = palette.SecondaryTextColor; }
             if (_modpacksLeftOuter != null)
             {
                 _modpacksLeftOuter.BackColor = palette.SurfaceColor;
@@ -3655,6 +3681,19 @@ namespace BeanModManager
                 ApplyButtonTheme(button, palette.SecondaryButtonColor, palette.SecondaryButtonTextColor);
             }
 
+            Button[] roundedButtons = new[]
+            {
+                btnBulkUninstallInstalled, btnBulkDeselectAllInstalled,
+                btnBulkInstallStore, btnBulkDeselectAllStore,
+                btnEmptyInstalledBrowseFeatured, btnEmptyInstalledBrowseStore,
+                btnEmptyStoreClearFilters, btnEmptyStoreBrowseFeatured,
+                _btnModpackPlay, _btnModpackNew, _btnModpackImport, _btnAddToModpack, _btnRemoveFromModpack
+            };
+            foreach (Button button in roundedButtons)
+            {
+                RoundedButtons.Attach(button);
+            }
+
             if (statusStrip != null)
             {
                 statusStrip.BackColor = palette.StatusStripBackColor;
@@ -3858,14 +3897,9 @@ namespace BeanModManager
                 return;
             }
 
-            button.UseVisualStyleBackColor = false;
-            button.FlatStyle = FlatStyle.Flat;
-            button.FlatAppearance.BorderSize = 0;
             button.BackColor = backColor;
             button.ForeColor = foreColor;
-            button.FlatAppearance.BorderColor = backColor;
-            button.FlatAppearance.MouseOverBackColor = ControlPaint.Light(backColor);
-            button.FlatAppearance.MouseDownBackColor = ControlPaint.Dark(backColor);
+            RoundedButtons.Attach(button);
         }
 
 

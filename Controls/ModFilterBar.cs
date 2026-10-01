@@ -304,10 +304,10 @@ namespace BeanModManager.Controls
 
         private int MeasureChip(Graphics g, FilterCategory cat)
         {
-            int w = TextRenderer.MeasureText(g, cat.Label, _chipFont).Width + 22;
+            int w = TextRenderer.MeasureText(g, cat.Label, _chipFont, Size.Empty, TextFormatFlags.NoPadding).Width + 22;
             if (cat.Count > 0)
             {
-                w += TextRenderer.MeasureText(g, cat.Count.ToString(), _countFont).Width + 8;
+                w += TextRenderer.MeasureText(g, cat.Count.ToString(), _countFont, Size.Empty, TextFormatFlags.NoPadding).Width + 6;
             }
 
             return w;
@@ -445,14 +445,14 @@ namespace BeanModManager.Controls
                     g.DrawPath(pen, path);
                 }
 
-                Size labelSize = TextRenderer.MeasureText(g, cat.Label, _chipFont);
+                Size labelSize = TextRenderer.MeasureText(g, cat.Label, _chipFont, Size.Empty, TextFormatFlags.NoPadding);
                 Rectangle labelRect = new Rectangle(rect.X + 11, rect.Y, labelSize.Width, rect.Height);
                 TextRenderer.DrawText(g, cat.Label, _chipFont, labelRect, text,
                     TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding);
 
                 if (cat.Count > 0)
                 {
-                    Rectangle countRect = new Rectangle(labelRect.Right + 6, rect.Y, rect.Right - labelRect.Right - 12, rect.Height);
+                    Rectangle countRect = new Rectangle(labelRect.Right + 6, rect.Y, rect.Right - labelRect.Right - 6, rect.Height);
                     TextRenderer.DrawText(g, cat.Count.ToString(), _countFont, countRect, count,
                         TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding);
                 }

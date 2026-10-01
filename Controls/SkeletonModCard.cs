@@ -13,6 +13,7 @@ namespace BeanModManager.Controls
         private float _animationProgress = 0f;
         private const int CARD_HEIGHT = 250;
         private const int CARD_WIDTH = 320;
+        private const int CORNER_RADIUS = 8;
 
         public SkeletonModCard()
         {
@@ -56,6 +57,17 @@ namespace BeanModManager.Controls
             BackColor = _palette.CardBackground;
         }
 
+        protected override void OnResize(EventArgs eventargs)
+        {
+            base.OnResize(eventargs);
+            if (Width > 0 && Height > 0)
+            {
+                Region old = Region;
+                Region = CardShapes.RoundedRegion(ClientRectangle, CORNER_RADIUS);
+                old?.Dispose();
+            }
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
@@ -69,9 +81,10 @@ namespace BeanModManager.Controls
             int y = padding;
             int width = Width - (padding * 2);
 
+            using (GraphicsPath border = CardShapes.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), CORNER_RADIUS))
             using (Pen borderPen = new Pen(_palette.CardBorderColor, 1))
             {
-                g.DrawRectangle(borderPen, 0, 0, Width - 1, Height - 1);
+                g.DrawPath(borderPen, border);
             }
 
             int titleHeight = 20;
@@ -116,8 +129,9 @@ namespace BeanModManager.Controls
 );
 
             using (SolidBrush brush = new SolidBrush(baseColor))
+            using (GraphicsPath path = CardShapes.RoundedRect(new Rectangle((int)x, (int)y, width, height), Math.Min(4, height / 2)))
             {
-                g.FillRectangle(brush, x, y, width, height);
+                g.FillPath(brush, path);
             }
 
             int shimmerWidth = (int)(width * 0.6f); int shimmerStart = (int)(x + (width * _animationProgress * 0.8f) - shimmerWidth);
