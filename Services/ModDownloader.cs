@@ -372,21 +372,7 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
 
                     if (string.IsNullOrEmpty(rootPrefix))
                     {
-                        List<string> rootFolders = archive.Entries
-                            .Where(e => !string.IsNullOrEmpty(e.FullName))
-                            .Select(e => e.FullName.Split('/')[0].Split('\\')[0])
-                            .Distinct()
-                            .Where(f => !string.IsNullOrEmpty(f) && !f.Contains("."))
-                            .ToList();
-
-                        if (rootFolders.Count == 1)
-                        {
-                            ZipArchiveEntry firstEntry = archive.Entries.FirstOrDefault(e => !string.IsNullOrEmpty(e.FullName));
-                            if (firstEntry != null && firstEntry.FullName.StartsWith(rootFolders[0] + "/"))
-                            {
-                                rootPrefix = rootFolders[0] + "/";
-                            }
-                        }
+                        rootPrefix = FindWrapperRootPrefix(archive.Entries);
                     }
 
                     dontInclude = dontInclude ?? new List<string>();
@@ -454,6 +440,73 @@ a.name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
             {
                 archive?.Dispose();
             }
+        }
+
+        // Top-level names that are part of the actual mod layout, not a wrapper folder to strip.
+        private static readonly HashSet<string> StructureDirNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "bepinex", "plugins", "patchers", "config", "core", "mods", "assets"
+        };
+
+        /// <summary>
+        /// Detects wrapper folders (e.g. "Mod_v1.2.3_Steam/Mod v1.2.3 Steam/…") that some releases
+        /// nest their content under. Returns the prefix to strip so BepInEx ends up at the storage
+        /// root. Descends repeatedly while every entry shares one top folder and there are no
+        /// top-level files, but never strips a known structure directory.
+        /// </summary>
+        private static string FindWrapperRootPrefix(IEnumerable<ZipArchiveEntry> entries)
+        {
+            string prefix = string.Empty;
+
+            for (int depth = 0; depth < 5; depth++)
+            {
+                string singleRoot = null;
+                bool abort = false;
+
+                foreach (ZipArchiveEntry e in entries)
+                {
+                    if (string.IsNullOrEmpty(e.FullName) || !e.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        abort = true;
+                        break;
+                    }
+
+                    string name = e.FullName.Substring(prefix.Length);
+                    int sep = name.IndexOf('/');
+                    int sepAlt = name.IndexOf('\\');
+                    if (sep < 0 || (sepAlt >= 0 && sepAlt < sep))
+                    {
+                        sep = sepAlt;
+                    }
+
+                    if (sep <= 0)
+                    {
+                        // A file at the current level: this isn't a pure wrapper folder.
+                        abort = true;
+                        break;
+                    }
+
+                    string first = name.Substring(0, sep);
+                    if (singleRoot == null)
+                    {
+                        singleRoot = first;
+                    }
+                    else if (!string.Equals(singleRoot, first, StringComparison.OrdinalIgnoreCase))
+                    {
+                        abort = true;
+                        break;
+                    }
+                }
+
+                if (abort || singleRoot == null || StructureDirNames.Contains(singleRoot))
+                {
+                    break;
+                }
+
+                prefix += singleRoot + "/";
+            }
+
+            return prefix;
         }
 
         private string FindNestedBepInExPrefix(IEnumerable<ZipArchiveEntry> entries)

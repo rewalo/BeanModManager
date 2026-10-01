@@ -8162,6 +8162,9 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
                 throw new DirectoryNotFoundException($"Mod folder not found: {modStoragePath}\nPlease reinstall {mod.Name}.");
             }
 
+            // Some archives nest their content under one or more wrapper folders; copy from the real root.
+            modStoragePath = Helpers.FileSystemHelper.ResolveContentRoot(modStoragePath);
+
             string[] dllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
             bool hasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
             bool hasSubdirectories = Directory.GetDirectories(modStoragePath).Any();

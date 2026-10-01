@@ -35,6 +35,45 @@ namespace BeanModManager.Helpers
             return null;
         }
 
+        /// <summary>
+        /// Some release archives wrap the real mod content in one or more named folders
+        /// (e.g. "AUR.v2.2.0.Steam_Epic_Microsoft_Xbox/AUR v2.2.0 Steam_Epic_Microsoft_Xbox/BepInEx/...").
+        /// Returns the directory that actually contains the mod's files.
+        /// </summary>
+        public static string ResolveContentRoot(string root)
+        {
+            if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+            {
+                return root;
+            }
+
+            if (Directory.Exists(Path.Combine(root, "BepInEx")))
+            {
+                return root;
+            }
+
+            string nestedBepInEx = FindBepInExFolder(root);
+            if (nestedBepInEx != null)
+            {
+                return Directory.GetParent(nestedBepInEx).FullName;
+            }
+
+            // No BepInEx anywhere: unwrap single-folder nesting (e.g. flat-dll mods zipped in a folder).
+            for (int depth = 0; depth < 5; depth++)
+            {
+                string[] files = Directory.GetFiles(root);
+                string[] dirs = Directory.GetDirectories(root);
+                if (files.Length == 0 && dirs.Length == 1)
+                {
+                    root = dirs[0];
+                    continue;
+                }
+                break;
+            }
+
+            return root;
+        }
+
         public static void CopyFileWithRetry(string sourceFile, string destFile, bool overwrite, int maxRetries = 5)
         {
             int retries = maxRetries;

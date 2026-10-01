@@ -352,6 +352,8 @@ namespace BeanModManager.Services
                     {
                         OnProgressChanged("Installing mod files to depot...");
 
+                        modStoragePath = FileSystemHelper.ResolveContentRoot(modStoragePath);
+
                         string[] dllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
                         bool hasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
                         bool hasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
