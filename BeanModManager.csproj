@@ -127,6 +127,9 @@
     <Compile Include="Controls\ModCard.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Controls\ModFilterBar.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Controls\SkeletonModCard.cs">
       <SubType>Component</SubType>
     </Compile>

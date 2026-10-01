@@ -1,4 +1,4 @@
-﻿using BeanModManager.Helpers;
+using BeanModManager.Helpers;
 using BeanModManager.Services;
 using BeanModManager.Themes;
 using Microsoft.WindowsAPICodePack.Dialogs;

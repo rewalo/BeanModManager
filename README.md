@@ -58,7 +58,7 @@
 - **Dependency Management:** Reactor, MiraAPI handled automatically  
 - **Update Checker:** Notifies you when updates are available  
 - **Incompatibility Detection:** Warns of conflicts before installation  
-- **Search and Filter:** Quickly find mods using categories and search  
+- **Search and Filter:** Search names, authors, descriptions, categories, and GitHub repos; filter by category and sort by release date or name  
 - **Bulk Actions:** Install, uninstall, or update multiple mods  
 - **Theme Support:** Light and dark themes with auto-detection  
 - **Virtualized UI:** Smooth performance with large mod lists  
@@ -84,6 +84,14 @@
 4. Manage installed mods in the **Installed Mods** tab.  
 5. Click **Play** to launch Among Us with that mod.  
 6. Use **Launch Vanilla** to play without mods.
+
+---
+
+## Mod authorship and game updates
+
+Bean Mod Manager manages third-party mods; it does not create or endorse them. Mod authors are responsible for maintaining their mods and adding support for new Among Us versions. A game update may therefore make a mod stop working until its author releases a compatible update. Check the mod's linked release page or contact its author for compatibility questions.
+
+Steam depot support is reserved for mods specifically requested by users or mods that have consistently not been updated for the latest game version. It is not a general way to keep every mod working after an Among Us update.
 
 ---
 

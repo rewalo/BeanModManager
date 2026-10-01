@@ -1,4 +1,5 @@
-﻿using BeanModManager.Helpers;
+using BeanModManager.Controls;
+using BeanModManager.Helpers;
 using BeanModManager.Models;
 using BeanModManager.Services;
 using BeanModManager.Themes;
@@ -36,13 +37,10 @@ namespace BeanModManager
         private readonly HashSet<string> _selectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _bulkSelectedModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _bulkSelectedStoreModIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private string _installedSearchText = string.Empty;
-        private string _storeSearchText = string.Empty;
-        private string _installedCategoryFilter = "All";
-        private string _storeCategoryFilter = "All";
-        private bool _isUpdatingCategoryFilters = false;
-        private Timer _installedSearchDebounceTimer;
-        private Timer _storeSearchDebounceTimer;
+        private string _installedSearchText => filterBarInstalled?.SearchText ?? string.Empty;
+        private string _storeSearchText => filterBarStore?.SearchText ?? string.Empty;
+        private string _installedCategoryFilter => filterBarInstalled?.SelectedCategory ?? "All";
+        private string _storeCategoryFilter => filterBarStore?.SelectedCategory ?? "All";
         private Timer _refreshDebounceTimer;
         private bool _isRefreshing = false;
         private bool _isApplyingThemeSelection;
@@ -292,20 +290,6 @@ namespace BeanModManager
             _updateChecker.UpdateAvailable += UpdateChecker_UpdateAvailable;
 
             LoadSettings();
-
-            _installedSearchDebounceTimer = new Timer { Interval = 300 };
-            _installedSearchDebounceTimer.Tick += (s, e) =>
-            {
-                _installedSearchDebounceTimer.Stop();
-                RefreshModCardsDebounced();
-            };
-
-            _storeSearchDebounceTimer = new Timer { Interval = 300 };
-            _storeSearchDebounceTimer.Tick += (s, e) =>
-            {
-                _storeSearchDebounceTimer.Stop();
-                RefreshModCardsDebounced();
-            };
 
             _refreshDebounceTimer = new Timer { Interval = 150 };
             _refreshDebounceTimer.Tick += (s, e) =>
@@ -2642,12 +2626,7 @@ namespace BeanModManager
             if (tabControl != null)
             {
                 tabControl.SelectedIndex = 2;
-                if (cmbStoreCategory != null)
-                {
-                    _storeCategoryFilter = "Featured";
-                    cmbStoreCategory.SelectedItem = "Featured";
-                    RefreshModCardsDebounced();
-                }
+                filterBarStore.SelectCategory("Featured");
             }
         }
 
@@ -2656,47 +2635,27 @@ namespace BeanModManager
             if (tabControl != null)
             {
                 tabControl.SelectedIndex = 2;
-
-                _storeSearchText = string.Empty;
-                _storeCategoryFilter = "All";
-
-                if (txtStoreSearch != null)
-                {
-                    txtStoreSearch.Text = string.Empty;
-                }
-                if (cmbStoreCategory != null)
-                {
-                    cmbStoreCategory.SelectedItem = "All";
-                }
-
-                RefreshModCardsDebounced();
+                filterBarStore.Reset();
             }
         }
 
         private void btnEmptyStoreClearFilters_Click(object sender, EventArgs e)
         {
-            _storeSearchText = string.Empty;
-            _storeCategoryFilter = "All";
-
-            if (txtStoreSearch != null)
-            {
-                txtStoreSearch.Text = string.Empty;
-            }
-            if (cmbStoreCategory != null)
-            {
-                cmbStoreCategory.SelectedItem = "All";
-            }
-
-            RefreshModCardsDebounced();
+            filterBarStore.Reset();
         }
 
         private void btnEmptyStoreBrowseFeatured_Click(object sender, EventArgs e)
         {
-            _storeCategoryFilter = "Featured";
-            if (cmbStoreCategory != null)
-            {
-                cmbStoreCategory.SelectedItem = "Featured";
-            }
+            filterBarStore.SelectCategory("Featured");
+        }
+
+        private void filterBarStore_FiltersChanged(object sender, EventArgs e)
+        {
+            RefreshModCardsDebounced();
+        }
+
+        private void filterBarInstalled_FiltersChanged(object sender, EventArgs e)
+        {
             RefreshModCardsDebounced();
         }
 
@@ -2971,11 +2930,10 @@ namespace BeanModManager
                 }
             }
 
-            ApplyFilterBarTheme(flowInstalledFilters, palette);
-            ApplyFilterBarTheme(flowStoreFilters, palette);
 
             lblInstalledHeader.ForeColor = palette.HeadingTextColor;
             lblStoreHeader.ForeColor = palette.HeadingTextColor;
+            lblStoreNotice.ForeColor = palette.SecondaryTextColor;
 
             if (headerStrip != null)
             {
@@ -3050,10 +3008,6 @@ namespace BeanModManager
 
             var secondaryLabels = new[]
             {
-                lblInstalledSearch,
-                lblInstalledCategory,
-                lblStoreSearch,
-                lblStoreCategory,
                 lblAmongUsPath,
                 lblTheme
             };
@@ -3310,12 +3264,8 @@ namespace BeanModManager
                 flowData.ForeColor = palette.PrimaryTextColor;
             }
 
-            ApplyTextInputTheme(txtInstalledSearch, palette);
-            ApplyTextInputTheme(txtStoreSearch, palette);
             ApplyTextInputTheme(txtAmongUsPath, palette);
 
-            ApplyComboTheme(cmbInstalledCategory, palette);
-            ApplyComboTheme(cmbStoreCategory, palette);
             ApplyComboTheme(cmbTheme, palette);
 
             if (cmbTheme != null)
@@ -3425,15 +3375,6 @@ namespace BeanModManager
 
             group.BackColor = palette.SurfaceColor;
             group.ForeColor = palette.PrimaryTextColor;
-        }
-
-        private void ApplyFilterBarTheme(FlowLayoutPanel panel, ThemePalette palette)
-        {
-            if (panel == null)
-                return;
-
-            panel.BackColor = palette.FilterBarBackground;
-            panel.ForeColor = palette.PrimaryTextColor;
         }
 
         private void ApplyTextInputTheme(TextBox textBox, ThemePalette palette)
@@ -3680,8 +3621,6 @@ namespace BeanModManager
 
             try
             {
-                UpdateCategoryFilters();
-
                 panelEmptyStore.Visible = false;
                 panelEmptyInstalled.Visible = false;
 
@@ -3694,6 +3633,8 @@ namespace BeanModManager
 
                 if (_availableMods == null || !_availableMods.Any())
                 {
+                    filterBarInstalled.SetResultSummary(0, 0);
+                    filterBarStore.SetResultSummary(0, 0);
                     HideSkeletonLoaders();
                     if (panelStore.IsHandleCreated)
                     {
@@ -3715,6 +3656,8 @@ namespace BeanModManager
                 var detectedMods = _cachedDetectedMods;
                 var detectedModIds = _cachedDetectedModIds;
                 var existingModFolders = _cachedExistingModFolders;
+
+                UpdateCategoryFilters();
 
                 var expectedInstalledCount = _availableMods.Count(m =>
                 {
@@ -4075,18 +4018,15 @@ namespace BeanModManager
 
 
 
-                var filteredInstalled = installedCards
-    .Where(card => MatchesFilters(card.BoundMod, true))
-    .OrderBy(card => GetCategorySortOrder(card.BoundMod?.Category))
-    .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
-    .ToList();
+                var filteredInstalled = OrderCards(
+                    installedCards.Where(card => MatchesFilters(card.BoundMod, true)),
+                    filterBarInstalled.SortOrder, featuredFirst: false);
+                filterBarInstalled.SetResultSummary(filteredInstalled.Count, installedCards.Count);
 
-                var filteredStore = storeCards
-    .Where(card => MatchesFilters(card.BoundMod, false))
-    .OrderByDescending(card => card.BoundMod?.IsFeatured ?? false)
-    .ThenBy(card => GetCategorySortOrder(card.BoundMod?.Category))
-    .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
-    .ToList();
+                var filteredStore = OrderCards(
+                    storeCards.Where(card => MatchesFilters(card.BoundMod, false)),
+                    filterBarStore.SortOrder, featuredFirst: true);
+                filterBarStore.SetResultSummary(filteredStore.Count, storeCards.Count);
 
                 bool anyCardHasUpdate = filteredInstalled.Any(card => card.HasUpdateAvailable);
                 int cardHeight = anyCardHasUpdate ? 280 : 250;
@@ -4841,91 +4781,87 @@ namespace BeanModManager
             return 4;
         }
 
+        private static List<ModCard> OrderCards(IEnumerable<ModCard> cards, ModSortOrder sortOrder, bool featuredFirst)
+        {
+            switch (sortOrder)
+            {
+                case ModSortOrder.RecentlyUpdated:
+                    return cards
+                        .OrderByDescending(card => card.BoundMod?.LastUpdated ?? DateTime.MinValue)
+                        .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                case ModSortOrder.Name:
+                    return cards
+                        .OrderBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                default:
+                    return cards
+                        .OrderByDescending(card => featuredFirst && (card.BoundMod?.IsFeatured ?? false))
+                        .ThenBy(card => GetCategorySortOrder(card.BoundMod?.Category))
+                        .ThenBy(card => card.BoundMod?.Name, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+            }
+        }
+
         private static bool ContainsSearchTerm(Mod mod, string searchText)
         {
             if (mod == null)
                 return false;
 
-            var term = searchText?.Trim();
-            if (string.IsNullOrEmpty(term))
+            var terms = searchText?.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
+            if (terms == null || terms.Length == 0)
                 return true;
 
-            return (!string.IsNullOrEmpty(mod.Name) && mod.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                   (!string.IsNullOrEmpty(mod.Description) && mod.Description.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                   (!string.IsNullOrEmpty(mod.Author) && mod.Author.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
+            var searchableFields = new[]
+            {
+                mod.Name,
+                mod.Description,
+                mod.Author,
+                mod.Category,
+                mod.Id,
+                mod.GitHubOwner,
+                mod.GitHubRepo
+            };
+
+            return terms.All(term => searchableFields.Any(field =>
+                !string.IsNullOrEmpty(field) && field.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0));
         }
 
-        private List<string> _cachedCategoryList;
         private void UpdateCategoryFilters()
         {
-            if (_availableMods == null || cmbInstalledCategory == null || cmbStoreCategory == null)
+            if (_availableMods == null || filterBarInstalled == null || filterBarStore == null)
                 return;
 
-            if (_cachedCategoryList == null)
-            {
-                var categorySet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var mod in _availableMods)
-                {
-                    var normalized = NormalizeCategory(mod.Category);
-                    if (!string.IsNullOrEmpty(normalized))
-                        categorySet.Add(normalized);
-                }
+            var installedMods = _availableMods.Where(m => IsModInstalledCached(m.Id)).ToList();
+            var storeMods = _availableMods
+                .Where(m => !IsModInstalledCached(m.Id) && m.Author != "Custom Import" && m.Category != "Custom")
+                .ToList();
 
-                _cachedCategoryList = new List<string>(categorySet);
-                _cachedCategoryList.Sort(StringComparer.OrdinalIgnoreCase);
-            }
-
-            var categories = _cachedCategoryList;
-
-            if (!categories.Any() || !categories[0].Equals("All", StringComparison.OrdinalIgnoreCase))
-            {
-                categories.Insert(0, "All");
-            }
-
-            UpdateCategoryCombo(cmbInstalledCategory, categories, ref _installedCategoryFilter);
-
-            var storeCategories = new List<string>(categories);
-            if (!storeCategories.Contains("Featured", StringComparer.OrdinalIgnoreCase))
-            {
-                var allIndex = storeCategories.FindIndex(c => c.Equals("All", StringComparison.OrdinalIgnoreCase));
-                if (allIndex >= 0)
-                {
-                    storeCategories.Insert(allIndex + 1, "Featured");
-                }
-                else
-                {
-                    storeCategories.Insert(0, "Featured");
-                }
-            }
-
-            UpdateCategoryCombo(cmbStoreCategory, storeCategories, ref _storeCategoryFilter);
+            filterBarInstalled.SetCategories(BuildCategoryChips(installedMods, includeFeatured: false));
+            filterBarStore.SetCategories(BuildCategoryChips(storeMods, includeFeatured: true));
         }
 
-        private void UpdateCategoryCombo(ComboBox combo, List<string> categories, ref string filterValue)
+        private static List<FilterCategory> BuildCategoryChips(List<Mod> mods, bool includeFeatured)
         {
-            if (combo == null || categories == null)
-                return;
-
-            _isUpdatingCategoryFilters = true;
-            try
+            var chips = new List<FilterCategory>
             {
-                combo.BeginUpdate();
-                combo.Items.Clear();
-                foreach (var category in categories)
-                {
-                    combo.Items.Add(category);
-                }
-                combo.EndUpdate();
+                new FilterCategory { Key = "All", Label = "All", Count = mods.Count }
+            };
 
-                var currentFilter = filterValue ?? "All";
-                var desired = categories.FirstOrDefault(c => c.Equals(currentFilter, StringComparison.OrdinalIgnoreCase)) ?? "All";
-                filterValue = desired;
-                combo.SelectedItem = desired;
-            }
-            finally
+            if (includeFeatured)
             {
-                _isUpdatingCategoryFilters = false;
+                var featuredCount = mods.Count(m => m.IsFeatured);
+                if (featuredCount > 0)
+                    chips.Add(new FilterCategory { Key = "Featured", Label = "Featured", Count = featuredCount });
             }
+
+            chips.AddRange(mods
+                .GroupBy(m => NormalizeCategory(m.Category), StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => GetCategorySortOrder(g.Key))
+                .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(g => new FilterCategory { Key = g.Key, Label = g.Key, Count = g.Count() }));
+
+            return chips;
         }
 
         private List<Mod> GetSelectedInstalledMods()
@@ -8874,46 +8810,6 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             LaunchGame();
         }
 
-
-        private void txtInstalledSearch_TextChanged(object sender, EventArgs e)
-        {
-            _installedSearchText = txtInstalledSearch.Text ?? string.Empty;
-            _installedSearchDebounceTimer.Stop();
-            _installedSearchDebounceTimer.Start();
-        }
-
-        private void txtStoreSearch_TextChanged(object sender, EventArgs e)
-        {
-            _storeSearchText = txtStoreSearch.Text ?? string.Empty;
-            _storeSearchDebounceTimer.Stop();
-            _storeSearchDebounceTimer.Start();
-        }
-
-        private void cmbInstalledCategory_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (_isUpdatingCategoryFilters)
-                return;
-
-            var selected = cmbInstalledCategory.SelectedItem as string ?? "All";
-            if (!string.Equals(_installedCategoryFilter, selected, StringComparison.OrdinalIgnoreCase))
-            {
-                _installedCategoryFilter = selected;
-                RefreshModCardsDebounced();
-            }
-        }
-
-        private void cmbStoreCategory_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (_isUpdatingCategoryFilters)
-                return;
-
-            var selected = cmbStoreCategory.SelectedItem as string ?? "All";
-            if (!string.Equals(_storeCategoryFilter, selected, StringComparison.OrdinalIgnoreCase))
-            {
-                _storeCategoryFilter = selected;
-                RefreshModCardsDebounced();
-            }
-        }
 
         private void cmbTheme_SelectedIndexChanged(object sender, EventArgs e)
         {

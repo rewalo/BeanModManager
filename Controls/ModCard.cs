@@ -17,6 +17,7 @@ namespace BeanModManager
         private Label _lblAuthor;
         private Label _lblDescription;
         private Label _lblVersion;
+        private Label _lblLastUpdated;
         private ComboBox _cmbVersion;
         private Button _btnInstall;
         private Button _btnUninstall;
@@ -185,6 +186,8 @@ namespace BeanModManager
                 _lblDescription.Width = contentWidth;
             if (_lblVersion != null)
                 _lblVersion.Width = contentWidth;
+            if (_lblLastUpdated != null)
+                _lblLastUpdated.Width = contentWidth;
 
             if (_cmbVersion != null)
             {
@@ -410,6 +413,18 @@ namespace BeanModManager
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
+            _lblLastUpdated = new Label
+            {
+                Text = "Last updated: Unknown",
+                Font = new Font("Segoe UI", 8f),
+                ForeColor = _palette.MutedTextColor,
+                AutoSize = false,
+                AutoEllipsis = true,
+                Location = new Point(10, 143),
+                Size = new Size(280, 16),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+
             _cmbVersion = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
@@ -579,6 +594,7 @@ namespace BeanModManager
             this.Controls.Add(_lblAuthor);
             this.Controls.Add(_lblDescription);
             this.Controls.Add(_lblVersion);
+            this.Controls.Add(_lblLastUpdated);
             this.Controls.Add(_cmbVersion);
             this.Controls.Add(_btnInstall);
             this.Controls.Add(_btnUninstall);
@@ -630,6 +646,10 @@ namespace BeanModManager
                 _btnUpdate.Visible = (isInstalled || _isInstalledView) && HasUpdateAvailable;
                 _linkGitHub.Visible = !string.IsNullOrEmpty(_mod.GitHubRepo);
                 _lblFeatured.Visible = _mod.IsFeatured && !_isInstalledView;
+                _lblLastUpdated.Visible = !isInstalled && !_isInstalledView;
+                _lblLastUpdated.Text = _mod.LastUpdated.HasValue
+                    ? $"Last updated: {_mod.LastUpdated.Value.ToLocalTime():MMM d, yyyy}"
+                    : "Last updated: Unknown";
 
                 if (_lblFeatured.Visible)
                 {
@@ -665,7 +685,7 @@ namespace BeanModManager
                 }
                 else
                 {
-                    _btnInstall.Location = new Point(10, 146);
+                    _btnInstall.Location = new Point(10, 166);
                 }
 
                 var availableVersions = _mod.Versions?.AsEnumerable() ?? Enumerable.Empty<ModVersion>();
@@ -855,6 +875,7 @@ namespace BeanModManager
             _lblName.ForeColor = _palette.HeadingTextColor;
             _lblAuthor.ForeColor = _palette.SecondaryTextColor;
             _lblDescription.ForeColor = _palette.SecondaryTextColor;
+            _lblLastUpdated.ForeColor = _palette.MutedTextColor;
             _lblCategory.ForeColor = _palette.MutedTextColor;
             _lblFeatured.ForeColor = _palette.FeaturedBadgeTextColor;
 

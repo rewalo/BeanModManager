@@ -96,7 +96,6 @@ namespace BeanModManager
                         ShowStoreSkeletonLoaders(12);
 
                         RefreshModDetectionCache(force: true);
-                        _cachedCategoryList = null;
 
                         _suppressSkeletonOnRefresh = true;
                         RefreshModCards();
@@ -123,7 +122,6 @@ namespace BeanModManager
                     _suppressStorePanelUpdates = false;
                     HideStoreSkeletonLoaders();
                     RefreshModDetectionCache(force: true);
-                    _cachedCategoryList = null;
                 });
 
                 if (_modStore.IsRateLimited())

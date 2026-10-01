@@ -47,7 +47,8 @@ namespace BeanModManager.Services
                 Versions = new List<ModVersion>(),
                 Incompatibilities = m.Incompatibilities != null ? new List<string>(m.Incompatibilities) : new List<string>(),
                 IsFeatured = m.IsFeatured,
-                ExecutableName = m.ExecutableName
+                ExecutableName = m.ExecutableName,
+                LastUpdated = m.LastUpdated
             }).ToList();
         }
 
@@ -613,6 +614,10 @@ namespace BeanModManager.Services
         private void AddVersionsFromRegistry(Mod mod, GitHubRelease release, ModRegistryEntry registryEntry, bool isPreRelease)
         {
             var releaseDate = DateTime.Parse(release.published_at);
+            if (!mod.LastUpdated.HasValue || releaseDate > mod.LastUpdated.Value)
+            {
+                mod.LastUpdated = releaseDate;
+            }
 
             if (registryEntry.assetFilters != null)
             {
@@ -829,19 +834,15 @@ namespace BeanModManager.Services
             mod.Versions.Clear();
 
             DateTime? latestReleaseDate = null;
-            var latestStableRelease = releases.FirstOrDefault(r => !r.prerelease && !string.IsNullOrEmpty(r.tag_name));
-            if (latestStableRelease != null)
+            foreach (var release in releases)
             {
-                latestReleaseDate = DateTime.Parse(latestStableRelease.published_at);
-            }
-            else if (releases.Any())
-            {
-                var firstRelease = releases.FirstOrDefault(r => !string.IsNullOrEmpty(r.tag_name));
-                if (firstRelease != null)
+                if (release != null && DateTime.TryParse(release.published_at, out var publishedAt) &&
+                    (!latestReleaseDate.HasValue || publishedAt > latestReleaseDate.Value))
                 {
-                    latestReleaseDate = DateTime.Parse(firstRelease.published_at);
+                    latestReleaseDate = publishedAt;
                 }
             }
+            mod.LastUpdated = latestReleaseDate;
 
             foreach (var release in releases)
             {
