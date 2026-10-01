@@ -1347,6 +1347,35 @@
       },
       "requiresDepot": false,
       "incompatibilities": []
+    },
+    {
+      "id": "CorsacCosmetics",
+      "name": "Corsac Cosmetics",
+      "author": "XtraCube",
+      "description": "Continuation of CorsacHats for new Among Us versions. Adds support for custom hats, visors, and nameplates.",
+      "githubOwner": "XtraCube",
+      "githubRepo": "CorsacCosmetics",
+      "category": "Mod",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["CorsacCosmetics.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": null,
+          "optional": true
+        }
+      ],
+      "incompatibilities": []
     }
   ]
 }

@@ -2257,10 +2257,57 @@ namespace BeanModManager
                 return;
             }
 
-            List<Mod> mods = GetPackModIds(pack)
+            List<Mod> packMods = GetPackModIds(pack)
                 .Select(id => _availableMods.FirstOrDefault(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase)))
-                .Where(m => m != null && m.IsInstalled)
+                .Where(m => m != null)
                 .ToList();
+
+            List<Mod> mods = packMods.Where(m => m.IsInstalled).ToList();
+            List<Mod> missing = packMods.Where(m => !m.IsInstalled).ToList();
+
+            if (missing.Any())
+            {
+                string names = string.Join("\n", missing.Take(8).Select(m => $"  • {m.Name ?? m.Id}"));
+                if (missing.Count > 8)
+                {
+                    names += $"\n  • and {missing.Count - 8} more";
+                }
+
+                DialogResult choice = MessageBox.Show(
+                    $"This modpack includes {(missing.Count == 1 ? "a mod" : $"{missing.Count} mods")} that {(missing.Count == 1 ? "isn't" : "aren't")} installed:\n\n{names}\n\nInstall {(missing.Count == 1 ? "it" : "them")} before launching?",
+                    "Missing Mods",
+                    MessageBoxButtons.YesNoCancel,
+                    MessageBoxIcon.Question);
+
+                if (choice == DialogResult.Cancel)
+                {
+                    return;
+                }
+
+                if (choice == DialogResult.Yes)
+                {
+                    string channel = AmongUsDetector.GetChannel(_config);
+                    foreach (Mod missingMod in missing)
+                    {
+                        ModVersion version = missingMod.Versions?
+                            .Where(v => _config.ShowBetaVersions || !v.IsPreRelease)
+                            .OrderByDescending(v => v.ReleaseDate)
+                            .FirstOrDefault(v => GameChannels.LabelSupportsChannel(v.GameVersion, channel) && !string.IsNullOrEmpty(v.DownloadUrl))
+                            ?? missingMod.Versions?.FirstOrDefault(v => !string.IsNullOrEmpty(v.DownloadUrl));
+
+                        if (version == null)
+                        {
+                            _ = MessageBox.Show($"No downloadable version found for {missingMod.Name ?? missingMod.Id}.",
+                                "Install Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            continue;
+                        }
+
+                        await InstallMod(missingMod, version).ConfigureAwait(false);
+                    }
+
+                    mods = packMods.Where(m => m.IsInstalled).ToList();
+                }
+            }
 
             if (!mods.Any())
             {
