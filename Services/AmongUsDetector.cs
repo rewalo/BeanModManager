@@ -282,7 +282,8 @@ namespace BeanModManager.Services
 
         public static bool IsEpicVersion(string path)
         {
-            if (string.IsNullOrEmpty(path))
+            // A path under steamapps is unambiguously Steam
+            if (string.IsNullOrEmpty(path) || IsSteamVersion(path))
             {
                 return false;
             }
@@ -299,7 +300,7 @@ namespace BeanModManager.Services
 
         public static bool IsMsStoreVersion(string path)
         {
-            if (string.IsNullOrEmpty(path))
+            if (string.IsNullOrEmpty(path) || IsSteamVersion(path))
             {
                 return false;
             }
