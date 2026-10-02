@@ -280,44 +280,75 @@ namespace BeanModManager.Services
             return IsEpicVersion(path) || IsMsStoreVersion(path);
         }
 
-        public static bool IsEpicVersion(string path)
+        private static bool IsMsStorePath(string path)
         {
-            // A path under steamapps is unambiguously Steam
-            if (string.IsNullOrEmpty(path) || IsSteamVersion(path))
+            if (string.IsNullOrEmpty(path))
             {
                 return false;
             }
 
-            string epicIndicatorPath = Path.Combine(path, "Among Us_Data", "StreamingAssets", "aa", "EGS");
-            if (Directory.Exists(epicIndicatorPath))
+            string pathLower = path.ToLower();
+            return pathLower.Contains("windowsapps") || pathLower.Contains("xboxgames") ||
+                   pathLower.Contains("xbox games") || pathLower.Contains("modifiablewindowsapps") ||
+                   (pathLower.Contains("microsoft") && pathLower.Contains("store"));
+        }
+
+        private static bool IsEpicPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            string pathLower = path.ToLower();
+            return pathLower.Contains("epic") || pathLower.Contains("epicgames");
+        }
+
+        private static bool IsItchPath(string path)
+        {
+            return !string.IsNullOrEmpty(path) && path.ToLower().Contains("itch");
+        }
+
+        public static bool IsEpicVersion(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            if (IsSteamVersion(path) || IsMsStorePath(path) || IsItchPath(path))
+            {
+                return false;
+            }
+
+            if (IsEpicPath(path))
             {
                 return true;
             }
 
-            string pathLower = path.ToLower();
-            return (pathLower.Contains("epic") || pathLower.Contains("epicgames")) && !IsMsStoreVersion(path);
+            string epicIndicatorPath = Path.Combine(path, "Among Us_Data", "StreamingAssets", "aa", "EGS");
+            return Directory.Exists(epicIndicatorPath);
         }
 
         public static bool IsMsStoreVersion(string path)
         {
-            if (string.IsNullOrEmpty(path) || IsSteamVersion(path))
+            if (string.IsNullOrEmpty(path))
             {
                 return false;
             }
 
+            if (IsSteamVersion(path) || IsEpicPath(path) || IsItchPath(path))
+            {
+                return false;
+            }
+
+            if (IsMsStorePath(path))
+            {
+                return true;
+            }
+
             string msStoreIndicatorPath = Path.Combine(path, "Among Us_Data", "StreamingAssets", "aa", "Win10");
-            if (Directory.Exists(msStoreIndicatorPath))
-            {
-                return true;
-            }
-
-            string pathLower = path.ToLower();
-            if (pathLower.Contains("windowsapps") || pathLower.Contains("xboxgames") || pathLower.Contains("xbox games"))
-            {
-                return true;
-            }
-
-            return pathLower.Contains("microsoft") && pathLower.Contains("store");
+            return Directory.Exists(msStoreIndicatorPath);
         }
 
         public static bool IsSteamVersion(string path)
@@ -332,9 +363,7 @@ namespace BeanModManager.Services
                 return false;
             }
 
-            string pathLower = path.ToLower();
-
-            return !IsSteamVersion(path) && !IsEpicVersion(path) && !IsMsStoreVersion(path) && pathLower.Contains("itch");
+            return IsItchPath(path) && !IsSteamVersion(path) && !IsMsStorePath(path) && !IsEpicPath(path);
         }
 
         /// <summary>
@@ -348,14 +377,9 @@ namespace BeanModManager.Services
                 return null;
             }
 
-            if (IsMsStoreVersion(path))
+            if (IsSteamVersion(path))
             {
-                return GameChannels.MicrosoftStore;
-            }
-
-            if (IsEpicVersion(path))
-            {
-                return GameChannels.EpicGames;
+                return GameChannels.Steam;
             }
 
             if (IsItchVersion(path))
@@ -363,17 +387,24 @@ namespace BeanModManager.Services
                 return GameChannels.ItchIo;
             }
 
-            return IsSteamVersion(path) ? GameChannels.Steam : null;
+            if (IsEpicVersion(path))
+            {
+                return GameChannels.EpicGames;
+            }
+
+            return IsMsStoreVersion(path) ? GameChannels.MicrosoftStore : null;
         }
 
         /// <summary>
-        /// Resolves the canonical game channel for a config. Path detection wins
-        /// over the stored preference; legacy grouped values are normalized.
+        /// Resolves the canonical game channel for a config. The user's stored
+        /// preference is authoritative; path detection is only used to
+        /// disambiguate legacy grouped values and to pick a default when no
+        /// channel has been chosen yet (e.g. during the first-launch wizard).
         /// </summary>
         public static string GetChannel(Models.Config config)
         {
             string pathChannel = DetectChannelForPath(config?.AmongUsPath);
-            return !string.IsNullOrEmpty(pathChannel) ? pathChannel : GameChannels.NormalizeChannel(config?.GameChannel, null);
+            return GameChannels.NormalizeChannel(config?.GameChannel, pathChannel);
         }
 
         public static bool IsSteamVersion(Models.Config config)
@@ -402,4 +433,3 @@ namespace BeanModManager.Services
         }
     }
 }
-
