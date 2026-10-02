@@ -9,7 +9,7 @@ overridden by misdetected platform files.
 
 
 
-\*\*Full Changelog\*\*: https://github.com/rewalo/BeanModManager/compare/v1.6.4...v1.6.4.1
+**Full Changelog**: https://github.com/rewalo/BeanModManager/compare/v1.6.4...v1.6.4.1
 
 
 

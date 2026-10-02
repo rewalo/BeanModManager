@@ -75,7 +75,12 @@ namespace BeanModManager.Services
         private string GetCurrentVersion()
         {
             Version version = Assembly.GetExecutingAssembly().GetName().Version;
-            return $"v{version.Major}.{version.Minor}.{version.Build}";
+            // Include the revision component when non-zero so hotfix builds
+            // (e.g. 1.6.4.1) don't get truncated to their base version and
+            // falsely report an update to themselves.
+            return version.Revision > 0
+                ? $"v{version.Major}.{version.Minor}.{version.Build}.{version.Revision}"
+                : $"v{version.Major}.{version.Minor}.{version.Build}";
         }
 
         private async Task<GitHubRelease> GetLatestReleaseAsync()
