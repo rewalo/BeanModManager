@@ -26,14 +26,23 @@ if (git tag --list $tag) {
     exit 1
 }
 
+# Normalize to a 4-part assembly version (major.minor.build.revision).
+# Append .0 only when fewer than 4 parts were supplied.
+$parts = $version -split '\.'
+if ($parts.Count -lt 4) {
+    $assemblyVersion = "$version.0"
+} else {
+    $assemblyVersion = $version
+}
+
 # Update the assembly version.
 $assemblyInfo = "Properties\AssemblyInfo.cs"
 
 if (Test-Path $assemblyInfo) {
-    (Get-Content $assemblyInfo) -replace '\d+\.\d+\.\d+\.\d+', "$version.0" |
+    (Get-Content $assemblyInfo) -replace '\d+\.\d+\.\d+\.\d+', $assemblyVersion |
         Set-Content $assemblyInfo
 
-    Write-Host "Updated $assemblyInfo -> $version.0"
+    Write-Host "Updated $assemblyInfo -> $assemblyVersion"
 }
 else {
     Write-Warning "$assemblyInfo not found - skipping. CI will set the version during the build."
