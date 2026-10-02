@@ -6470,13 +6470,13 @@ NormalizeVersion(v.ReleaseTag).Equals(normalizedRequired, StringComparison.Ordin
             {
                 if (!IsSteamRunning())
                 {
-                    _ = MessageBox.Show(
-                        "Steam is not running. Please start Steam before launching the game.\n\n" +
-                        "Launching the game without Steam will cause login issues.",
+                    DialogResult result = MessageBox.Show(
+                        "Steam is not running. Launching the game without Steam will cause login issues.\n\n" +
+                        "Would you like to continue anyway?",
                         "Steam Not Running",
-                        MessageBoxButtons.OK,
+                        MessageBoxButtons.YesNo,
                         MessageBoxIcon.Warning);
-                    return false;
+                    return result == DialogResult.Yes;
                 }
             }
             return true;
