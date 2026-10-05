@@ -1002,14 +1002,6 @@
       "githubRepo": "TownOfUsMiraUnleashed",
       "category": "Mod",
       "assetFilters": {
-        "steam": {
-          "patterns": ["steam-itch"],
-          "exclude": []
-        },
-        "epic": {
-          "patterns": ["epic-msstore"],
-          "exclude": []
-        },
         "dll": {
           "patterns": ["TownOfUsMiraUnleashed.dll"],
           "exclude": [],
