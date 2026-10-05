@@ -985,12 +985,12 @@
       "incompatibilities": []
     },
     {
-      "id": "TownOfUsMiraRolesExtension",
-      "name": "Town Of Us Mira Roles Extension",
+      "id": "TownOfUsMiraUnleashed",
+      "name": "Town Of Us Mira UNLEASHED",
       "author": "rewalo",
       "description": "An extension mod for Town of Us: Mira that adds new roles and modifiers.",
       "githubOwner": "rewalo",
-      "githubRepo": "TownOfUsMiraRolesExtension",
+      "githubRepo": "TownOfUsMiraUnleashed",
       "category": "Mod",
       "assetFilters": {
         "steam": {
@@ -1002,7 +1002,7 @@
           "exclude": []
         },
         "dll": {
-          "patterns": ["TouMiraRolesExtension.dll"],
+          "patterns": ["TownOfUsMiraUnleashed.dll"],
           "exclude": [],
           "exactMatch": true
         }
