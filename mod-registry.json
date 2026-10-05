@@ -1003,7 +1003,7 @@
       "category": "Mod",
       "assetFilters": {
         "dll": {
-          "patterns": ["TownOfUsMiraUnleashed.dll"],
+          "patterns": ["MiraUnleashed.dll"],
           "exclude": [],
           "exactMatch": true
         }
