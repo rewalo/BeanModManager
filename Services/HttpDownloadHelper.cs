@@ -18,19 +18,19 @@ namespace BeanModManager.Services
 
         public static async Task DownloadFileAsync(string url, string destinationPath, IProgress<int> progress = null, CancellationToken cancellationToken = default)
         {
-            using (var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
+            using (HttpResponseMessage response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
             {
-                response.EnsureSuccessStatusCode();
+                _ = response.EnsureSuccessStatusCode();
 
-                var totalBytes = response.Content.Headers.ContentLength ?? -1L;
-                var canReportProgress = totalBytes > 0 && progress != null;
+                long totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                bool canReportProgress = totalBytes > 0 && progress != null;
 
-                using (var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
-                using (var contentStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+                using (FileStream fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
+                using (Stream contentStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
                 {
-                    var totalBytesRead = 0L;
-                    var buffer = new byte[8192];
-                    var bytesRead = 0;
+                    long totalBytesRead = 0L;
+                    byte[] buffer = new byte[8192];
+                    int bytesRead = 0;
 
                     while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
                     {
@@ -39,7 +39,7 @@ namespace BeanModManager.Services
 
                         if (canReportProgress)
                         {
-                            var percent = (int)((totalBytesRead * 100) / totalBytes);
+                            int percent = (int)(totalBytesRead * 100 / totalBytes);
                             progress.Report(percent);
                         }
                     }
@@ -49,13 +49,13 @@ namespace BeanModManager.Services
 
         public static async Task<string> DownloadStringAsync(string url, CancellationToken cancellationToken = default)
         {
-            var result = await DownloadStringWithETagAsync(url, null, cancellationToken).ConfigureAwait(false);
+            DownloadResult result = await DownloadStringWithETagAsync(url, null, cancellationToken).ConfigureAwait(false);
             return result?.Content;
         }
 
         public static async Task<string> DownloadStringAsync(string url, string etag, CancellationToken cancellationToken = default)
         {
-            var result = await DownloadStringWithETagAsync(url, etag, cancellationToken).ConfigureAwait(false);
+            DownloadResult result = await DownloadStringWithETagAsync(url, etag, cancellationToken).ConfigureAwait(false);
             return result?.Content;
         }
 
@@ -68,14 +68,14 @@ namespace BeanModManager.Services
 
         public static async Task<DownloadResult> DownloadStringWithETagAsync(string url, string etag, CancellationToken cancellationToken = default)
         {
-            using (var request = new HttpRequestMessage(HttpMethod.Get, url))
+            using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url))
             {
                 if (!string.IsNullOrEmpty(etag))
                 {
-                    request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+                    _ = request.Headers.TryAddWithoutValidation("If-None-Match", etag);
                 }
 
-                using (var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false))
+                using (HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false))
                 {
                     if (response.StatusCode == HttpStatusCode.NotModified)
                     {
@@ -87,10 +87,10 @@ namespace BeanModManager.Services
                         throw new HttpRequestException("403 Forbidden - Rate limit exceeded");
                     }
 
-                    response.EnsureSuccessStatusCode();
+                    _ = response.EnsureSuccessStatusCode();
 
-                    var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    var responseETag = GetETagFromResponse(response);
+                    string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    string responseETag = GetETagFromResponse(response);
 
                     return new DownloadResult
                     {
@@ -106,12 +106,8 @@ namespace BeanModManager.Services
         {
             if (response?.Headers?.ETag != null)
             {
-                var etagValue = response.Headers.ETag.ToString();
-                if (etagValue.StartsWith("\"") && etagValue.EndsWith("\""))
-                {
-                    return etagValue.Substring(1, etagValue.Length - 2);
-                }
-                return etagValue;
+                string etagValue = response.Headers.ETag.ToString();
+                return etagValue.StartsWith("\"") && etagValue.EndsWith("\"") ? etagValue.Substring(1, etagValue.Length - 2) : etagValue;
             }
             return null;
         }

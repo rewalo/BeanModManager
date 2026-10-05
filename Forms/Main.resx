@@ -196,4 +196,7 @@
         //8=
 </value>
   </data>
+  <data name="btnJoinDiscord.Image" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Assets\discordbtn.png;System.Drawing.Bitmap, System.Drawing</value>
+  </data>
 </root>

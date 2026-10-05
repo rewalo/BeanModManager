@@ -1,9 +1,9 @@
-using BeanModManager.Helpers;
-using BeanModManager.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using BeanModManager.Helpers;
+using BeanModManager.Models;
 
 namespace BeanModManager.Services
 {
@@ -31,19 +31,19 @@ namespace BeanModManager.Services
 
                 if (string.IsNullOrEmpty(modStoragePath))
                 {
-                    var modsFolder = Path.Combine(amongUsPath, "Mods");
+                    string modsFolder = Path.Combine(amongUsPath, "Mods");
                     if (!Directory.Exists(modsFolder))
                     {
-                        Directory.CreateDirectory(modsFolder);
+                        _ = Directory.CreateDirectory(modsFolder);
                     }
                     modStoragePath = Path.Combine(modsFolder, mod.Id);
                 }
                 else
                 {
-                    var modsFolder = Path.GetDirectoryName(modStoragePath);
+                    string modsFolder = Path.GetDirectoryName(modStoragePath);
                     if (!string.IsNullOrEmpty(modsFolder) && !Directory.Exists(modsFolder))
                     {
-                        Directory.CreateDirectory(modsFolder);
+                        _ = Directory.CreateDirectory(modsFolder);
                     }
                 }
                 if (Directory.Exists(modStoragePath))
@@ -57,14 +57,14 @@ namespace BeanModManager.Services
                         OnProgressChanged($"Warning: Could not remove old mod folder: {ex.Message}");
                     }
                 }
-                Directory.CreateDirectory(modStoragePath);
+                _ = Directory.CreateDirectory(modStoragePath);
 
                 string modContentRoot = modPath;
 
-                var directBepInEx = Path.Combine(modPath, "BepInEx");
+                string directBepInEx = Path.Combine(modPath, "BepInEx");
                 if (!Directory.Exists(directBepInEx))
                 {
-                    var foundBepInEx = FileSystemHelper.FindBepInExFolder(modPath);
+                    string foundBepInEx = FileSystemHelper.FindBepInExFolder(modPath);
                     if (foundBepInEx != null)
                     {
                         modContentRoot = Directory.GetParent(foundBepInEx).FullName;
@@ -72,10 +72,10 @@ namespace BeanModManager.Services
                     }
                     else
                     {
-                        var subdirs = Directory.GetDirectories(modPath);
+                        string[] subdirs = Directory.GetDirectories(modPath);
                         if (subdirs.Length == 1)
                         {
-                            var singleDir = subdirs[0];
+                            string singleDir = subdirs[0];
                             if (Directory.Exists(Path.Combine(singleDir, "BepInEx")) ||
                                 Directory.GetFiles(singleDir, "*", SearchOption.AllDirectories).Any())
                             {
@@ -90,33 +90,35 @@ namespace BeanModManager.Services
 
                 dontInclude = dontInclude ?? new List<string>();
 
-                foreach (var dir in Directory.GetDirectories(modContentRoot))
+                foreach (string dir in Directory.GetDirectories(modContentRoot))
                 {
-                    var dirName = Path.GetFileName(dir);
+                    string dirName = Path.GetFileName(dir);
 
                     if (dontInclude.Any(item => string.Equals(item, dirName, StringComparison.OrdinalIgnoreCase)))
                     {
                         continue;
                     }
 
-                    var targetDir = Path.Combine(modStoragePath, dirName);
+                    string targetDir = Path.Combine(modStoragePath, dirName);
                     CopyDirectoryContents(dir, targetDir, true, dontInclude);
                 }
 
-                foreach (var file in Directory.GetFiles(modContentRoot))
+                foreach (string file in Directory.GetFiles(modContentRoot))
                 {
-                    var fileName = Path.GetFileName(file);
-                    var fileNameLower = fileName.ToLower();
+                    string fileName = Path.GetFileName(file);
+                    string fileNameLower = fileName.ToLower();
 
                     if (fileNameLower.EndsWith(".zip"))
+                    {
                         continue;
+                    }
 
                     if (dontInclude.Any(item => string.Equals(item, fileName, StringComparison.OrdinalIgnoreCase)))
                     {
                         continue;
                     }
 
-                    var targetFile = Path.Combine(modStoragePath, fileName);
+                    string targetFile = Path.Combine(modStoragePath, fileName);
                     try
                     {
                         File.Copy(file, targetFile, true);
@@ -153,14 +155,14 @@ namespace BeanModManager.Services
 
             if (!Directory.Exists(destDir))
             {
-                Directory.CreateDirectory(destDir);
+                _ = Directory.CreateDirectory(destDir);
             }
 
             dontInclude = dontInclude ?? new List<string>();
 
-            foreach (var file in Directory.GetFiles(sourceDir))
+            foreach (string file in Directory.GetFiles(sourceDir))
             {
-                var fileName = Path.GetFileName(file);
+                string fileName = Path.GetFileName(file);
 
                 if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
@@ -172,7 +174,7 @@ namespace BeanModManager.Services
                     continue;
                 }
 
-                var destFile = Path.Combine(destDir, fileName);
+                string destFile = Path.Combine(destDir, fileName);
                 try
                 {
                     if (File.Exists(destFile) && !string.IsNullOrEmpty(amongUsPath) &&
@@ -189,9 +191,9 @@ namespace BeanModManager.Services
                 }
             }
 
-            foreach (var dir in Directory.GetDirectories(sourceDir))
+            foreach (string dir in Directory.GetDirectories(sourceDir))
             {
-                var dirName = Path.GetFileName(dir);
+                string dirName = Path.GetFileName(dir);
                 if (dirName.Equals("temp", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -202,7 +204,7 @@ namespace BeanModManager.Services
                     continue;
                 }
 
-                var destSubDir = Path.Combine(destDir, dirName);
+                string destSubDir = Path.Combine(destDir, dirName);
                 CopyDirectoryContents(dir, destSubDir, overwrite, dontInclude, amongUsPath);
             }
         }
@@ -210,7 +212,9 @@ namespace BeanModManager.Services
         private bool ShouldSkipFileOverwrite(string sourceFile, string destFile, string amongUsPath)
         {
             if (!sourceFile.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
                 return false;
+            }
 
             string relativeDestPath = null;
             if (!string.IsNullOrEmpty(amongUsPath) && destFile.StartsWith(amongUsPath, StringComparison.OrdinalIgnoreCase))
@@ -223,33 +227,34 @@ namespace BeanModManager.Services
             bool isBepInExCore = false;
             if (relativeDestPath != null)
             {
-                var relativeLower = relativeDestPath.ToLower();
-                isBepInExCore = (relativeLower == "bepinex/core/bepinex.core.dll" ||
-                                relativeLower == "bepinex/core/bepinex.dll");
+                string relativeLower = relativeDestPath.ToLower();
+                isBepInExCore = relativeLower == "bepinex/core/bepinex.core.dll" ||
+                                relativeLower == "bepinex/core/bepinex.dll";
             }
 
             bool isInPlugins = false;
             if (relativeDestPath != null)
             {
-                var relativeLower = relativeDestPath.ToLower();
+                string relativeLower = relativeDestPath.ToLower();
                 isInPlugins = relativeLower.StartsWith("bepinex/plugins/", StringComparison.OrdinalIgnoreCase);
             }
 
             if (!isBepInExCore && !isInPlugins)
+            {
                 return false;
+            }
 
             try
             {
-                var sourceVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(sourceFile);
-                var destVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(destFile);
+                string sourceVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(sourceFile);
+                string destVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(destFile);
 
                 if (string.IsNullOrEmpty(destVersion))
+                {
                     return false;
+                }
 
-                if (string.IsNullOrEmpty(sourceVersion))
-                    return true;
-
-                return Helpers.VersionComparisonHelper.IsNewerOrEqual(destVersion, sourceVersion);
+                return string.IsNullOrEmpty(sourceVersion) || Helpers.VersionComparisonHelper.IsNewerOrEqual(destVersion, sourceVersion);
             }
             catch
             {
@@ -271,8 +276,18 @@ namespace BeanModManager.Services
                     modStoragePath = Path.Combine(amongUsPath, "Mods", mod.Id);
                 }
 
-                var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
-                if (!Directory.Exists(pluginsPath))
+                string pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
+                bool pluginsAccessible = false;
+                try
+                {
+                    pluginsAccessible = Directory.Exists(pluginsPath);
+                }
+                catch
+                {
+                    pluginsAccessible = false;
+                }
+
+                if (!pluginsAccessible)
                 {
                     if (Directory.Exists(modStoragePath))
                     {
@@ -294,34 +309,34 @@ namespace BeanModManager.Services
 
                 bool removedAny = false;
 
-                var modFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var modFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                HashSet<string> modFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                HashSet<string> modFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                 if (Directory.Exists(modStoragePath))
                 {
-                    var modDllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.AllDirectories);
-                    foreach (var dllFile in modDllFiles)
+                    string[] modDllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.AllDirectories);
+                    foreach (string dllFile in modDllFiles)
                     {
-                        var fileName = Path.GetFileName(dllFile);
-                        modFiles.Add(fileName);
+                        string fileName = Path.GetFileName(dllFile);
+                        _ = modFiles.Add(fileName);
                     }
 
-                    var modStorageFolders = Directory.GetDirectories(modStoragePath, "*", SearchOption.AllDirectories);
-                    foreach (var folder in modStorageFolders)
+                    string[] modStorageFolders = Directory.GetDirectories(modStoragePath, "*", SearchOption.AllDirectories);
+                    foreach (string folder in modStorageFolders)
                     {
-                        var relativePath = folder.Substring(modStoragePath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        string relativePath = folder.Substring(modStoragePath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                         if (relativePath.StartsWith("BepInEx", StringComparison.OrdinalIgnoreCase))
                         {
-                            var pluginsRelativePath = relativePath.Substring("BepInEx".Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                            string pluginsRelativePath = relativePath.Substring("BepInEx".Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                             if (pluginsRelativePath.StartsWith("plugins", StringComparison.OrdinalIgnoreCase))
                             {
-                                var folderName = pluginsRelativePath.Substring("plugins".Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                                string folderName = pluginsRelativePath.Substring("plugins".Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                                 if (!string.IsNullOrEmpty(folderName))
                                 {
-                                    var folderParts = folderName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                                    string[] folderParts = folderName.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                                     if (folderParts.Length > 0)
                                     {
-                                        modFolders.Add(folderParts[0]);
+                                        _ = modFolders.Add(folderParts[0]);
                                     }
                                 }
                             }
@@ -329,14 +344,14 @@ namespace BeanModManager.Services
                     }
                 }
 
-                var modIdLower = mod.Id.ToLower();
-                var modNameLower = mod.Name.ToLower();
+                string modIdLower = mod.Id.ToLower();
+                string modNameLower = mod.Name.ToLower();
 
-                var dllFiles = Directory.GetFiles(pluginsPath, "*.dll", SearchOption.AllDirectories);
-                foreach (var dll in dllFiles)
+                string[] dllFiles = Directory.GetFiles(pluginsPath, "*.dll", SearchOption.AllDirectories);
+                foreach (string dll in dllFiles)
                 {
-                    var fileName = Path.GetFileName(dll);
-                    var fileNameLower = fileName.ToLower();
+                    string fileName = Path.GetFileName(dll);
+                    string fileNameLower = fileName.ToLower();
                     bool shouldRemove = modFiles.Contains(fileName);
 
                     if (!shouldRemove)
@@ -377,12 +392,12 @@ namespace BeanModManager.Services
 
                 keepFiles = keepFiles ?? new List<string>();
 
-                foreach (var folderName in modFolders)
+                foreach (string folderName in modFolders)
                 {
                     bool shouldKeep = false;
-                    foreach (var keepPath in keepFiles)
+                    foreach (string keepPath in keepFiles)
                     {
-                        var normalizedKeep = keepPath.Replace("plugins/", "").Replace("plugins\\", "").TrimStart('/', '\\');
+                        string normalizedKeep = keepPath.Replace("plugins/", "").Replace("plugins\\", "").TrimStart('/', '\\');
                         if (string.Equals(folderName, normalizedKeep, StringComparison.OrdinalIgnoreCase) ||
                             keepPath.EndsWith(folderName, StringComparison.OrdinalIgnoreCase))
                         {
@@ -397,7 +412,7 @@ namespace BeanModManager.Services
                         continue;
                     }
 
-                    var pluginFolder = Path.Combine(pluginsPath, folderName);
+                    string pluginFolder = Path.Combine(pluginsPath, folderName);
                     if (Directory.Exists(pluginFolder))
                     {
                         try
@@ -432,10 +447,10 @@ namespace BeanModManager.Services
                     modFolderRemoved = true;
                 }
 
-                var specialFolders = new[] { $"{mod.Id}-DATA", $"{mod.Id}_DATA", mod.Id };
-                foreach (var specialFolderName in specialFolders)
+                string[] specialFolders = new[] { $"{mod.Id}-DATA", $"{mod.Id}_DATA", mod.Id };
+                foreach (string specialFolderName in specialFolders)
                 {
-                    var specialFolderPath = Path.Combine(amongUsPath, specialFolderName);
+                    string specialFolderPath = Path.Combine(amongUsPath, specialFolderName);
                     if (Directory.Exists(specialFolderPath))
                     {
                         try
@@ -476,28 +491,32 @@ namespace BeanModManager.Services
             try
             {
                 if (!Directory.Exists(pluginsPath))
-                    return;
-
-                var modIdLower = mod.Id.ToLower();
-                var modNameLower = mod.Name.ToLower().Replace(":", "").Replace(" ", "");
-
-                var assetExtensions = new[] { ".bundle", ".asset", ".png", ".jpg", ".jpeg" };
-                var allFiles = Directory.GetFiles(pluginsPath, "*", SearchOption.AllDirectories);
-
-                foreach (var file in allFiles)
                 {
-                    var fileName = Path.GetFileName(file);
-                    var fileNameLower = fileName.ToLower();
-                    var extension = Path.GetExtension(fileNameLower);
+                    return;
+                }
+
+                string modIdLower = mod.Id.ToLower();
+                string modNameLower = mod.Name.ToLower().Replace(":", "").Replace(" ", "");
+
+                string[] assetExtensions = new[] { ".bundle", ".asset", ".png", ".jpg", ".jpeg" };
+                string[] allFiles = Directory.GetFiles(pluginsPath, "*", SearchOption.AllDirectories);
+
+                foreach (string file in allFiles)
+                {
+                    string fileName = Path.GetFileName(file);
+                    string fileNameLower = fileName.ToLower();
+                    string extension = Path.GetExtension(fileNameLower);
 
                     if (extension == ".dll")
+                    {
                         continue;
+                    }
 
                     bool shouldKeep = false;
-                    var relativePath = file.Substring(pluginsPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                    foreach (var keepPath in keepFiles)
+                    string relativePath = file.Substring(pluginsPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    foreach (string keepPath in keepFiles)
                     {
-                        var normalizedKeep = keepPath.Replace("plugins/", "").Replace("plugins\\", "").TrimStart('/', '\\');
+                        string normalizedKeep = keepPath.Replace("plugins/", "").Replace("plugins\\", "").TrimStart('/', '\\');
                         if (relativePath.StartsWith(normalizedKeep, StringComparison.OrdinalIgnoreCase))
                         {
                             shouldKeep = true;
@@ -506,7 +525,9 @@ namespace BeanModManager.Services
                     }
 
                     if (shouldKeep)
+                    {
                         continue;
+                    }
 
                     bool belongsToMod = false;
 
@@ -515,14 +536,14 @@ namespace BeanModManager.Services
                         belongsToMod = true;
                     }
 
-                    var fileDir = Path.GetDirectoryName(file);
+                    string fileDir = Path.GetDirectoryName(file);
                     if (fileDir != null && fileDir.StartsWith(pluginsPath, StringComparison.OrdinalIgnoreCase))
                     {
-                        var relativeDir = fileDir.Substring(pluginsPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                        var dirParts = relativeDir.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        string relativeDir = fileDir.Substring(pluginsPath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        string[] dirParts = relativeDir.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                         if (dirParts.Length > 0)
                         {
-                            var firstDir = dirParts[0].ToLower();
+                            string firstDir = dirParts[0].ToLower();
                             if (firstDir.Contains(modIdLower) || firstDir.Contains(modNameLower))
                             {
                                 belongsToMod = true;
@@ -532,7 +553,7 @@ namespace BeanModManager.Services
 
                     if (!belongsToMod && assetExtensions.Contains(extension))
                     {
-                        var parentDir = Path.GetDirectoryName(file);
+                        string parentDir = Path.GetDirectoryName(file);
                         if (parentDir != null && !Directory.Exists(Path.Combine(parentDir, "..", "..", mod.Id)))
                         {
                         }

@@ -50,7 +50,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <Version Condition="'$(Version)' == ''">1.6.2</Version>
+    <Version Condition="'$(Version)' == ''">1.6.4.1</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -62,3 +62,9 @@
   </Target>
 
 </Project>
+
+
+
+
+
+

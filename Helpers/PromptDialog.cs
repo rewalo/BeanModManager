@@ -1,7 +1,7 @@
-using BeanModManager.Themes;
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using BeanModManager.Themes;
 
 namespace BeanModManager.Helpers
 {
@@ -9,13 +9,13 @@ namespace BeanModManager.Helpers
     {
         public static string Show(string title, string message, string initialValue = "", int maxLength = 64)
         {
-            using (var form = new Form())
-            using (var lbl = new Label())
-            using (var txt = new TextBox())
-            using (var btnOk = new Button())
-            using (var btnCancel = new Button())
-            using (var buttons = new FlowLayoutPanel())
-            using (var layout = new TableLayoutPanel())
+            using (Form form = new Form())
+            using (Label lbl = new Label())
+            using (TextBox txt = new TextBox())
+            using (Button btnOk = new Button())
+            using (Button btnCancel = new Button())
+            using (FlowLayoutPanel buttons = new FlowLayoutPanel())
+            using (TableLayoutPanel layout = new TableLayoutPanel())
             {
                 form.Text = title ?? "Input";
                 form.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -54,9 +54,9 @@ namespace BeanModManager.Helpers
                 layout.Padding = new Padding(12);
                 layout.ColumnCount = 1;
                 layout.RowCount = 3;
-                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                _ = layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                _ = layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                _ = layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
                 layout.Controls.Add(lbl, 0, 0);
                 layout.Controls.Add(txt, 0, 1);
                 layout.Controls.Add(buttons, 0, 2);
@@ -68,7 +68,10 @@ namespace BeanModManager.Helpers
                 void ApplyDarkChrome()
                 {
                     if (!form.IsHandleCreated)
+                    {
                         return;
+                    }
+
                     try
                     {
                         DarkModeHelper.EnableDarkMode(form, ThemeManager.CurrentVariant == ThemeVariant.Dark);
@@ -80,7 +83,7 @@ namespace BeanModManager.Helpers
 
                 void ApplyTheme()
                 {
-                    var palette = ThemeManager.Current;
+                    ThemePalette palette = ThemeManager.Current;
                     form.ForeColor = palette.PrimaryTextColor;
                     form.BackColor = palette.WindowBackColor;
                     lbl.ForeColor = palette.SecondaryTextColor;
@@ -104,15 +107,17 @@ namespace BeanModManager.Helpers
                 form.Shown += (s, e) => ApplyDarkChrome();
 
                 ApplyTheme();
-                EventHandler themeChanged = (s, e) => ApplyTheme();
+                void themeChanged(object s, EventArgs e) => ApplyTheme();
                 ThemeManager.ThemeChanged += themeChanged;
                 try
                 {
-                    var result = form.ShowDialog();
+                    DialogResult result = form.ShowDialog();
                     if (result != DialogResult.OK)
+                    {
                         return null;
+                    }
 
-                    var value = (txt.Text ?? "").Trim();
+                    string value = (txt.Text ?? "").Trim();
                     return value.Length == 0 ? null : value;
                 }
                 finally

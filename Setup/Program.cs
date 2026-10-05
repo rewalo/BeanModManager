@@ -61,7 +61,7 @@ namespace Setup
             project.OutFileName = $"Bean Mod Manager-{arch}";
             Console.WriteLine($"Building MSI with version: {version} ({arch})");
 
-                        project.ControlPanelInfo.ProductIcon = @"..\mod.ico";
+                        project.ControlPanelInfo.ProductIcon = @"..\Assets\mod.ico";
             project.ControlPanelInfo.Manufacturer = "rewalo";
             project.ControlPanelInfo.Comments = "A simple mod manager for Among Us. Install and manage mods like TOHE, Town of Us Mira, Better CrewLink, and The Other Roles without the hassle.";
             project.ControlPanelInfo.Readme = "https://github.com/rewalo/BeanModManager/blob/master/README.md";

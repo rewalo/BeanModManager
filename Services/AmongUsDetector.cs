@@ -1,7 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using BeanModManager.Helpers;
 using Microsoft.Win32;
-using System;
-using System.IO;
 
 namespace BeanModManager.Services
 {
@@ -11,15 +12,15 @@ namespace BeanModManager.Services
         {
             try
             {
-                using (var key = Registry.LocalMachine.OpenSubKey(
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(
                     @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 945360"))
                 {
                     if (key != null)
                     {
-                        var installLocation = key.GetValue("InstallLocation") as string;
+                        string installLocation = key.GetValue("InstallLocation") as string;
                         if (!string.IsNullOrEmpty(installLocation) && Directory.Exists(installLocation))
                         {
-                            var exePath = Path.Combine(installLocation, "Among Us.exe");
+                            string exePath = Path.Combine(installLocation, "Among Us.exe");
                             if (File.Exists(exePath))
                             {
                                 return installLocation;
@@ -32,7 +33,7 @@ namespace BeanModManager.Services
             {
             }
 
-            var commonPaths = new[]
+            string[] commonPaths = new[]
             {
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam", "steamapps", "common", "Among Us"),
                 Path.Combine("C:", "Program Files (x86)", "Steam", "steamapps", "common", "Among Us"),
@@ -40,9 +41,9 @@ namespace BeanModManager.Services
                 Path.Combine("E:", "Steam", "steamapps", "common", "Among Us"),
             };
 
-            foreach (var path in commonPaths)
+            foreach (string path in commonPaths)
             {
-                var exePath = Path.Combine(path, "Among Us.exe");
+                string exePath = Path.Combine(path, "Among Us.exe");
                 if (File.Exists(exePath))
                 {
                     return path;
@@ -51,15 +52,15 @@ namespace BeanModManager.Services
 
             try
             {
-                var steamService = new SteamDepotService();
-                var steamRoot = steamService.GetSteamPath();
+                SteamDepotService steamService = new SteamDepotService();
+                string steamRoot = steamService.GetSteamPath();
                 if (!string.IsNullOrEmpty(steamRoot))
                 {
-                    var libraryRoots = PathCompatibilityHelper.TryGetSteamLibraryRoots(steamRoot);
-                    foreach (var lib in libraryRoots)
+                    List<string> libraryRoots = PathCompatibilityHelper.TryGetSteamLibraryRoots(steamRoot);
+                    foreach (string lib in libraryRoots)
                     {
-                        var candidate = Path.Combine(lib, "steamapps", "common", "Among Us");
-                        var exePath = Path.Combine(candidate, "Among Us.exe");
+                        string candidate = Path.Combine(lib, "steamapps", "common", "Among Us");
+                        string exePath = Path.Combine(candidate, "Among Us.exe");
                         if (File.Exists(exePath))
                         {
                             return candidate;
@@ -67,16 +68,18 @@ namespace BeanModManager.Services
                     }
                 }
 
-                foreach (var steamCandidate in PathCompatibilityHelper.GetCommonNativeSteamRootsAsWinePaths())
+                foreach (string steamCandidate in PathCompatibilityHelper.GetCommonNativeSteamRootsAsWinePaths())
                 {
                     if (!Directory.Exists(steamCandidate))
-                        continue;
-
-                    var libraryRoots = PathCompatibilityHelper.TryGetSteamLibraryRoots(steamCandidate);
-                    foreach (var lib in libraryRoots)
                     {
-                        var candidate = Path.Combine(lib, "steamapps", "common", "Among Us");
-                        var exePath = Path.Combine(candidate, "Among Us.exe");
+                        continue;
+                    }
+
+                    List<string> libraryRoots = PathCompatibilityHelper.TryGetSteamLibraryRoots(steamCandidate);
+                    foreach (string lib in libraryRoots)
+                    {
+                        string candidate = Path.Combine(lib, "steamapps", "common", "Among Us");
+                        string exePath = Path.Combine(candidate, "Among Us.exe");
                         if (File.Exists(exePath))
                         {
                             return candidate;
@@ -86,6 +89,174 @@ namespace BeanModManager.Services
             }
             catch
             {
+            }
+
+            try
+            {
+                string epicPath = DetectEpicInstallPath();
+                if (!string.IsNullOrEmpty(epicPath))
+                {
+                    return epicPath;
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                string msStorePath = DetectMsStoreInstallPath();
+                if (!string.IsNullOrEmpty(msStorePath))
+                {
+                    return msStorePath;
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                string itchPath = DetectItchInstallPath();
+                if (!string.IsNullOrEmpty(itchPath))
+                {
+                    return itchPath;
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        public static string DetectEpicInstallPath()
+        {
+            string manifestsDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "Epic", "EpicGamesLauncher", "Data", "Manifests");
+
+            if (!Directory.Exists(manifestsDir))
+            {
+                return null;
+            }
+
+            foreach (string manifest in Directory.EnumerateFiles(manifestsDir, "*.item"))
+            {
+                try
+                {
+                    string json = File.ReadAllText(manifest);
+
+                    // 963137e4c29d4c79a81323b8fab03a40 is the Among Us Epic app name.
+                    bool isAmongUs = json.IndexOf("963137e4c29d4c79a81323b8fab03a40", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    json.IndexOf("\"Among Us\"", StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (!isAmongUs)
+                    {
+                        continue;
+                    }
+
+                    Dictionary<string, object> data = JsonHelper.Deserialize<Dictionary<string, object>>(json);
+                    if (data != null && data.TryGetValue("InstallLocation", out object location))
+                    {
+                        string installLocation = location as string;
+                        if (!string.IsNullOrEmpty(installLocation))
+                        {
+                            string exePath = Path.Combine(installLocation, "Among Us.exe");
+                            if (File.Exists(exePath))
+                            {
+                                return installLocation;
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            return null;
+        }
+
+        public static string DetectMsStoreInstallPath()
+        {
+            List<string> candidates = new List<string>
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    "ModifiableWindowsApps", "Among Us")
+            };
+
+            try
+            {
+                foreach (DriveInfo drive in DriveInfo.GetDrives())
+                {
+                    if (drive.DriveType != DriveType.Fixed || !drive.IsReady)
+                    {
+                        continue;
+                    }
+
+                    candidates.Add(Path.Combine(drive.RootDirectory.FullName, "XboxGames", "Among Us", "Content"));
+                }
+            }
+            catch
+            {
+            }
+
+            foreach (string candidate in candidates)
+            {
+                try
+                {
+                    string exePath = Path.Combine(candidate, "Among Us.exe");
+                    if (File.Exists(exePath))
+                    {
+                        return candidate;
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            return null;
+        }
+
+        public static string DetectItchInstallPath()
+        {
+            string appsRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "itch", "apps");
+
+            if (!Directory.Exists(appsRoot))
+            {
+                return null;
+            }
+
+            foreach (string appDir in Directory.EnumerateDirectories(appsRoot))
+            {
+                try
+                {
+                    if (!Path.GetFileName(appDir).ToLowerInvariant().Contains("among"))
+                    {
+                        continue;
+                    }
+
+                    string exePath = Path.Combine(appDir, "Among Us.exe");
+                    if (File.Exists(exePath))
+                    {
+                        return appDir;
+                    }
+
+                    foreach (string subDir in Directory.EnumerateDirectories(appDir))
+                    {
+                        exePath = Path.Combine(subDir, "Among Us.exe");
+                        if (File.Exists(exePath))
+                        {
+                            return subDir;
+                        }
+                    }
+                }
+                catch
+                {
+                }
             }
 
             return null;
@@ -100,7 +271,7 @@ namespace BeanModManager.Services
                 return false;
             }
 
-            var exePath = Path.Combine(path, "Among Us.exe");
+            string exePath = Path.Combine(path, "Among Us.exe");
             return File.Exists(exePath);
         }
 
@@ -109,59 +280,136 @@ namespace BeanModManager.Services
             return IsEpicVersion(path) || IsMsStoreVersion(path);
         }
 
+        private static bool IsMsStorePath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            string pathLower = path.ToLower();
+            return pathLower.Contains("windowsapps") || pathLower.Contains("xboxgames") ||
+                   pathLower.Contains("xbox games") || pathLower.Contains("modifiablewindowsapps") ||
+                   (pathLower.Contains("microsoft") && pathLower.Contains("store"));
+        }
+
+        private static bool IsEpicPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            string pathLower = path.ToLower();
+            return pathLower.Contains("epic") || pathLower.Contains("epicgames");
+        }
+
+        private static bool IsItchPath(string path)
+        {
+            return !string.IsNullOrEmpty(path) && path.ToLower().Contains("itch");
+        }
+
         public static bool IsEpicVersion(string path)
         {
             if (string.IsNullOrEmpty(path))
+            {
                 return false;
+            }
 
-            var epicIndicatorPath = Path.Combine(path, "Among Us_Data", "StreamingAssets", "aa", "EGS");
-            if (Directory.Exists(epicIndicatorPath))
+            if (IsSteamVersion(path) || IsMsStorePath(path) || IsItchPath(path))
+            {
+                return false;
+            }
+
+            if (IsEpicPath(path))
+            {
                 return true;
+            }
 
-            var pathLower = path.ToLower();
-            if ((pathLower.Contains("epic") || pathLower.Contains("epicgames")) && !IsMsStoreVersion(path))
-                return true;
-
-            return false;
+            string epicIndicatorPath = Path.Combine(path, "Among Us_Data", "StreamingAssets", "aa", "EGS");
+            return Directory.Exists(epicIndicatorPath);
         }
 
         public static bool IsMsStoreVersion(string path)
         {
             if (string.IsNullOrEmpty(path))
+            {
                 return false;
+            }
 
-            var msStoreIndicatorPath = Path.Combine(path, "Among Us_Data", "StreamingAssets", "aa", "Win10");
-            if (Directory.Exists(msStoreIndicatorPath))
+            if (IsSteamVersion(path) || IsEpicPath(path) || IsItchPath(path))
+            {
+                return false;
+            }
+
+            if (IsMsStorePath(path))
+            {
                 return true;
+            }
 
-            var pathLower = path.ToLower();
-            if (pathLower.Contains("windowsapps") || pathLower.Contains("xboxgames") || pathLower.Contains("xbox games"))
-                return true;
-
-            if (pathLower.Contains("microsoft") && pathLower.Contains("store"))
-                return true;
-
-            return false;
+            string msStoreIndicatorPath = Path.Combine(path, "Among Us_Data", "StreamingAssets", "aa", "Win10");
+            return Directory.Exists(msStoreIndicatorPath);
         }
 
         public static bool IsSteamVersion(string path)
         {
-            if (string.IsNullOrEmpty(path))
-                return false;
+            return !string.IsNullOrEmpty(path) && path.ToLower().Contains("steamapps");
+        }
 
-            return path.ToLower().Contains("steamapps");
+        public static bool IsItchVersion(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            return IsItchPath(path) && !IsSteamVersion(path) && !IsMsStorePath(path) && !IsEpicPath(path);
+        }
+
+        /// <summary>
+        /// Detects the canonical game channel from an install path.
+        /// Returns null when the path doesn't carry a recognizable indicator.
+        /// </summary>
+        public static string DetectChannelForPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+
+            if (IsSteamVersion(path))
+            {
+                return GameChannels.Steam;
+            }
+
+            if (IsItchVersion(path))
+            {
+                return GameChannels.ItchIo;
+            }
+
+            if (IsEpicVersion(path))
+            {
+                return GameChannels.EpicGames;
+            }
+
+            return IsMsStoreVersion(path) ? GameChannels.MicrosoftStore : null;
+        }
+
+        /// <summary>
+        /// Resolves the canonical game channel for a config. The user's stored
+        /// preference is authoritative; path detection is only used to
+        /// disambiguate legacy grouped values and to pick a default when no
+        /// channel has been chosen yet (e.g. during the first-launch wizard).
+        /// </summary>
+        public static string GetChannel(Models.Config config)
+        {
+            string pathChannel = DetectChannelForPath(config?.AmongUsPath);
+            return GameChannels.NormalizeChannel(config?.GameChannel, pathChannel);
         }
 
         public static bool IsSteamVersion(Models.Config config)
         {
-            if (IsEpicOrMsStoreVersion(config))
-                return false;
-
-            if (!string.IsNullOrEmpty(config?.AmongUsPath))
-                return IsSteamVersion(config.AmongUsPath);
-
-            // No path to check: non-Epic/MS channels default to Steam.
-            return true;
+            return GetChannel(config) == GameChannels.Steam;
         }
 
         public static bool IsEpicOrMsStoreVersion(Models.Config config)
@@ -171,19 +419,17 @@ namespace BeanModManager.Services
 
         public static bool IsEpicVersion(Models.Config config)
         {
-            if (!string.IsNullOrEmpty(config?.AmongUsPath) && IsEpicVersion(config.AmongUsPath))
-                return true;
-
-            return config?.GameChannel == "Epic/MS Store" && !IsMsStoreVersion(config);
+            return GetChannel(config) == GameChannels.EpicGames;
         }
 
         public static bool IsMsStoreVersion(Models.Config config)
         {
-            if (!string.IsNullOrEmpty(config?.AmongUsPath))
-                return IsMsStoreVersion(config.AmongUsPath);
+            return GetChannel(config) == GameChannels.MicrosoftStore;
+        }
 
-            return false;
+        public static bool IsItchVersion(Models.Config config)
+        {
+            return GetChannel(config) == GameChannels.ItchIo;
         }
     }
 }
-

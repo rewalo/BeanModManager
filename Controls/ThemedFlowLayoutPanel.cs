@@ -1,16 +1,16 @@
-using BeanModManager.Helpers;
-using BeanModManager.Themes;
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
+using BeanModManager.Helpers;
+using BeanModManager.Themes;
 
 namespace BeanModManager.Controls
 {
     public class ThemedFlowLayoutPanel : FlowLayoutPanel
     {
         private ThemePalette _palette;
-        private Timer _scrollbarRefreshTimer;
+        private readonly Timer _scrollbarRefreshTimer;
 
         public ThemedFlowLayoutPanel()
         {
@@ -52,7 +52,7 @@ namespace BeanModManager.Controls
             base.OnHandleCreated(e);
             UpdatePalette();
             ApplyNativeScrollbarTheme();
-            BeginInvoke(new Action(() =>
+            _ = BeginInvoke(new Action(() =>
 {
     if (IsHandleCreated && Visible)
     {
@@ -67,7 +67,7 @@ namespace BeanModManager.Controls
             if (Visible && IsHandleCreated)
             {
                 ApplyNativeScrollbarTheme();
-                BeginInvoke(new Action(() =>
+                _ = BeginInvoke(new Action(() =>
 {
     if (IsHandleCreated && Visible)
     {
@@ -80,7 +80,9 @@ namespace BeanModManager.Controls
         private void ApplyNativeScrollbarTheme()
         {
             if (!IsHandleCreated)
+            {
                 return;
+            }
 
             try
             {
@@ -164,7 +166,9 @@ namespace BeanModManager.Controls
         private void DrawCustomScrollbars(Graphics g)
         {
             if (!IsHandleCreated)
+            {
                 return;
+            }
 
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
@@ -186,7 +190,7 @@ namespace BeanModManager.Controls
             int x = Width - scrollbarWidth;
             int y = 0;
 
-            using (var trackBrush = new SolidBrush(_palette.ScrollbarTrackColor))
+            using (SolidBrush trackBrush = new SolidBrush(_palette.ScrollbarTrackColor))
             {
                 g.FillRectangle(trackBrush, x, y, scrollbarWidth, scrollbarHeight);
             }
@@ -198,16 +202,16 @@ namespace BeanModManager.Controls
                 int maxThumbTop = trackHeight - thumbHeight;
                 int thumbTop = (int)(maxThumbTop * (VerticalScroll.Value / (double)Math.Max(1, VerticalScroll.Maximum - VerticalScroll.LargeChange + 1)));
 
-                var thumbRect = new Rectangle(x + 2, y + thumbTop, scrollbarWidth - 4, thumbHeight);
+                Rectangle thumbRect = new Rectangle(x + 2, y + thumbTop, scrollbarWidth - 4, thumbHeight);
 
-                using (var thumbBrush = new SolidBrush(_palette.ScrollbarThumbColor))
-                using (var thumbPath = CreateRoundedRectangle(thumbRect, 4))
+                using (SolidBrush thumbBrush = new SolidBrush(_palette.ScrollbarThumbColor))
+                using (GraphicsPath thumbPath = CreateRoundedRectangle(thumbRect, 4))
                 {
                     g.FillPath(thumbBrush, thumbPath);
                 }
 
-                using (var borderPen = new Pen(_palette.CardBorderColor, 1))
-                using (var thumbPath = CreateRoundedRectangle(thumbRect, 4))
+                using (Pen borderPen = new Pen(_palette.CardBorderColor, 1))
+                using (GraphicsPath thumbPath = CreateRoundedRectangle(thumbRect, 4))
                 {
                     g.DrawPath(borderPen, thumbPath);
                 }
@@ -221,7 +225,7 @@ namespace BeanModManager.Controls
             int x = 0;
             int y = Height - scrollbarHeight;
 
-            using (var trackBrush = new SolidBrush(_palette.ScrollbarTrackColor))
+            using (SolidBrush trackBrush = new SolidBrush(_palette.ScrollbarTrackColor))
             {
                 g.FillRectangle(trackBrush, x, y, scrollbarWidth, scrollbarHeight);
             }
@@ -233,16 +237,16 @@ namespace BeanModManager.Controls
                 int maxThumbLeft = trackWidth - thumbWidth;
                 int thumbLeft = (int)(maxThumbLeft * (HorizontalScroll.Value / (double)Math.Max(1, HorizontalScroll.Maximum - HorizontalScroll.LargeChange + 1)));
 
-                var thumbRect = new Rectangle(x + thumbLeft, y + 2, thumbWidth, scrollbarHeight - 4);
+                Rectangle thumbRect = new Rectangle(x + thumbLeft, y + 2, thumbWidth, scrollbarHeight - 4);
 
-                using (var thumbBrush = new SolidBrush(_palette.ScrollbarThumbColor))
-                using (var thumbPath = CreateRoundedRectangle(thumbRect, 4))
+                using (SolidBrush thumbBrush = new SolidBrush(_palette.ScrollbarThumbColor))
+                using (GraphicsPath thumbPath = CreateRoundedRectangle(thumbRect, 4))
                 {
                     g.FillPath(thumbBrush, thumbPath);
                 }
 
-                using (var borderPen = new Pen(_palette.CardBorderColor, 1))
-                using (var thumbPath = CreateRoundedRectangle(thumbRect, 4))
+                using (Pen borderPen = new Pen(_palette.CardBorderColor, 1))
+                using (GraphicsPath thumbPath = CreateRoundedRectangle(thumbRect, 4))
                 {
                     g.DrawPath(borderPen, thumbPath);
                 }
@@ -251,7 +255,7 @@ namespace BeanModManager.Controls
 
         private GraphicsPath CreateRoundedRectangle(Rectangle rect, int radius)
         {
-            var path = new GraphicsPath();
+            GraphicsPath path = new GraphicsPath();
             int diameter = radius * 2;
 
             path.AddArc(rect.X, rect.Y, diameter, diameter, 180, 90);

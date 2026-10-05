@@ -1,8 +1,8 @@
-using BeanModManager.Helpers;
-using BeanModManager.Themes;
 using System;
 using System.Linq;
 using System.Windows.Forms;
+using BeanModManager.Helpers;
+using BeanModManager.Themes;
 
 namespace BeanModManager.Wizard
 {
@@ -12,41 +12,41 @@ namespace BeanModManager.Wizard
         {
             InitializeComponent();
             ApplyTheme();
-            this.HandleCreated += WizardCompleteDialog_HandleCreated;
+            HandleCreated += WizardCompleteDialog_HandleCreated;
         }
 
         private void WizardCompleteDialog_HandleCreated(object sender, EventArgs e)
         {
             ApplyDarkMode();
-            this.BeginInvoke(new Action(() =>
+            _ = BeginInvoke(new Action(() =>
 {
     ApplyTheme();
-    this.Invalidate(true);
+    Invalidate(true);
 }));
         }
 
         private void InitializeComponent()
         {
-            this.SuspendLayout();
+            SuspendLayout();
 
-            this.Text = "Setup Complete";
-            this.Size = new System.Drawing.Size(600, 350);
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.ShowInTaskbar = true;
+            Text = "Setup Complete";
+            Size = new System.Drawing.Size(600, 350);
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            StartPosition = FormStartPosition.CenterScreen;
+            ShowInTaskbar = true;
 
-            var lblTitle = new Label
+            Label lblTitle = new Label
             {
                 Text = "Setup Complete!",
                 Font = new System.Drawing.Font("Segoe UI", 16F, System.Drawing.FontStyle.Bold),
                 AutoSize = true,
                 Location = new System.Drawing.Point(20, 20)
             };
-            this.Controls.Add(lblTitle);
+            Controls.Add(lblTitle);
 
-            var lblDescription = new Label
+            Label lblDescription = new Label
             {
                 Text = "Bean Mod Manager is now set up and ready to use!\n\n" +
            "You can now:\n" +
@@ -59,9 +59,9 @@ namespace BeanModManager.Wizard
                 Size = new System.Drawing.Size(560, 200),
                 Location = new System.Drawing.Point(20, 60)
             };
-            this.Controls.Add(lblDescription);
+            Controls.Add(lblDescription);
 
-            var buttonPanel = new TableLayoutPanel
+            TableLayoutPanel buttonPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
                 Height = 70,
@@ -69,13 +69,13 @@ namespace BeanModManager.Wizard
                 RowCount = 1,
                 Padding = new Padding(10, 10, 10, 10)
             };
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
-            buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            _ = buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            var paletteInit = ThemeManager.Current;
+            ThemePalette paletteInit = ThemeManager.Current;
 
-            var btnFinish = new Button
+            Button btnFinish = new Button
             {
                 Text = "Finish",
                 Dock = DockStyle.Fill,
@@ -87,44 +87,37 @@ namespace BeanModManager.Wizard
             };
             btnFinish.FlatAppearance.BorderSize = 0;
             btnFinish.FlatAppearance.BorderColor = paletteInit.SuccessButtonColor;
-            btnFinish.Click += (s, e) => { this.DialogResult = System.Windows.Forms.DialogResult.OK; };
+            btnFinish.Click += (s, e) => { DialogResult = System.Windows.Forms.DialogResult.OK; };
 
             buttonPanel.Controls.Add(new Panel(), 0, 0); buttonPanel.Controls.Add(btnFinish, 1, 0);
-            this.Controls.Add(buttonPanel);
+            Controls.Add(buttonPanel);
 
-            this.AcceptButton = btnFinish;
+            AcceptButton = btnFinish;
 
-            this.ResumeLayout(true);
-            this.PerformLayout();
+            ResumeLayout(true);
+            PerformLayout();
         }
 
         private void ApplyTheme()
         {
-            var palette = ThemeManager.Current;
-            this.BackColor = palette.WindowBackColor;
-            this.ForeColor = palette.PrimaryTextColor;
+            ThemePalette palette = ThemeManager.Current;
+            BackColor = palette.WindowBackColor;
+            ForeColor = palette.PrimaryTextColor;
 
-            var buttonPanel = this.Controls.OfType<TableLayoutPanel>().FirstOrDefault();
+            TableLayoutPanel buttonPanel = Controls.OfType<TableLayoutPanel>().FirstOrDefault();
             if (buttonPanel != null)
             {
                 buttonPanel.BackColor = palette.SurfaceColor;
             }
 
-            var labels = this.Controls.OfType<Label>().ToList();
-            foreach (var lbl in labels)
+            System.Collections.Generic.List<Label> labels = Controls.OfType<Label>().ToList();
+            foreach (Label lbl in labels)
             {
-                if (lbl.Text.Contains("Setup Complete") && lbl.Font.Bold)
-                {
-                    lbl.ForeColor = palette.HeadingTextColor;
-                }
-                else
-                {
-                    lbl.ForeColor = palette.PrimaryTextColor;
-                }
+                lbl.ForeColor = lbl.Text.Contains("Setup Complete") && lbl.Font.Bold ? palette.HeadingTextColor : palette.PrimaryTextColor;
             }
 
-            var buttons = this.Controls.OfType<Button>().ToList();
-            foreach (var btn in buttons)
+            System.Collections.Generic.List<Button> buttons = Controls.OfType<Button>().ToList();
+            foreach (Button btn in buttons)
             {
                 btn.UseVisualStyleBackColor = false;
                 btn.FlatStyle = FlatStyle.Flat;
@@ -144,7 +137,9 @@ namespace BeanModManager.Wizard
         private void ApplyDarkMode()
         {
             if (!IsHandleCreated)
+            {
                 return;
+            }
 
             bool isDark = ThemeManager.CurrentVariant == ThemeVariant.Dark;
             DarkModeHelper.EnableDarkMode(this, isDark);

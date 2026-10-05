@@ -1,7 +1,7 @@
-using BeanModManager.Models;
-using BeanModManager.Services;
 using System;
 using System.Windows.Forms;
+using BeanModManager.Models;
+using BeanModManager.Services;
 
 namespace BeanModManager.Wizard
 {
@@ -20,17 +20,17 @@ namespace BeanModManager.Wizard
             {
                 int stepIndex = 0;
                 string amongUsPath = _config.AmongUsPath;
-                bool isEpicOrMsStore = false;
-                string selectedChannel = "Steam/Itch.io";
+                string detectedChannel = null;
+                string selectedChannel = Helpers.GameChannels.Steam;
 
                 while (true)
                 {
                     switch (stepIndex)
                     {
                         case 0:
-                            using (var welcomeDialog = new WizardWelcomeDialog())
+                            using (WizardWelcomeDialog welcomeDialog = new WizardWelcomeDialog())
                             {
-                                var result = welcomeDialog.ShowDialog(owner);
+                                DialogResult result = welcomeDialog.ShowDialog(owner);
                                 if (result == DialogResult.OK)
                                 {
                                     stepIndex++;
@@ -43,13 +43,13 @@ namespace BeanModManager.Wizard
                             break;
 
                         case 1:
-                            using (var detectDialog = new WizardDetectPathDialog())
+                            using (WizardDetectPathDialog detectDialog = new WizardDetectPathDialog())
                             {
-                                var result = detectDialog.ShowDialog(owner);
+                                DialogResult result = detectDialog.ShowDialog(owner);
                                 if (result == DialogResult.OK)
                                 {
                                     amongUsPath = detectDialog.SelectedPath;
-                                    isEpicOrMsStore = detectDialog.IsEpicOrMsStore;
+                                    detectedChannel = detectDialog.DetectedChannel;
 
                                     if (string.IsNullOrEmpty(amongUsPath) || !AmongUsDetector.ValidateAmongUsPath(amongUsPath))
                                     {
@@ -85,9 +85,9 @@ namespace BeanModManager.Wizard
                             break;
 
                         case 2:
-                            using (var channelDialog = new WizardSelectChannelDialog(isEpicOrMsStore, selectedChannel))
+                            using (WizardSelectChannelDialog channelDialog = new WizardSelectChannelDialog(detectedChannel, selectedChannel))
                             {
-                                var result = channelDialog.ShowDialog(owner);
+                                DialogResult result = channelDialog.ShowDialog(owner);
                                 if (result == DialogResult.OK)
                                 {
                                     selectedChannel = channelDialog.SelectedChannel;
@@ -109,15 +109,15 @@ namespace BeanModManager.Wizard
                             break;
 
                         case 3:
-                            using (var bepInExDialog = new WizardInstallBepInExDialog(amongUsPath, selectedChannel))
+                            using (WizardInstallBepInExDialog bepInExDialog = new WizardInstallBepInExDialog(amongUsPath, selectedChannel))
                             {
-                                var result = bepInExDialog.ShowDialog(owner);
+                                DialogResult result = bepInExDialog.ShowDialog(owner);
                                 if (result == DialogResult.OK)
                                 {
-                                    var bepInExInstalled = bepInExDialog.InstallationSuccess;
+                                    bool bepInExInstalled = bepInExDialog.InstallationSuccess;
                                     if (!bepInExInstalled && !bepInExDialog.SkipInstallation)
                                     {
-                                        var prompt = MessageBox.Show(
+                                        DialogResult prompt = MessageBox.Show(
                                             "BepInEx installation failed or was skipped.\n\n" +
                                             "You can install it later from the Settings tab.\n\n" +
                                             "Continue with setup?",
@@ -151,9 +151,9 @@ namespace BeanModManager.Wizard
                             break;
 
                         case 4:
-                            using (var completeDialog = new WizardCompleteDialog())
+                            using (WizardCompleteDialog completeDialog = new WizardCompleteDialog())
                             {
-                                var result = completeDialog.ShowDialog(owner);
+                                DialogResult result = completeDialog.ShowDialog(owner);
                                 if (result == DialogResult.OK)
                                 {
                                     _config.FirstLaunchWizardCompleted = true;

@@ -1,4 +1,4 @@
-﻿namespace BeanModManager
+namespace BeanModManager
 {
     partial class Main
     {
@@ -6,13 +6,6 @@
 
                                         protected override void Dispose(bool disposing)
         {
-            if (disposing)
-            {
-                _installedSearchDebounceTimer?.Stop();
-                _installedSearchDebounceTimer?.Dispose();
-                _storeSearchDebounceTimer?.Stop();
-                _storeSearchDebounceTimer?.Dispose();
-            }
             base.Dispose(disposing);
         }
 
@@ -25,7 +18,7 @@
             this.lblStatus = new System.Windows.Forms.ToolStripStatusLabel();
             this.progressBar = new System.Windows.Forms.ToolStripProgressBar();
             this.headerStrip = new System.Windows.Forms.Panel();
-            this.lblDiscordLink = new System.Windows.Forms.LinkLabel();
+            this.btnJoinDiscord = new System.Windows.Forms.Button();
             this.lblHeaderInfo = new System.Windows.Forms.Label();
             this.leftSidebar = new System.Windows.Forms.Panel();
             this.sidebarButtons = new System.Windows.Forms.Panel();
@@ -44,12 +37,7 @@
             this.tabInstalled = new System.Windows.Forms.TabPage();
             this.installedLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblInstalledHeader = new System.Windows.Forms.Label();
-            this.flowInstalledFilters = new System.Windows.Forms.FlowLayoutPanel();
-            this.lblInstalledSearch = new System.Windows.Forms.Label();
-            this.txtInstalledSearch = new System.Windows.Forms.TextBox();
-            this.lblInstalledCategory = new System.Windows.Forms.Label();
-            this.cmbInstalledCategory = new System.Windows.Forms.ComboBox();
-            this.btnImportMod = new System.Windows.Forms.Button();
+            this.filterBarInstalled = new BeanModManager.Controls.ModFilterBar();
             this.panelBulkActionsInstalled = new System.Windows.Forms.Panel();
             this.lblBulkSelectedCountInstalled = new System.Windows.Forms.Label();
             this.btnBulkUninstallInstalled = new System.Windows.Forms.Button();
@@ -64,11 +52,8 @@
             this.tabStore = new System.Windows.Forms.TabPage();
             this.storeLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblStoreHeader = new System.Windows.Forms.Label();
-            this.flowStoreFilters = new System.Windows.Forms.FlowLayoutPanel();
-            this.lblStoreSearch = new System.Windows.Forms.Label();
-            this.txtStoreSearch = new System.Windows.Forms.TextBox();
-            this.lblStoreCategory = new System.Windows.Forms.Label();
-            this.cmbStoreCategory = new System.Windows.Forms.ComboBox();
+            this.lblStoreNotice = new System.Windows.Forms.Label();
+            this.filterBarStore = new BeanModManager.Controls.ModFilterBar();
             this.panelBulkActionsStore = new System.Windows.Forms.Panel();
             this.lblBulkSelectedCountStore = new System.Windows.Forms.Label();
             this.btnBulkInstallStore = new System.Windows.Forms.Button();
@@ -91,6 +76,8 @@
             this.lblGameChannel = new System.Windows.Forms.Label();
             this.rbSteam = new System.Windows.Forms.RadioButton();
             this.rbEpic = new System.Windows.Forms.RadioButton();
+            this.rbMsStore = new System.Windows.Forms.RadioButton();
+            this.rbItch = new System.Windows.Forms.RadioButton();
             this.grpBepInEx = new System.Windows.Forms.GroupBox();
             this.flowBepInEx = new System.Windows.Forms.FlowLayoutPanel();
             this.btnInstallBepInEx = new System.Windows.Forms.Button();
@@ -125,13 +112,11 @@
             this.tabControl.SuspendLayout();
             this.tabInstalled.SuspendLayout();
             this.installedLayout.SuspendLayout();
-            this.flowInstalledFilters.SuspendLayout();
             this.panelBulkActionsInstalled.SuspendLayout();
             this.panelInstalledHost.SuspendLayout();
             this.panelEmptyInstalled.SuspendLayout();
             this.tabStore.SuspendLayout();
             this.storeLayout.SuspendLayout();
-            this.flowStoreFilters.SuspendLayout();
             this.panelBulkActionsStore.SuspendLayout();
             this.panelStoreHost.SuspendLayout();
             this.panelEmptyStore.SuspendLayout();
@@ -181,7 +166,7 @@
             // headerStrip
             // 
             this.headerStrip.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
-            this.headerStrip.Controls.Add(this.lblDiscordLink);
+            this.headerStrip.Controls.Add(this.btnJoinDiscord);
             this.headerStrip.Controls.Add(this.lblHeaderInfo);
             this.headerStrip.Dock = System.Windows.Forms.DockStyle.Top;
             this.headerStrip.Location = new System.Drawing.Point(0, 0);
@@ -191,19 +176,25 @@
             this.headerStrip.TabIndex = 2;
             this.headerStrip.Paint += new System.Windows.Forms.PaintEventHandler(this.HeaderStrip_Paint);
             // 
-            // lblDiscordLink
-            // 
-            this.lblDiscordLink.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.lblDiscordLink.AutoSize = true;
-            this.lblDiscordLink.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblDiscordLink.LinkBehavior = System.Windows.Forms.LinkBehavior.HoverUnderline;
-            this.lblDiscordLink.Location = new System.Drawing.Point(1251, 6);
-            this.lblDiscordLink.Name = "lblDiscordLink";
-            this.lblDiscordLink.Size = new System.Drawing.Size(106, 19);
-            this.lblDiscordLink.TabIndex = 1;
-            this.lblDiscordLink.TabStop = true;
-            this.lblDiscordLink.Text = "💬 Join Discord";
-            this.lblDiscordLink.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.lblDiscordLink_LinkClicked);
+            // btnJoinDiscord
+            //
+            this.btnJoinDiscord.AccessibleDescription = "Open the Bean Mod Manager Discord server";
+            this.btnJoinDiscord.AccessibleName = "Join Discord";
+            this.btnJoinDiscord.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnJoinDiscord.BackColor = System.Drawing.Color.Transparent;
+            this.btnJoinDiscord.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnJoinDiscord.FlatAppearance.BorderSize = 0;
+            this.btnJoinDiscord.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
+            this.btnJoinDiscord.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
+            this.btnJoinDiscord.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnJoinDiscord.Image = new System.Drawing.Bitmap(((System.Drawing.Image)(resources.GetObject("btnJoinDiscord.Image"))), new System.Drawing.Size(22, 22));
+            this.btnJoinDiscord.ImageAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.btnJoinDiscord.Location = new System.Drawing.Point(1329, 2);
+            this.btnJoinDiscord.Name = "btnJoinDiscord";
+            this.btnJoinDiscord.Size = new System.Drawing.Size(28, 28);
+            this.btnJoinDiscord.TabIndex = 1;
+            this.btnJoinDiscord.UseVisualStyleBackColor = false;
+            this.btnJoinDiscord.Click += new System.EventHandler(this.btnJoinDiscord_Click);
             // 
             // lblHeaderInfo
             // 
@@ -432,7 +423,7 @@
             this.installedLayout.ColumnCount = 1;
             this.installedLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.installedLayout.Controls.Add(this.lblInstalledHeader, 0, 0);
-            this.installedLayout.Controls.Add(this.flowInstalledFilters, 0, 1);
+            this.installedLayout.Controls.Add(this.filterBarInstalled, 0, 1);
             this.installedLayout.Controls.Add(this.panelBulkActionsInstalled, 0, 2);
             this.installedLayout.Controls.Add(this.panelInstalledHost, 0, 3);
             this.installedLayout.Controls.Add(this.btnLaunchSelected, 0, 4);
@@ -460,92 +451,20 @@
             this.lblInstalledHeader.TabIndex = 0;
             this.lblInstalledHeader.Text = "Installed Mods";
             // 
-            // flowInstalledFilters
+            // filterBarInstalled
             // 
-            this.flowInstalledFilters.AutoSize = true;
-            this.flowInstalledFilters.BackColor = System.Drawing.Color.Transparent;
-            this.flowInstalledFilters.Controls.Add(this.lblInstalledSearch);
-            this.flowInstalledFilters.Controls.Add(this.txtInstalledSearch);
-            this.flowInstalledFilters.Controls.Add(this.lblInstalledCategory);
-            this.flowInstalledFilters.Controls.Add(this.cmbInstalledCategory);
-            this.flowInstalledFilters.Controls.Add(this.btnImportMod);
-            this.flowInstalledFilters.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.flowInstalledFilters.Location = new System.Drawing.Point(0, 23);
-            this.flowInstalledFilters.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.flowInstalledFilters.Name = "flowInstalledFilters";
-            this.flowInstalledFilters.Padding = new System.Windows.Forms.Padding(0, 3, 0, 3);
-            this.flowInstalledFilters.Size = new System.Drawing.Size(1113, 29);
-            this.flowInstalledFilters.TabIndex = 4;
-            this.flowInstalledFilters.WrapContents = false;
-            // 
-            // lblInstalledSearch
-            // 
-            this.lblInstalledSearch.AutoSize = true;
-            this.lblInstalledSearch.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
-            this.lblInstalledSearch.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(110)))));
-            this.lblInstalledSearch.Location = new System.Drawing.Point(3, 7);
-            this.lblInstalledSearch.Margin = new System.Windows.Forms.Padding(3, 4, 6, 0);
-            this.lblInstalledSearch.Name = "lblInstalledSearch";
-            this.lblInstalledSearch.Size = new System.Drawing.Size(48, 15);
-            this.lblInstalledSearch.TabIndex = 0;
-            this.lblInstalledSearch.Text = "Search:";
-            this.lblInstalledSearch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // txtInstalledSearch
-            // 
-            this.txtInstalledSearch.BackColor = System.Drawing.Color.White;
-            this.txtInstalledSearch.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInstalledSearch.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.txtInstalledSearch.Location = new System.Drawing.Point(57, 3);
-            this.txtInstalledSearch.Margin = new System.Windows.Forms.Padding(0, 0, 15, 0);
-            this.txtInstalledSearch.MaxLength = 200;
-            this.txtInstalledSearch.Name = "txtInstalledSearch";
-            this.txtInstalledSearch.Size = new System.Drawing.Size(240, 23);
-            this.txtInstalledSearch.TabIndex = 1;
-            this.txtInstalledSearch.TextChanged += new System.EventHandler(this.txtInstalledSearch_TextChanged);
-            // 
-            // lblInstalledCategory
-            // 
-            this.lblInstalledCategory.AutoSize = true;
-            this.lblInstalledCategory.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
-            this.lblInstalledCategory.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(110)))));
-            this.lblInstalledCategory.Location = new System.Drawing.Point(315, 7);
-            this.lblInstalledCategory.Margin = new System.Windows.Forms.Padding(3, 4, 6, 0);
-            this.lblInstalledCategory.Name = "lblInstalledCategory";
-            this.lblInstalledCategory.Size = new System.Drawing.Size(60, 15);
-            this.lblInstalledCategory.TabIndex = 2;
-            this.lblInstalledCategory.Text = "Category:";
-            // 
-            // cmbInstalledCategory
-            // 
-            this.cmbInstalledCategory.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmbInstalledCategory.FormattingEnabled = true;
-            this.cmbInstalledCategory.Items.AddRange(new object[] {
-            "All"});
-            this.cmbInstalledCategory.Location = new System.Drawing.Point(381, 3);
-            this.cmbInstalledCategory.Margin = new System.Windows.Forms.Padding(0, 0, 15, 0);
-            this.cmbInstalledCategory.Name = "cmbInstalledCategory";
-            this.cmbInstalledCategory.Size = new System.Drawing.Size(180, 23);
-            this.cmbInstalledCategory.TabIndex = 3;
-            this.cmbInstalledCategory.SelectedIndexChanged += new System.EventHandler(this.cmbInstalledCategory_SelectedIndexChanged);
-            // 
-            // btnImportMod
-            // 
-            this.btnImportMod.Anchor = System.Windows.Forms.AnchorStyles.Left;
-            this.btnImportMod.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(108)))), ((int)(((byte)(117)))), ((int)(((byte)(125)))));
-            this.btnImportMod.FlatAppearance.BorderSize = 0;
-            this.btnImportMod.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(98)))), ((int)(((byte)(105)))));
-            this.btnImportMod.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnImportMod.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.btnImportMod.ForeColor = System.Drawing.Color.White;
-            this.btnImportMod.Location = new System.Drawing.Point(591, 3);
-            this.btnImportMod.Margin = new System.Windows.Forms.Padding(15, 0, 0, 0);
-            this.btnImportMod.Name = "btnImportMod";
-            this.btnImportMod.Size = new System.Drawing.Size(100, 23);
-            this.btnImportMod.TabIndex = 4;
-            this.btnImportMod.Text = "Import Mod";
-            this.btnImportMod.UseVisualStyleBackColor = false;
-            this.btnImportMod.Click += new System.EventHandler(this.btnImportMod_Click);
+            this.filterBarInstalled.ActionText = "Import Mod";
+            this.filterBarInstalled.DefaultSortLabel = "Category";
+            this.filterBarInstalled.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+            this.filterBarInstalled.ItemNoun = "installed";
+            this.filterBarInstalled.Location = new System.Drawing.Point(0, 23);
+            this.filterBarInstalled.Margin = new System.Windows.Forms.Padding(0, 4, 0, 10);
+            this.filterBarInstalled.Name = "filterBarInstalled";
+            this.filterBarInstalled.SearchPlaceholder = "Search installed mods...";
+            this.filterBarInstalled.Size = new System.Drawing.Size(1113, 68);
+            this.filterBarInstalled.TabIndex = 4;
+            this.filterBarInstalled.FiltersChanged += new System.EventHandler(this.filterBarInstalled_FiltersChanged);
+            this.filterBarInstalled.ActionClicked += new System.EventHandler(this.btnImportMod_Click);
             // 
             // panelBulkActionsInstalled
             // 
@@ -723,13 +642,15 @@
             this.storeLayout.ColumnCount = 1;
             this.storeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.storeLayout.Controls.Add(this.lblStoreHeader, 0, 0);
-            this.storeLayout.Controls.Add(this.flowStoreFilters, 0, 1);
-            this.storeLayout.Controls.Add(this.panelBulkActionsStore, 0, 2);
-            this.storeLayout.Controls.Add(this.panelStoreHost, 0, 3);
+            this.storeLayout.Controls.Add(this.lblStoreNotice, 0, 1);
+            this.storeLayout.Controls.Add(this.filterBarStore, 0, 2);
+            this.storeLayout.Controls.Add(this.panelBulkActionsStore, 0, 3);
+            this.storeLayout.Controls.Add(this.panelStoreHost, 0, 4);
             this.storeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.storeLayout.Location = new System.Drawing.Point(10, 10);
             this.storeLayout.Name = "storeLayout";
-            this.storeLayout.RowCount = 4;
+            this.storeLayout.RowCount = 5;
+            this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
             this.storeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle());
@@ -748,74 +669,33 @@
             this.lblStoreHeader.Size = new System.Drawing.Size(75, 23);
             this.lblStoreHeader.TabIndex = 0;
             this.lblStoreHeader.Text = "Mod Store";
+            //
+            // lblStoreNotice
+            //
+            this.lblStoreNotice.AutoSize = false;
+            this.lblStoreNotice.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblStoreNotice.Font = new System.Drawing.Font("Segoe UI", 8.5F);
+            this.lblStoreNotice.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(110)))));
+            this.lblStoreNotice.Location = new System.Drawing.Point(3, 23);
+            this.lblStoreNotice.Name = "lblStoreNotice";
+            this.lblStoreNotice.Padding = new System.Windows.Forms.Padding(3, 0, 3, 4);
+            this.lblStoreNotice.Size = new System.Drawing.Size(1112, 24);
+            this.lblStoreNotice.TabIndex = 1;
+            this.lblStoreNotice.Text = "Community mods are created and maintained by their authors, not Bean Mod Manager.";
+            this.lblStoreNotice.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // flowStoreFilters
+            // filterBarStore
             // 
-            this.flowStoreFilters.AutoSize = true;
-            this.flowStoreFilters.BackColor = System.Drawing.Color.Transparent;
-            this.flowStoreFilters.Controls.Add(this.lblStoreSearch);
-            this.flowStoreFilters.Controls.Add(this.txtStoreSearch);
-            this.flowStoreFilters.Controls.Add(this.lblStoreCategory);
-            this.flowStoreFilters.Controls.Add(this.cmbStoreCategory);
-            this.flowStoreFilters.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.flowStoreFilters.Location = new System.Drawing.Point(0, 23);
-            this.flowStoreFilters.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.flowStoreFilters.Name = "flowStoreFilters";
-            this.flowStoreFilters.Padding = new System.Windows.Forms.Padding(0, 3, 0, 3);
-            this.flowStoreFilters.Size = new System.Drawing.Size(1112, 29);
-            this.flowStoreFilters.TabIndex = 4;
-            this.flowStoreFilters.WrapContents = false;
-            // 
-            // lblStoreSearch
-            // 
-            this.lblStoreSearch.AutoSize = true;
-            this.lblStoreSearch.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
-            this.lblStoreSearch.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(110)))));
-            this.lblStoreSearch.Location = new System.Drawing.Point(3, 7);
-            this.lblStoreSearch.Margin = new System.Windows.Forms.Padding(3, 4, 6, 0);
-            this.lblStoreSearch.Name = "lblStoreSearch";
-            this.lblStoreSearch.Size = new System.Drawing.Size(48, 15);
-            this.lblStoreSearch.TabIndex = 0;
-            this.lblStoreSearch.Text = "Search:";
-            // 
-            // txtStoreSearch
-            // 
-            this.txtStoreSearch.BackColor = System.Drawing.Color.White;
-            this.txtStoreSearch.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtStoreSearch.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.txtStoreSearch.Location = new System.Drawing.Point(57, 3);
-            this.txtStoreSearch.Margin = new System.Windows.Forms.Padding(0, 0, 15, 0);
-            this.txtStoreSearch.MaxLength = 200;
-            this.txtStoreSearch.Name = "txtStoreSearch";
-            this.txtStoreSearch.Size = new System.Drawing.Size(240, 23);
-            this.txtStoreSearch.TabIndex = 1;
-            this.txtStoreSearch.TextChanged += new System.EventHandler(this.txtStoreSearch_TextChanged);
-            // 
-            // lblStoreCategory
-            // 
-            this.lblStoreCategory.AutoSize = true;
-            this.lblStoreCategory.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
-            this.lblStoreCategory.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(110)))));
-            this.lblStoreCategory.Location = new System.Drawing.Point(315, 7);
-            this.lblStoreCategory.Margin = new System.Windows.Forms.Padding(3, 4, 6, 0);
-            this.lblStoreCategory.Name = "lblStoreCategory";
-            this.lblStoreCategory.Size = new System.Drawing.Size(60, 15);
-            this.lblStoreCategory.TabIndex = 2;
-            this.lblStoreCategory.Text = "Category:";
-            // 
-            // cmbStoreCategory
-            // 
-            this.cmbStoreCategory.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmbStoreCategory.FormattingEnabled = true;
-            this.cmbStoreCategory.Items.AddRange(new object[] {
-            "All"});
-            this.cmbStoreCategory.Location = new System.Drawing.Point(381, 3);
-            this.cmbStoreCategory.Margin = new System.Windows.Forms.Padding(0, 0, 15, 0);
-            this.cmbStoreCategory.Name = "cmbStoreCategory";
-            this.cmbStoreCategory.Size = new System.Drawing.Size(180, 23);
-            this.cmbStoreCategory.TabIndex = 3;
-            this.cmbStoreCategory.SelectedIndexChanged += new System.EventHandler(this.cmbStoreCategory_SelectedIndexChanged);
-            // 
+            this.filterBarStore.DefaultSortLabel = "Featured";
+            this.filterBarStore.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+            this.filterBarStore.Location = new System.Drawing.Point(0, 47);
+            this.filterBarStore.Margin = new System.Windows.Forms.Padding(0, 4, 0, 10);
+            this.filterBarStore.Name = "filterBarStore";
+            this.filterBarStore.SearchPlaceholder = "Search by name, author, or description...";
+            this.filterBarStore.Size = new System.Drawing.Size(1112, 68);
+            this.filterBarStore.TabIndex = 4;
+            this.filterBarStore.FiltersChanged += new System.EventHandler(this.filterBarStore_FiltersChanged);
+            //
             // panelBulkActionsStore
             // 
             this.panelBulkActionsStore.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(242)))), ((int)(((byte)(247)))));
@@ -1075,6 +955,8 @@
             this.panelGameChannel.Controls.Add(this.lblGameChannel);
             this.panelGameChannel.Controls.Add(this.rbSteam);
             this.panelGameChannel.Controls.Add(this.rbEpic);
+            this.panelGameChannel.Controls.Add(this.rbMsStore);
+            this.panelGameChannel.Controls.Add(this.rbItch);
             this.panelGameChannel.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelGameChannel.Location = new System.Drawing.Point(12, 28);
             this.panelGameChannel.Name = "panelGameChannel";
@@ -1101,7 +983,7 @@
             this.rbSteam.Size = new System.Drawing.Size(102, 19);
             this.rbSteam.TabIndex = 1;
             this.rbSteam.TabStop = true;
-            this.rbSteam.Text = "Steam / Itch.io";
+            this.rbSteam.Text = "Steam";
             this.rbSteam.UseVisualStyleBackColor = true;
             this.rbSteam.CheckedChanged += new System.EventHandler(this.rbSteam_CheckedChanged);
             // 
@@ -1114,9 +996,35 @@
             this.rbEpic.Size = new System.Drawing.Size(178, 19);
             this.rbEpic.TabIndex = 2;
             this.rbEpic.TabStop = true;
-            this.rbEpic.Text = "Epic Games / Microsoft Store";
+            this.rbEpic.Text = "Epic Games";
             this.rbEpic.UseVisualStyleBackColor = true;
             this.rbEpic.CheckedChanged += new System.EventHandler(this.rbEpic_CheckedChanged);
+            // 
+            // rbMsStore
+            // 
+            this.rbMsStore.AutoSize = true;
+            this.rbMsStore.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.rbMsStore.Location = new System.Drawing.Point(200, 25);
+            this.rbMsStore.Name = "rbMsStore";
+            this.rbMsStore.Size = new System.Drawing.Size(102, 19);
+            this.rbMsStore.TabIndex = 3;
+            this.rbMsStore.TabStop = true;
+            this.rbMsStore.Text = "Microsoft Store";
+            this.rbMsStore.UseVisualStyleBackColor = true;
+            this.rbMsStore.CheckedChanged += new System.EventHandler(this.rbMsStore_CheckedChanged);
+            // 
+            // rbItch
+            // 
+            this.rbItch.AutoSize = true;
+            this.rbItch.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.rbItch.Location = new System.Drawing.Point(200, 50);
+            this.rbItch.Name = "rbItch";
+            this.rbItch.Size = new System.Drawing.Size(60, 19);
+            this.rbItch.TabIndex = 4;
+            this.rbItch.TabStop = true;
+            this.rbItch.Text = "itch.io";
+            this.rbItch.UseVisualStyleBackColor = true;
+            this.rbItch.CheckedChanged += new System.EventHandler(this.rbItch_CheckedChanged);
             // 
             // grpBepInEx
             // 
@@ -1478,8 +1386,6 @@
             this.tabInstalled.ResumeLayout(false);
             this.installedLayout.ResumeLayout(false);
             this.installedLayout.PerformLayout();
-            this.flowInstalledFilters.ResumeLayout(false);
-            this.flowInstalledFilters.PerformLayout();
             this.panelBulkActionsInstalled.ResumeLayout(false);
             this.panelBulkActionsInstalled.PerformLayout();
             this.panelInstalledHost.ResumeLayout(false);
@@ -1487,8 +1393,6 @@
             this.tabStore.ResumeLayout(false);
             this.storeLayout.ResumeLayout(false);
             this.storeLayout.PerformLayout();
-            this.flowStoreFilters.ResumeLayout(false);
-            this.flowStoreFilters.PerformLayout();
             this.panelBulkActionsStore.ResumeLayout(false);
             this.panelBulkActionsStore.PerformLayout();
             this.panelStoreHost.ResumeLayout(false);
@@ -1529,7 +1433,7 @@
         private System.Windows.Forms.TabPage tabSettings;
         private System.Windows.Forms.Panel headerStrip;
         private System.Windows.Forms.Label lblHeaderInfo;
-        private System.Windows.Forms.LinkLabel lblDiscordLink;
+        private System.Windows.Forms.Button btnJoinDiscord;
         private System.Windows.Forms.Panel leftSidebar;
         private System.Windows.Forms.Panel sidebarHeader;
         private System.Windows.Forms.Label lblSidebarTitle;
@@ -1552,6 +1456,7 @@
         private System.Windows.Forms.Button btnSidebarLaunchVanilla;
         private System.Windows.Forms.TableLayoutPanel storeLayout;
         private System.Windows.Forms.Label lblStoreHeader;
+        private System.Windows.Forms.Label lblStoreNotice;
         private System.Windows.Forms.TableLayoutPanel settingsLayout;
         private System.Windows.Forms.GroupBox grpPath;
         private System.Windows.Forms.Label lblAmongUsPath;
@@ -1563,6 +1468,8 @@
         private System.Windows.Forms.Label lblGameChannel;
         private System.Windows.Forms.RadioButton rbSteam;
         private System.Windows.Forms.RadioButton rbEpic;
+        private System.Windows.Forms.RadioButton rbMsStore;
+        private System.Windows.Forms.RadioButton rbItch;
         private System.Windows.Forms.GroupBox grpBepInEx;
         private System.Windows.Forms.FlowLayoutPanel flowBepInEx;
         private System.Windows.Forms.Button btnInstallBepInEx;
@@ -1583,7 +1490,6 @@
         private System.Windows.Forms.Label lblEmptyInstalled;
         private System.Windows.Forms.Button btnEmptyInstalledBrowseFeatured;
         private System.Windows.Forms.Button btnEmptyInstalledBrowseStore;
-        private System.Windows.Forms.Button btnImportMod;
         private System.Windows.Forms.Panel panelEmptyStore;
         private System.Windows.Forms.Label lblEmptyStore;
         private System.Windows.Forms.Button btnEmptyStoreClearFilters;
@@ -1596,16 +1502,8 @@
         private System.Windows.Forms.Button btnBackupAmongUsData;
         private System.Windows.Forms.Button btnRestoreAmongUsData;
         private System.Windows.Forms.Button btnClearBackup;
-        private System.Windows.Forms.FlowLayoutPanel flowInstalledFilters;
-        private System.Windows.Forms.Label lblInstalledSearch;
-        private System.Windows.Forms.TextBox txtInstalledSearch;
-        private System.Windows.Forms.Label lblInstalledCategory;
-        private System.Windows.Forms.ComboBox cmbInstalledCategory;
-        private System.Windows.Forms.FlowLayoutPanel flowStoreFilters;
-        private System.Windows.Forms.Label lblStoreSearch;
-        private System.Windows.Forms.TextBox txtStoreSearch;
-        private System.Windows.Forms.Label lblStoreCategory;
-        private System.Windows.Forms.ComboBox cmbStoreCategory;
+        private BeanModManager.Controls.ModFilterBar filterBarInstalled;
+        private BeanModManager.Controls.ModFilterBar filterBarStore;
         private System.Windows.Forms.Panel panelBulkActionsInstalled;
         private System.Windows.Forms.Label lblBulkSelectedCountInstalled;
         private System.Windows.Forms.Button btnBulkUninstallInstalled;

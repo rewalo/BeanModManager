@@ -1,9 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace BeanModManager.Helpers
 {
@@ -14,9 +11,11 @@ namespace BeanModManager.Helpers
             try
             {
                 if (!File.Exists(dllPath))
+                {
                     return null;
+                }
 
-                var fileInfo = FileVersionInfo.GetVersionInfo(dllPath);
+                FileVersionInfo fileInfo = FileVersionInfo.GetVersionInfo(dllPath);
                 if (!string.IsNullOrEmpty(fileInfo.ProductVersion))
                 {
                     return fileInfo.ProductVersion;
@@ -31,57 +30,77 @@ namespace BeanModManager.Helpers
         public static int CompareVersions(string version1, string version2)
         {
             if (string.IsNullOrEmpty(version1) && string.IsNullOrEmpty(version2))
+            {
                 return 0;
+            }
+
             if (string.IsNullOrEmpty(version1))
-                return -1; if (string.IsNullOrEmpty(version2))
+            {
+                return -1;
+            }
+
+            if (string.IsNullOrEmpty(version2))
+            {
                 return 1;
-            var v1 = ParseVersion(version1);
-            var v2 = ParseVersion(version2);
+            }
+
+            ParsedVersion v1 = ParseVersion(version1);
+            ParsedVersion v2 = ParseVersion(version2);
 
             if (v1 == null && v2 == null)
+            {
                 return 0;
+            }
+
             if (v1 == null)
+            {
                 return -1;
+            }
+
             if (v2 == null)
+            {
                 return 1;
+            }
 
             if (v1.Major != v2.Major)
+            {
                 return v1.Major.CompareTo(v2.Major);
+            }
+
             if (v1.Minor != v2.Minor)
+            {
                 return v1.Minor.CompareTo(v2.Minor);
+            }
+
             if (v1.Patch != v2.Patch)
+            {
                 return v1.Patch.CompareTo(v2.Patch);
+            }
 
             if (v1.PreRelease == null && v2.PreRelease == null)
+            {
                 return 0;
+            }
+
             if (v1.PreRelease == null && v2.PreRelease != null)
             {
-                if (HasNumericBuildIdentifier(v2.PreRelease))
-                {
-                    return -1;
-                }
-                return 1;
+                return HasNumericBuildIdentifier(v2.PreRelease) ? -1 : 1;
             }
 
             if (v2.PreRelease == null && v1.PreRelease != null)
             {
-                if (HasNumericBuildIdentifier(v1.PreRelease))
-                {
-                    return 1;
-                }
-                return -1;
+                return HasNumericBuildIdentifier(v1.PreRelease) ? 1 : -1;
             }
 
-            var preReleaseCompare = ComparePreReleaseIdentifiers(v1.PreRelease, v2.PreRelease);
+            int preReleaseCompare = ComparePreReleaseIdentifiers(v1.PreRelease, v2.PreRelease);
             if (preReleaseCompare != 0)
-                return preReleaseCompare;
-
-            if (v1.BuildMetadata != null && v2.BuildMetadata != null)
             {
-                return string.Compare(v1.BuildMetadata, v2.BuildMetadata, StringComparison.OrdinalIgnoreCase);
+                return preReleaseCompare;
             }
 
-            return 0;
+            return v1.BuildMetadata != null && v2.BuildMetadata != null
+                ? string.Compare(v1.BuildMetadata, v2.BuildMetadata, StringComparison.OrdinalIgnoreCase)
+                : 0;
         }
 
         public static bool IsNewerOrEqual(string version1, string version2)
@@ -97,14 +116,16 @@ namespace BeanModManager.Helpers
         private static ParsedVersion ParseVersion(string version)
         {
             if (string.IsNullOrEmpty(version))
+            {
                 return null;
+            }
 
             try
             {
                 version = version.TrimStart('v', 'V').Trim();
 
                 string buildMetadata = null;
-                var buildMetadataIndex = version.IndexOf('+');
+                int buildMetadataIndex = version.IndexOf('+');
                 if (buildMetadataIndex >= 0)
                 {
                     buildMetadata = version.Substring(buildMetadataIndex + 1);
@@ -112,22 +133,30 @@ namespace BeanModManager.Helpers
                 }
 
                 string preRelease = null;
-                var preReleaseIndex = version.IndexOf('-');
+                int preReleaseIndex = version.IndexOf('-');
                 if (preReleaseIndex >= 0)
                 {
                     preRelease = version.Substring(preReleaseIndex + 1);
                     version = version.Substring(0, preReleaseIndex);
                 }
 
-                var parts = version.Split('.');
+                string[] parts = version.Split('.');
                 int major = 0, minor = 0, patch = 0;
 
-                if (parts.Length > 0 && int.TryParse(parts[0], out var m))
+                if (parts.Length > 0 && int.TryParse(parts[0], out int m))
+                {
                     major = m;
-                if (parts.Length > 1 && int.TryParse(parts[1], out var n))
+                }
+
+                if (parts.Length > 1 && int.TryParse(parts[1], out int n))
+                {
                     minor = n;
-                if (parts.Length > 2 && int.TryParse(parts[2], out var p))
+                }
+
+                if (parts.Length > 2 && int.TryParse(parts[2], out int p))
+                {
                     patch = p;
+                }
 
                 return new ParsedVersion
                 {
@@ -147,9 +176,11 @@ namespace BeanModManager.Helpers
         private static bool HasNumericBuildIdentifier(string preRelease)
         {
             if (string.IsNullOrEmpty(preRelease))
+            {
                 return false;
+            }
 
-            var parts = preRelease.Split('.');
+            string[] parts = preRelease.Split('.');
             if (parts.Length >= 2)
             {
                 if (int.TryParse(parts[parts.Length - 1], out _))
@@ -163,12 +194,22 @@ namespace BeanModManager.Helpers
         private static int ComparePreReleaseIdentifiers(string pre1, string pre2)
         {
             if (string.IsNullOrEmpty(pre1) && string.IsNullOrEmpty(pre2))
+            {
                 return 0;
+            }
+
             if (string.IsNullOrEmpty(pre1))
-                return 1; if (string.IsNullOrEmpty(pre2))
+            {
+                return 1;
+            }
+
+            if (string.IsNullOrEmpty(pre2))
+            {
                 return -1;
-            var ids1 = pre1.Split('.');
-            var ids2 = pre2.Split('.');
+            }
+
+            string[] ids1 = pre1.Split('.');
+            string[] ids2 = pre2.Split('.');
 
             int maxLength = Math.Max(ids1.Length, ids2.Length);
             for (int i = 0; i < maxLength; i++)
@@ -177,17 +218,29 @@ namespace BeanModManager.Helpers
                 string id2 = i < ids2.Length ? ids2[i] : null;
 
                 if (id1 == null && id2 == null)
+                {
                     continue;
+                }
+
                 if (id1 == null)
-                    return -1; if (id2 == null)
+                {
+                    return -1;
+                }
+
+                if (id2 == null)
+                {
                     return 1;
+                }
+
                 bool isNum1 = int.TryParse(id1, out int num1);
                 bool isNum2 = int.TryParse(id2, out int num2);
 
                 if (isNum1 && isNum2)
                 {
                     if (num1 != num2)
+                    {
                         return num1.CompareTo(num2);
+                    }
                 }
                 else if (isNum1)
                 {
@@ -201,7 +254,9 @@ namespace BeanModManager.Helpers
                 {
                     int compare = string.Compare(id1, id2, StringComparison.OrdinalIgnoreCase);
                     if (compare != 0)
+                    {
                         return compare;
+                    }
                 }
             }
 

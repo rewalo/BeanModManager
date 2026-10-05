@@ -1,23 +1,24 @@
-using BeanModManager.Models;
-using BeanModManager.Themes;
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
+using BeanModManager.Controls;
+using BeanModManager.Models;
+using BeanModManager.Themes;
 
 namespace BeanModManager
 {
     public class ModCard : Panel
     {
-        private Mod _mod;
-        private ModVersion _version;
         private Config _config;
         private Label _lblName;
         private Label _lblAuthor;
         private Label _lblDescription;
         private Label _lblVersion;
-        private ComboBox _cmbVersion;
+        private Label _lblLastUpdated;
+        private ThemedDropDown _cmbVersion;
+        private const int CornerRadius = 8;
         private Button _btnInstall;
         private Button _btnUninstall;
         private Button _btnPlay;
@@ -40,11 +41,11 @@ namespace BeanModManager
         public event EventHandler UpdateClicked;
         public event Action<ModCard, bool> SelectionChanged;
 
-        public ModVersion SelectedVersion => _version;
+        public ModVersion SelectedVersion { get; private set; }
         public bool HasUpdateAvailable { get; private set; }
         public bool IsSelectable => _chkSelected != null;
         public bool IsSelected => _chkSelected?.Checked ?? false;
-        public Mod BoundMod => _mod;
+        public Mod BoundMod { get; private set; }
 
         /// <summary>
         /// Re-bind this card to the latest Mod instance. This is important because the UI may reuse
@@ -53,28 +54,42 @@ namespace BeanModManager
         public void Bind(Mod mod, ModVersion version, Config config, bool isInstalledView)
         {
             if (mod == null)
+            {
                 return;
+            }
 
-            _mod = mod;
+            BoundMod = mod;
             _config = config ?? _config;
             _isInstalledView = isInstalledView;
 
             if (version != null)
             {
-                _version = version;
+                SelectedVersion = version;
             }
-            else if (_mod.InstalledVersion != null)
+            else if (BoundMod.InstalledVersion != null)
             {
-                _version = _mod.InstalledVersion;
+                SelectedVersion = BoundMod.InstalledVersion;
             }
 
             // Update static text fields that won't be recalculated unless we do it here.
-            if (_lblName != null) _lblName.Text = _mod.Name;
-            if (_lblAuthor != null) _lblAuthor.Text = $"By {_mod.Author}";
-            if (_lblDescription != null) _lblDescription.Text = _mod.Description;
+            if (_lblName != null)
+            {
+                _lblName.Text = BoundMod.Name;
+            }
+
+            if (_lblAuthor != null)
+            {
+                _lblAuthor.Text = $"By {BoundMod.Author}";
+            }
+
+            if (_lblDescription != null)
+            {
+                _lblDescription.Text = BoundMod.Description;
+            }
+
             if (_lblCategory != null)
             {
-                _lblCategory.Text = string.IsNullOrEmpty(_mod.Category) ? "MOD" : _mod.Category.ToUpperInvariant();
+                _lblCategory.Text = string.IsNullOrEmpty(BoundMod.Category) ? "MOD" : BoundMod.Category.ToUpperInvariant();
             }
 
             UpdateUI();
@@ -82,9 +97,9 @@ namespace BeanModManager
 
         public void UpdateVersion(ModVersion newVersion)
         {
-            if (newVersion != null && _version != newVersion)
+            if (newVersion != null && SelectedVersion != newVersion)
             {
-                _version = newVersion;
+                SelectedVersion = newVersion;
                 UpdateUI();
             }
         }
@@ -99,9 +114,9 @@ namespace BeanModManager
 
         public void SetCardHeight(int height)
         {
-            if (this.Height != height)
+            if (Height != height)
             {
-                this.Height = height;
+                Height = height;
                 LayoutFooterPanel();
             }
         }
@@ -109,7 +124,9 @@ namespace BeanModManager
         public void SetSelected(bool isSelected, bool suppressEvent = false)
         {
             if (_chkSelected == null)
+            {
                 return;
+            }
 
             _suppressSelectionEvent = suppressEvent;
             _chkSelected.Checked = isSelected;
@@ -137,16 +154,20 @@ namespace BeanModManager
         private void LayoutFooterPanel()
         {
             if (_footerPanel == null)
+            {
                 return;
+            }
 
-            var footerWidth = Math.Max(0, this.Width - 20);
+            int footerWidth = Math.Max(0, Width - 20);
             _footerPanel.Width = footerWidth;
 
-            var footerY = this.Height - _footerPanel.Height - 8;
+            int footerY = Height - _footerPanel.Height - 8;
             if (footerY < 0)
+            {
                 footerY = 0;
+            }
 
-            _footerPanel.Location = new Point((this.Width - footerWidth) / 2, footerY);
+            _footerPanel.Location = new Point((Width - footerWidth) / 2, footerY);
 
             if (_linkGitHub != null)
             {
@@ -164,27 +185,44 @@ namespace BeanModManager
         protected override void OnResize(EventArgs eventargs)
         {
             base.OnResize(eventargs);
+            UpdateRegion();
             LayoutTextAreas();
             LayoutFooterPanel();
             if (_lblFeatured != null && _lblFeatured.Visible)
             {
-                _lblFeatured.Location = new Point(this.Width - _lblFeatured.Width - 10, 4);
+                _lblFeatured.Location = new Point(Width - _lblFeatured.Width - 10, 4);
             }
             Invalidate();
         }
 
         private void LayoutTextAreas()
         {
-            var contentWidth = Math.Max(0, this.Width - 20);
+            int contentWidth = Math.Max(0, Width - 20);
 
             if (_lblName != null)
+            {
                 _lblName.Width = contentWidth;
+            }
+
             if (_lblAuthor != null)
+            {
                 _lblAuthor.Width = contentWidth;
+            }
+
             if (_lblDescription != null)
+            {
                 _lblDescription.Width = contentWidth;
+            }
+
             if (_lblVersion != null)
+            {
                 _lblVersion.Width = contentWidth;
+            }
+
+            if (_lblLastUpdated != null)
+            {
+                _lblLastUpdated.Width = contentWidth;
+            }
 
             if (_cmbVersion != null)
             {
@@ -196,27 +234,36 @@ namespace BeanModManager
         {
             base.OnPaint(e);
 
-            var rect = ClientRectangle;
-            rect.Width -= 1;
-            rect.Height -= 1;
-
-            using (var pen = new Pen(_palette?.CardBorderColor ?? Color.FromArgb(225, 228, 236)))
+            using (GraphicsPath path = CardShapes.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), CornerRadius))
+            using (Pen pen = new Pen(_palette?.CardBorderColor ?? Color.FromArgb(225, 228, 236)))
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                e.Graphics.DrawRectangle(pen, rect);
+                e.Graphics.DrawPath(pen, path);
             }
+        }
+
+        private void UpdateRegion()
+        {
+            if (Width <= 0 || Height <= 0)
+            {
+                return;
+            }
+
+            Region old = Region;
+            Region = CardShapes.RoundedRegion(ClientRectangle, CornerRadius);
+            old?.Dispose();
         }
 
 
         public void CheckForUpdate()
         {
-            if (_mod == null || _mod.InstalledVersion == null || _mod.Versions == null || !_mod.Versions.Any())
+            if (BoundMod == null || BoundMod.InstalledVersion == null || BoundMod.Versions == null || !BoundMod.Versions.Any())
             {
                 HasUpdateAvailable = false;
                 return;
             }
 
-            var availableVersions = _mod.Versions
+            System.Collections.Generic.IEnumerable<ModVersion> availableVersions = BoundMod.Versions
     .Where(v => !string.IsNullOrEmpty(v.DownloadUrl));
 
             if (!_config.ShowBetaVersions)
@@ -224,7 +271,7 @@ namespace BeanModManager
                 availableVersions = availableVersions.Where(v => !v.IsPreRelease);
             }
 
-            var versionsList = availableVersions.OrderByDescending(v => v.ReleaseDate).ToList();
+            System.Collections.Generic.List<ModVersion> versionsList = availableVersions.OrderByDescending(v => v.ReleaseDate).ToList();
 
             if (!versionsList.Any())
             {
@@ -232,9 +279,9 @@ namespace BeanModManager
                 return;
             }
 
-            var latestVersion = versionsList.FirstOrDefault();
-            var installedTag = _mod.InstalledVersion.ReleaseTag ?? _mod.InstalledVersion.Version;
-            var latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
+            ModVersion latestVersion = versionsList.FirstOrDefault();
+            string installedTag = BoundMod.InstalledVersion.ReleaseTag ?? BoundMod.InstalledVersion.Version;
+            string latestTag = latestVersion.ReleaseTag ?? latestVersion.Version;
 
             if (string.Equals(installedTag, latestTag, StringComparison.OrdinalIgnoreCase))
             {
@@ -242,26 +289,26 @@ namespace BeanModManager
                 return;
             }
 
-            if (_mod.InstalledVersion.IsPreRelease)
+            if (BoundMod.InstalledVersion.IsPreRelease)
             {
-                var latestBeta = _mod.Versions
+                ModVersion latestBeta = BoundMod.Versions
     .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && v.IsPreRelease)
     .OrderByDescending(v => v.ReleaseDate)
     .FirstOrDefault();
 
                 if (latestBeta != null)
                 {
-                    var installedBetaTag = _mod.InstalledVersion.ReleaseTag ?? _mod.InstalledVersion.Version;
-                    var latestBetaTag = latestBeta.ReleaseTag ?? latestBeta.Version;
+                    string installedBetaTag = BoundMod.InstalledVersion.ReleaseTag ?? BoundMod.InstalledVersion.Version;
+                    string latestBetaTag = latestBeta.ReleaseTag ?? latestBeta.Version;
 
                     if (string.Equals(installedBetaTag, latestBetaTag, StringComparison.OrdinalIgnoreCase))
                     {
-                        var latestStable = _mod.Versions
+                        ModVersion latestStable = BoundMod.Versions
     .Where(v => !string.IsNullOrEmpty(v.DownloadUrl) && !v.IsPreRelease)
     .OrderByDescending(v => v.ReleaseDate)
     .FirstOrDefault();
 
-                        if (latestStable == null || latestStable.ReleaseDate <= _mod.InstalledVersion.ReleaseDate)
+                        if (latestStable == null || latestStable.ReleaseDate <= BoundMod.InstalledVersion.ReleaseDate)
                         {
                             HasUpdateAvailable = false;
                             return;
@@ -275,14 +322,14 @@ namespace BeanModManager
 
         public ModCard(Mod mod, ModVersion version, Config config, bool isInstalledView = false)
         {
-            _mod = mod;
-            _version = version ?? mod?.InstalledVersion ?? new ModVersion { Version = "Unknown" };
+            BoundMod = mod;
+            SelectedVersion = version ?? mod?.InstalledVersion ?? new ModVersion { Version = "Unknown" };
             _config = config;
             _isInstalledView = isInstalledView;
             _palette = ThemeManager.Current;
             ThemeManager.ThemeChanged += ThemeManager_ThemeChanged;
 
-            this.DoubleBuffered = true;
+            DoubleBuffered = true;
             InitializeComponent();
             ApplyThemeToStaticElements();
             UpdateUI();
@@ -290,21 +337,21 @@ namespace BeanModManager
 
         private void InitializeComponent()
         {
-            this.Size = new Size(320, 250);
-            this.BorderStyle = BorderStyle.None;
-            this.BackColor = _palette.CardBackground;
-            this.Margin = new Padding(14);
-            this.Padding = new Padding(18, 20, 18, 18);
+            Size = new Size(320, 250);
+            BorderStyle = BorderStyle.None;
+            BackColor = _palette.CardBackground;
+            Margin = new Padding(14);
+            Padding = new Padding(18, 20, 18, 18);
 
             bool allowSelection = true;
 
             bool isLaunchSelection = _isInstalledView &&
-    (!string.Equals(_mod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ||
-     string.Equals(_mod.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase));
+    (!string.Equals(BoundMod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ||
+     string.Equals(BoundMod.Id, "BetterCrewLink", StringComparison.OrdinalIgnoreCase));
 
             _lblCategory = new Label
             {
-                Text = string.IsNullOrEmpty(_mod.Category) ? "MOD" : _mod.Category.ToUpperInvariant(),
+                Text = string.IsNullOrEmpty(BoundMod.Category) ? "MOD" : BoundMod.Category.ToUpperInvariant(),
                 Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
                 ForeColor = _palette.MutedTextColor,
                 AutoSize = true,
@@ -320,29 +367,31 @@ namespace BeanModManager
                 AutoSize = true,
                 Padding = new Padding(6, 2, 6, 2),
                 Location = new Point(280, 4),
-                Visible = _mod.IsFeatured && !_isInstalledView,
+                Visible = BoundMod.IsFeatured && !_isInstalledView,
                 TextAlign = ContentAlignment.MiddleCenter,
                 BorderStyle = BorderStyle.None
             };
             _lblFeatured.Paint += (s, e) =>
             {
-                var label = s as Label;
-                if (label == null) return;
+                if (!(s is Label label))
+                {
+                    return;
+                }
 
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                var parentBackColor = label.Parent?.BackColor ?? (_palette?.CardBackground ?? Color.FromArgb(252, 253, 255));
+                Color parentBackColor = label.Parent?.BackColor ?? _palette?.CardBackground ?? Color.FromArgb(252, 253, 255);
                 e.Graphics.Clear(parentBackColor);
 
-                using (var brush = new SolidBrush(_palette?.FeaturedBadgeFill ?? Color.FromArgb(255, 248, 220)))
-                using (var pen = new Pen(_palette?.FeaturedBadgeBorder ?? Color.FromArgb(255, 193, 7), 1))
+                using (SolidBrush brush = new SolidBrush(_palette?.FeaturedBadgeFill ?? Color.FromArgb(255, 248, 220)))
+                using (Pen pen = new Pen(_palette?.FeaturedBadgeBorder ?? Color.FromArgb(255, 193, 7), 1))
                 {
-                    var rect = new Rectangle(0, 0, label.Width - 1, label.Height - 1);
-                    var path = new GraphicsPath();
+                    Rectangle rect = new Rectangle(0, 0, label.Width - 1, label.Height - 1);
+                    GraphicsPath path = new GraphicsPath();
                     int radius = 4;
                     path.AddArc(rect.X, rect.Y, radius * 2, radius * 2, 180, 90);
-                    path.AddArc(rect.X + rect.Width - radius * 2, rect.Y, radius * 2, radius * 2, 270, 90);
-                    path.AddArc(rect.X + rect.Width - radius * 2, rect.Y + rect.Height - radius * 2, radius * 2, radius * 2, 0, 90);
-                    path.AddArc(rect.X, rect.Y + rect.Height - radius * 2, radius * 2, radius * 2, 90, 90);
+                    path.AddArc(rect.X + rect.Width - (radius * 2), rect.Y, radius * 2, radius * 2, 270, 90);
+                    path.AddArc(rect.X + rect.Width - (radius * 2), rect.Y + rect.Height - (radius * 2), radius * 2, radius * 2, 0, 90);
+                    path.AddArc(rect.X, rect.Y + rect.Height - (radius * 2), radius * 2, radius * 2, 90, 90);
                     path.CloseFigure();
 
                     e.Graphics.FillPath(brush, path);
@@ -355,7 +404,7 @@ namespace BeanModManager
 
             _lblName = new Label
             {
-                Text = _mod.Name,
+                Text = BoundMod.Name,
                 Font = new Font("Segoe UI", 11.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(36, 58, 97),
                 AutoSize = false,
@@ -364,18 +413,18 @@ namespace BeanModManager
                 Size = new Size(280, 22),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
-            if (!string.IsNullOrEmpty(_mod.GitHubRepo))
+            if (!string.IsNullOrEmpty(BoundMod.GitHubRepo))
             {
                 _lblName.Cursor = Cursors.Hand;
                 _lblName.Click += (s, e) =>
                 {
-                    System.Diagnostics.Process.Start($"https://github.com/{_mod.GitHubOwner}/{_mod.GitHubRepo}");
+                    _ = System.Diagnostics.Process.Start($"https://github.com/{BoundMod.GitHubOwner}/{BoundMod.GitHubRepo}");
                 };
             }
 
             _lblAuthor = new Label
             {
-                Text = $"By {_mod.Author}",
+                Text = $"By {BoundMod.Author}",
                 Font = new Font("Segoe UI", 8.2f),
                 ForeColor = Color.FromArgb(135, 140, 160),
                 AutoSize = false,
@@ -387,7 +436,7 @@ namespace BeanModManager
 
             _lblDescription = new Label
             {
-                Text = _mod.Description,
+                Text = BoundMod.Description,
                 Font = new Font("Segoe UI", 8.3f),
                 ForeColor = Color.FromArgb(70, 76, 92),
                 AutoSize = false,
@@ -399,8 +448,8 @@ namespace BeanModManager
 
             _lblVersion = new Label
             {
-                Text = $"Version: {_version.Version}" +
-                       (!string.IsNullOrEmpty(_version.GameVersion) ? $" ({_version.GameVersion})" : ""),
+                Text = $"Version: {SelectedVersion.Version}" +
+                       (!string.IsNullOrEmpty(SelectedVersion.GameVersion) ? $" ({SelectedVersion.GameVersion})" : ""),
                 Font = new Font("Segoe UI", 8.2f),
                 ForeColor = Color.FromArgb(70, 112, 158),
                 AutoSize = false,
@@ -410,34 +459,24 @@ namespace BeanModManager
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
-            _cmbVersion = new ComboBox
+            _lblLastUpdated = new Label
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Size = new Size(220, 25),
-                Location = new Point(10, 116),
+                Text = "Last updated: Unknown",
                 Font = new Font("Segoe UI", 8f),
-                Visible = false,
-                DrawMode = DrawMode.OwnerDrawFixed
+                ForeColor = _palette.MutedTextColor,
+                AutoSize = false,
+                AutoEllipsis = true,
+                Location = new Point(10, 143),
+                Size = new Size(280, 16),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
-            _cmbVersion.DrawItem += (s, e) =>
+
+            _cmbVersion = new ThemedDropDown
             {
-                e.DrawBackground();
-                if (e.Index >= 0 && e.Index < _cmbVersion.Items.Count)
-                {
-                    var version = (ModVersion)_cmbVersion.Items[e.Index];
-                    var text = version.ToString();
-                    var isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-                    var color = isSelected
-                        ? SystemColors.HighlightText
-                        : (_palette?.PrimaryTextColor ?? Color.Black);
-
-                    using (var brush = new SolidBrush(color))
-                    {
-                        e.Graphics.DrawString(text, _cmbVersion.Font, brush, e.Bounds);
-                    }
-                }
-
-                e.DrawFocusRectangle();
+                Size = new Size(220, 28),
+                Location = new Point(10, 114),
+                Font = new Font("Segoe UI", 8.2f),
+                Visible = false
             };
             _cmbVersion.SelectedIndexChanged += _cmbVersion_SelectedIndexChanged;
 
@@ -456,7 +495,7 @@ namespace BeanModManager
             {
                 if (_cmbVersion.Visible && _cmbVersion.SelectedItem != null)
                 {
-                    _version = (ModVersion)_cmbVersion.SelectedItem;
+                    SelectedVersion = (ModVersion)_cmbVersion.SelectedItem;
                 }
                 InstallClicked?.Invoke(this, EventArgs.Empty);
             };
@@ -485,7 +524,7 @@ namespace BeanModManager
                 Font = new Font("Segoe UI", 9, FontStyle.Bold)
             };
 
-            if (string.Equals(_mod.Category, "Utility", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(BoundMod.Category, "Utility", StringComparison.OrdinalIgnoreCase))
             {
                 _btnPlay.Text = "Launch";
             }
@@ -522,7 +561,7 @@ namespace BeanModManager
             {
                 if (_cmbVersion.Visible && _cmbVersion.SelectedItem != null)
                 {
-                    _version = (ModVersion)_cmbVersion.SelectedItem;
+                    SelectedVersion = (ModVersion)_cmbVersion.SelectedItem;
                 }
                 UpdateClicked?.Invoke(this, EventArgs.Empty);
             };
@@ -537,9 +576,9 @@ namespace BeanModManager
             };
             _linkGitHub.LinkClicked += (s, e) =>
             {
-                if (!string.IsNullOrEmpty(_mod.GitHubRepo))
+                if (!string.IsNullOrEmpty(BoundMod.GitHubRepo))
                 {
-                    System.Diagnostics.Process.Start($"https://github.com/{_mod.GitHubOwner}/{_mod.GitHubRepo}");
+                    _ = System.Diagnostics.Process.Start($"https://github.com/{BoundMod.GitHubOwner}/{BoundMod.GitHubRepo}");
                 }
             };
 
@@ -568,24 +607,28 @@ namespace BeanModManager
                 _chkSelected.CheckedChanged += (s, e) =>
                 {
                     if (_suppressSelectionEvent)
+                    {
                         return;
+                    }
+
                     SelectionChanged?.Invoke(this, _chkSelected.Checked);
                 };
             }
 
-            this.Controls.Add(_lblCategory);
-            this.Controls.Add(_lblFeatured);
-            this.Controls.Add(_lblName);
-            this.Controls.Add(_lblAuthor);
-            this.Controls.Add(_lblDescription);
-            this.Controls.Add(_lblVersion);
-            this.Controls.Add(_cmbVersion);
-            this.Controls.Add(_btnInstall);
-            this.Controls.Add(_btnUninstall);
-            this.Controls.Add(_btnPlay);
-            this.Controls.Add(_btnOpenFolder);
-            this.Controls.Add(_btnUpdate);
-            this.Controls.Add(_footerPanel);
+            Controls.Add(_lblCategory);
+            Controls.Add(_lblFeatured);
+            Controls.Add(_lblName);
+            Controls.Add(_lblAuthor);
+            Controls.Add(_lblDescription);
+            Controls.Add(_lblVersion);
+            Controls.Add(_lblLastUpdated);
+            Controls.Add(_cmbVersion);
+            Controls.Add(_btnInstall);
+            Controls.Add(_btnUninstall);
+            Controls.Add(_btnPlay);
+            Controls.Add(_btnOpenFolder);
+            Controls.Add(_btnUpdate);
+            Controls.Add(_footerPanel);
 
             _footerPanel.Controls.Add(_linkGitHub);
             if (_chkSelected != null)
@@ -601,14 +644,16 @@ namespace BeanModManager
         {
             if (_cmbVersion.SelectedItem != null)
             {
-                _version = (ModVersion)_cmbVersion.SelectedItem;
+                SelectedVersion = (ModVersion)_cmbVersion.SelectedItem;
             }
         }
 
         public void UpdateUI()
         {
             if (_isUpdatingUI)
+            {
                 return;
+            }
 
             _isUpdatingUI = true;
 
@@ -619,7 +664,7 @@ namespace BeanModManager
                     _palette = ThemeManager.Current;
                 }
 
-                bool isInstalled = _mod.IsInstalled;
+                bool isInstalled = BoundMod.IsInstalled;
 
                 CheckForUpdate();
 
@@ -628,22 +673,19 @@ namespace BeanModManager
                 _btnPlay.Visible = isInstalled || _isInstalledView;
                 _btnOpenFolder.Visible = isInstalled || _isInstalledView;
                 _btnUpdate.Visible = (isInstalled || _isInstalledView) && HasUpdateAvailable;
-                _linkGitHub.Visible = !string.IsNullOrEmpty(_mod.GitHubRepo);
-                _lblFeatured.Visible = _mod.IsFeatured && !_isInstalledView;
+                _linkGitHub.Visible = !string.IsNullOrEmpty(BoundMod.GitHubRepo);
+                _lblFeatured.Visible = BoundMod.IsFeatured && !_isInstalledView;
+                _lblLastUpdated.Visible = !isInstalled && !_isInstalledView;
+                _lblLastUpdated.Text = BoundMod.LastUpdated.HasValue
+                    ? $"Last updated: {BoundMod.LastUpdated.Value.ToLocalTime():MMM d, yyyy}"
+                    : "Last updated: Unknown";
 
                 if (_lblFeatured.Visible)
                 {
-                    _lblFeatured.Location = new Point(this.Width - _lblFeatured.Width - 10, 4);
+                    _lblFeatured.Location = new Point(Width - _lblFeatured.Width - 10, 4);
                 }
 
-                if (string.Equals(_mod.Category, "Utility", StringComparison.OrdinalIgnoreCase))
-                {
-                    _btnPlay.Text = "Launch";
-                }
-                else
-                {
-                    _btnPlay.Text = "Play";
-                }
+                _btnPlay.Text = string.Equals(BoundMod.Category, "Utility", StringComparison.OrdinalIgnoreCase) ? "Launch" : "Play";
 
                 if (isInstalled || _isInstalledView)
                 {
@@ -665,22 +707,22 @@ namespace BeanModManager
                 }
                 else
                 {
-                    _btnInstall.Location = new Point(10, 146);
+                    _btnInstall.Location = new Point(10, 166);
                 }
 
-                var availableVersions = _mod.Versions?.AsEnumerable() ?? Enumerable.Empty<ModVersion>();
+                System.Collections.Generic.IEnumerable<ModVersion> availableVersions = BoundMod.Versions?.AsEnumerable() ?? Enumerable.Empty<ModVersion>();
                 if (!_config.ShowBetaVersions)
                 {
                     availableVersions = availableVersions.Where(v => !v.IsPreRelease);
                 }
 
-                var versionsList = availableVersions
+                System.Collections.Generic.List<ModVersion> versionsList = availableVersions
        .OrderByDescending(v => v.ReleaseDate)
        .ToList();
-                var filteredCount = versionsList.Count;
+                int filteredCount = versionsList.Count;
 
                 bool showVersionSelector = !isInstalled && !_isInstalledView &&
-                                          _mod.Versions != null &&
+                                          BoundMod.Versions != null &&
                                           filteredCount > 1;
 
                 if (showVersionSelector)
@@ -693,21 +735,21 @@ namespace BeanModManager
                     _cmbVersion.BeginUpdate();
                     _cmbVersion.Items.Clear();
 
-                    foreach (var version in versionsList)
+                    foreach (ModVersion version in versionsList)
                     {
                         _cmbVersion.Items.Add(version);
                     }
 
                     _cmbVersion.EndUpdate();
 
-                    if (isInstalled && _mod.InstalledVersion != null)
+                    if (isInstalled && BoundMod.InstalledVersion != null)
                     {
-                        var installedIndex = -1;
+                        int installedIndex = -1;
                         for (int i = 0; i < _cmbVersion.Items.Count; i++)
                         {
-                            var v = (ModVersion)_cmbVersion.Items[i];
-                            if (v.Version == _mod.InstalledVersion.Version &&
-                                v.GameVersion == _mod.InstalledVersion.GameVersion)
+                            ModVersion v = (ModVersion)_cmbVersion.Items[i];
+                            if (v.Version == BoundMod.InstalledVersion.Version &&
+                                v.GameVersion == BoundMod.InstalledVersion.GameVersion)
                             {
                                 installedIndex = i;
                                 break;
@@ -716,53 +758,41 @@ namespace BeanModManager
                         if (installedIndex >= 0)
                         {
                             _cmbVersion.SelectedIndex = installedIndex;
-                            _version = (ModVersion)_cmbVersion.Items[installedIndex];
+                            SelectedVersion = (ModVersion)_cmbVersion.Items[installedIndex];
                         }
                         else if (_cmbVersion.Items.Count > 0)
                         {
                             _cmbVersion.SelectedIndex = 0;
-                            _version = (ModVersion)_cmbVersion.Items[0];
+                            SelectedVersion = (ModVersion)_cmbVersion.Items[0];
                         }
                     }
                     else
                     {
-                        bool isEpicOrMsStore = BeanModManager.Services.AmongUsDetector.IsEpicOrMsStoreVersion(_config);
+                        string channel = BeanModManager.Services.AmongUsDetector.GetChannel(_config);
 
-                        ModVersion preferredVersion = null;
-
-                        if (isEpicOrMsStore)
-                        {
-                            preferredVersion = versionsList
-                                .FirstOrDefault(v => v.GameVersion == "Epic/MS Store" && !string.IsNullOrEmpty(v.DownloadUrl))
-                                ?? versionsList
-                                    .FirstOrDefault(v => !string.IsNullOrEmpty(v.DownloadUrl));
-                        }
-                        else
-                        {
-                            preferredVersion = versionsList
-                                .FirstOrDefault(v => v.GameVersion == "Steam/Itch.io" && !string.IsNullOrEmpty(v.DownloadUrl))
-                                ?? versionsList
-                                    .FirstOrDefault(v => !string.IsNullOrEmpty(v.DownloadUrl));
-                        }
+                        ModVersion preferredVersion = versionsList
+                            .FirstOrDefault(v => BeanModManager.Helpers.GameChannels.LabelSupportsChannel(v.GameVersion, channel) && !string.IsNullOrEmpty(v.DownloadUrl))
+                            ?? versionsList
+                                .FirstOrDefault(v => !string.IsNullOrEmpty(v.DownloadUrl));
 
                         if (preferredVersion != null)
                         {
-                            var preferredIndex = _cmbVersion.Items.IndexOf(preferredVersion);
+                            int preferredIndex = _cmbVersion.Items.IndexOf(preferredVersion);
                             if (preferredIndex >= 0)
                             {
                                 _cmbVersion.SelectedIndex = preferredIndex;
-                                _version = preferredVersion;
+                                SelectedVersion = preferredVersion;
                             }
                             else if (_cmbVersion.Items.Count > 0)
                             {
                                 _cmbVersion.SelectedIndex = 0;
-                                _version = (ModVersion)_cmbVersion.Items[0];
+                                SelectedVersion = (ModVersion)_cmbVersion.Items[0];
                             }
                         }
                         else if (_cmbVersion.Items.Count > 0)
                         {
                             _cmbVersion.SelectedIndex = 0;
-                            _version = (ModVersion)_cmbVersion.Items[0];
+                            SelectedVersion = (ModVersion)_cmbVersion.Items[0];
                         }
                     }
 
@@ -774,33 +804,34 @@ namespace BeanModManager
                     _lblVersion.Visible = true;
                 }
 
-                ModVersion versionToDisplay = _version;
-                if ((isInstalled || _isInstalledView) && _mod.InstalledVersion != null)
+                ModVersion versionToDisplay = SelectedVersion;
+                if ((isInstalled || _isInstalledView) && BoundMod.InstalledVersion != null)
                 {
-                    versionToDisplay = _mod.InstalledVersion;
+                    versionToDisplay = BoundMod.InstalledVersion;
                 }
 
                 string versionText = $"Version: {versionToDisplay.Version}";
                 if (versionToDisplay.IsPreRelease)
+                {
                     versionText += " (Beta)";
-                if (!string.IsNullOrEmpty(versionToDisplay.GameVersion))
-                    versionText += $" ({versionToDisplay.GameVersion})";
+                }
 
-                var versionColor = _palette.SecondaryTextColor;
+                if (!string.IsNullOrEmpty(versionToDisplay.GameVersion))
+                {
+                    versionText += $" ({versionToDisplay.GameVersion})";
+                }
+
+                Color versionColor = _palette.SecondaryTextColor;
 
                 if (HasUpdateAvailable && (isInstalled || _isInstalledView))
                 {
-                    this.BackColor = _palette.CardBackgroundAlert;
+                    BackColor = _palette.CardBackgroundAlert;
                     versionText += "  • Update available";
                     versionColor = _palette.WarningButtonColor;
                 }
-                else if (isInstalled || _isInstalledView)
-                {
-                    this.BackColor = _palette.CardBackgroundInstalled;
-                }
                 else
                 {
-                    this.BackColor = _palette.CardBackground;
+                    BackColor = isInstalled || _isInstalledView ? _palette.CardBackgroundInstalled : _palette.CardBackground;
                 }
 
                 if (_lblVersion.Visible)
@@ -820,7 +851,9 @@ namespace BeanModManager
         private void ThemeManager_ThemeChanged(object sender, EventArgs e)
         {
             if (IsDisposed)
+            {
                 return;
+            }
 
             if (InvokeRequired)
             {
@@ -829,7 +862,7 @@ namespace BeanModManager
                     return;
                 }
 
-                BeginInvoke(new Action(ApplyThemeAndRefresh));
+                _ = BeginInvoke(new Action(ApplyThemeAndRefresh));
                 return;
             }
 
@@ -847,14 +880,17 @@ namespace BeanModManager
             _palette = ThemeManager.Current;
 
             if (_lblName == null)
+            {
                 return;
+            }
 
-            this.BackColor = _palette.CardBackground;
-            this.ForeColor = _palette.PrimaryTextColor;
+            BackColor = _palette.CardBackground;
+            ForeColor = _palette.PrimaryTextColor;
 
             _lblName.ForeColor = _palette.HeadingTextColor;
             _lblAuthor.ForeColor = _palette.SecondaryTextColor;
             _lblDescription.ForeColor = _palette.SecondaryTextColor;
+            _lblLastUpdated.ForeColor = _palette.MutedTextColor;
             _lblCategory.ForeColor = _palette.MutedTextColor;
             _lblFeatured.ForeColor = _palette.FeaturedBadgeTextColor;
 
@@ -877,20 +913,19 @@ namespace BeanModManager
             StyleButton(_btnOpenFolder, _palette.NeutralButtonColor, _palette.NeutralButtonTextColor);
             StyleButton(_btnUpdate, _palette.WarningButtonColor, _palette.WarningButtonTextColor);
 
-            _cmbVersion.BackColor = _palette.InputBackColor;
-            _cmbVersion.ForeColor = _palette.InputTextColor;
-
             Invalidate();
         }
 
         private void CheckBox_Paint(object sender, PaintEventArgs e)
         {
-            var checkbox = sender as CheckBox;
-            if (checkbox == null) return;
+            if (!(sender is CheckBox checkbox))
+            {
+                return;
+            }
 
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-            using (var bgBrush = new SolidBrush(_palette.FooterBackColor))
+            using (SolidBrush bgBrush = new SolidBrush(_palette.FooterBackColor))
             {
                 e.Graphics.FillRectangle(bgBrush, e.ClipRectangle);
             }
@@ -898,36 +933,37 @@ namespace BeanModManager
             int boxSize = 14;
             int boxX = 0;
             int boxY = (checkbox.Height - boxSize) / 2;
-            var boxRect = new Rectangle(boxX, boxY, boxSize, boxSize);
+            Rectangle boxRect = new Rectangle(boxX, boxY, boxSize, boxSize);
 
-            var borderColor = _palette.Variant == ThemeVariant.Dark
+            Color borderColor = _palette.Variant == ThemeVariant.Dark
     ? Color.FromArgb(100, 120, 150)
     : Color.FromArgb(180, 190, 200);
-            using (var borderPen = new Pen(borderColor, 1.5f))
+            using (GraphicsPath boxPath = CardShapes.RoundedRect(boxRect, 3))
+            using (Pen borderPen = new Pen(borderColor, 1.5f))
             {
-                e.Graphics.DrawRectangle(borderPen, boxRect);
+                e.Graphics.DrawPath(borderPen, boxPath);
             }
 
             if (checkbox.Checked)
             {
-                var checkColor = _palette.Variant == ThemeVariant.Dark
-                    ? Color.FromArgb(120, 185, 255) : Color.FromArgb(0, 122, 204); using (var checkPen = new Pen(checkColor, 2.5f))
+                Color checkColor = _palette.Variant == ThemeVariant.Dark
+                    ? Color.FromArgb(120, 185, 255) : Color.FromArgb(0, 122, 204); using (Pen checkPen = new Pen(checkColor, 2.5f))
                 {
                     checkPen.StartCap = LineCap.Round;
                     checkPen.EndCap = LineCap.Round;
                     checkPen.LineJoin = LineJoin.Round;
 
-                    var points = new[]
+                    Point[] points = new[]
 {
-                        new Point(boxX + 3, boxY + boxSize / 2),
-                        new Point(boxX + boxSize / 2 - 1, boxY + boxSize - 4),
+                        new Point(boxX + 3, boxY + (boxSize / 2)),
+                        new Point(boxX + (boxSize / 2) - 1, boxY + boxSize - 4),
                         new Point(boxX + boxSize - 3, boxY + 2)
                     };
                     e.Graphics.DrawLines(checkPen, points);
                 }
             }
 
-            var textRect = new Rectangle(boxSize + 6, 0, checkbox.Width - boxSize - 6, checkbox.Height);
+            Rectangle textRect = new Rectangle(boxSize + 6, 0, checkbox.Width - boxSize - 6, checkbox.Height);
             TextRenderer.DrawText(e.Graphics, checkbox.Text, checkbox.Font, textRect, checkbox.ForeColor,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
         }
@@ -935,19 +971,13 @@ namespace BeanModManager
         private void StyleButton(Button button, Color backColor, Color textColor)
         {
             if (button == null)
+            {
                 return;
+            }
 
-            button.UseVisualStyleBackColor = false;
             button.BackColor = backColor;
             button.ForeColor = textColor;
-            button.FlatStyle = FlatStyle.Flat;
-            button.FlatAppearance.BorderSize = 0;
-            button.FlatAppearance.BorderColor = backColor;
-
-            var hoverColor = ControlPaint.Light(backColor, 0.1f);
-            var pressedColor = ControlPaint.Dark(backColor, 0.1f);
-            button.FlatAppearance.MouseOverBackColor = hoverColor;
-            button.FlatAppearance.MouseDownBackColor = pressedColor;
+            RoundedButtons.Attach(button);
         }
     }
 }

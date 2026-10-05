@@ -1,15 +1,15 @@
-using BeanModManager.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
+using BeanModManager.Helpers;
 
 namespace BeanModManager.Services
 {
     public class UpdateChecker
     {
-        private static string GITHUB_API_URL = "https://api.github.com/repos/rewalo/BeanModManager/releases/latest";
-        private static string GITHUB_RELEASES_URL = "https://github.com/rewalo/BeanModManager/releases/latest";
+        private static readonly string GITHUB_API_URL = "https://api.github.com/repos/rewalo/BeanModManager/releases/latest";
+        private static readonly string GITHUB_RELEASES_URL = "https://github.com/rewalo/BeanModManager/releases/latest";
 
         public event EventHandler<string> ProgressChanged;
         public event EventHandler<UpdateAvailableEventArgs> UpdateAvailable;
@@ -28,8 +28,8 @@ namespace BeanModManager.Services
             {
                 OnProgressChanged("Checking for updates...");
 
-                var currentVersion = GetCurrentVersion();
-                var latestRelease = await GetLatestReleaseAsync();
+                string currentVersion = GetCurrentVersion();
+                GitHubRelease latestRelease = await GetLatestReleaseAsync();
 
                 if (latestRelease == null)
                 {
@@ -37,8 +37,8 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                var latestVersion = ParseVersion(latestRelease.tag_name);
-                var currentVersionObj = ParseVersion(currentVersion);
+                Version latestVersion = ParseVersion(latestRelease.tag_name);
+                Version currentVersionObj = ParseVersion(currentVersion);
 
                 if (currentVersionObj == null || latestVersion == null)
                 {
@@ -74,16 +74,21 @@ namespace BeanModManager.Services
 
         private string GetCurrentVersion()
         {
-            var version = Assembly.GetExecutingAssembly().GetName().Version;
-            return $"v{version.Major}.{version.Minor}.{version.Build}";
+            Version version = Assembly.GetExecutingAssembly().GetName().Version;
+            // Include the revision component when non-zero so hotfix builds
+            // (e.g. 1.6.4.1) don't get truncated to their base version and
+            // falsely report an update to themselves.
+            return version.Revision > 0
+                ? $"v{version.Major}.{version.Minor}.{version.Build}.{version.Revision}"
+                : $"v{version.Major}.{version.Minor}.{version.Build}";
         }
 
         private async Task<GitHubRelease> GetLatestReleaseAsync()
         {
             try
             {
-                var cacheKey = "app_update_latest";
-                var cache = GitHubCacheHelper.GetCache(cacheKey);
+                string cacheKey = "app_update_latest";
+                GitHubCacheHelper.CacheEntry cache = GitHubCacheHelper.GetCache(cacheKey);
 
                 string json = null;
                 string etag = cache?.ETag;
@@ -98,11 +103,7 @@ namespace BeanModManager.Services
 
                 if (result != null && result.NotModified)
                 {
-                    if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
-                    {
-                        return JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
-                    }
-                    return null;
+                    return cache != null && !string.IsNullOrEmpty(cache.CachedData) ? JsonHelper.Deserialize<GitHubRelease>(cache.CachedData) : null;
                 }
 
                 if (result != null)
@@ -113,14 +114,10 @@ namespace BeanModManager.Services
 
                 if (string.IsNullOrEmpty(json))
                 {
-                    if (cache != null && !string.IsNullOrEmpty(cache.CachedData))
-                    {
-                        return JsonHelper.Deserialize<GitHubRelease>(cache.CachedData);
-                    }
-                    return null;
+                    return cache != null && !string.IsNullOrEmpty(cache.CachedData) ? JsonHelper.Deserialize<GitHubRelease>(cache.CachedData) : null;
                 }
 
-                var release = JsonHelper.Deserialize<GitHubRelease>(json);
+                GitHubRelease release = JsonHelper.Deserialize<GitHubRelease>(json);
 
                 if (release != null)
                 {
@@ -138,29 +135,27 @@ namespace BeanModManager.Services
         private Version ParseVersion(string versionString)
         {
             if (string.IsNullOrEmpty(versionString))
-                return null;
-
-            var cleanVersion = versionString.TrimStart('v', 'V');
-
-            if (Version.TryParse(cleanVersion, out var version))
-                return version;
-
-            var parts = cleanVersion.Split('.');
-            if (parts.Length >= 3 && int.TryParse(parts[0], out var major) &&
-                int.TryParse(parts[1], out var minor) && int.TryParse(parts[2], out var build))
             {
-                return new Version(major, minor, build);
+                return null;
             }
 
-            return null;
+            string cleanVersion = versionString.TrimStart('v', 'V');
+
+            if (Version.TryParse(cleanVersion, out Version version))
+            {
+                return version;
+            }
+
+            string[] parts = cleanVersion.Split('.');
+            return parts.Length >= 3 && int.TryParse(parts[0], out int major) &&
+                int.TryParse(parts[1], out int minor) && int.TryParse(parts[2], out int build)
+                ? new Version(major, minor, build)
+                : null;
         }
 
         private bool IsNewerVersion(Version latest, Version current)
         {
-            if (latest == null || current == null)
-                return false;
-
-            return latest.CompareTo(current) > 0;
+            return latest != null && current != null && latest.CompareTo(current) > 0;
         }
 
         protected virtual void OnProgressChanged(string message)

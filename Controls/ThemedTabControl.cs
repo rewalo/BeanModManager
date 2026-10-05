@@ -1,7 +1,7 @@
-using BeanModManager.Themes;
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using BeanModManager.Themes;
 
 namespace BeanModManager.Controls
 {
@@ -32,15 +32,15 @@ namespace BeanModManager.Controls
 
         private void UpdateTheme()
         {
-            var palette = ThemeManager.Current;
+            ThemePalette palette = ThemeManager.Current;
             BackColor = palette.WindowBackColor;
             ForeColor = palette.PrimaryTextColor;
         }
 
         protected override void OnPaintBackground(PaintEventArgs e)
         {
-            var palette = ThemeManager.Current;
-            using (var brush = new SolidBrush(palette.WindowBackColor))
+            ThemePalette palette = ThemeManager.Current;
+            using (SolidBrush brush = new SolidBrush(palette.WindowBackColor))
             {
                 e.Graphics.FillRectangle(brush, e.ClipRectangle);
             }
@@ -48,18 +48,18 @@ namespace BeanModManager.Controls
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            var palette = ThemeManager.Current;
+            ThemePalette palette = ThemeManager.Current;
 
-            using (var brush = new SolidBrush(palette.WindowBackColor))
+            using (SolidBrush brush = new SolidBrush(palette.WindowBackColor))
             {
                 e.Graphics.FillRectangle(brush, ClientRectangle);
             }
 
-            var displayRect = DisplayRectangle;
+            Rectangle displayRect = DisplayRectangle;
             if (displayRect.Y > 0)
             {
-                var headerRect = new Rectangle(0, 0, Width, displayRect.Y);
-                using (var brush = new SolidBrush(palette.WindowBackColor))
+                Rectangle headerRect = new Rectangle(0, 0, Width, displayRect.Y);
+                using (SolidBrush brush = new SolidBrush(palette.WindowBackColor))
                 {
                     e.Graphics.FillRectangle(brush, headerRect);
                 }
@@ -69,12 +69,12 @@ namespace BeanModManager.Controls
             {
                 try
                 {
-                    var firstTabRect = GetTabRect(0);
-                    var lastTabRect = GetTabRect(TabCount - 1);
+                    Rectangle firstTabRect = GetTabRect(0);
+                    Rectangle lastTabRect = GetTabRect(TabCount - 1);
 
                     if (firstTabRect.Left > 0)
                     {
-                        using (var brush = new SolidBrush(palette.WindowBackColor))
+                        using (SolidBrush brush = new SolidBrush(palette.WindowBackColor))
                         {
                             e.Graphics.FillRectangle(brush, 0, 0, firstTabRect.Left, displayRect.Y);
                         }
@@ -82,7 +82,7 @@ namespace BeanModManager.Controls
 
                     if (lastTabRect.Right < Width)
                     {
-                        using (var brush = new SolidBrush(palette.WindowBackColor))
+                        using (SolidBrush brush = new SolidBrush(palette.WindowBackColor))
                         {
                             e.Graphics.FillRectangle(brush, lastTabRect.Right, 0, Width - lastTabRect.Right, displayRect.Y);
                         }
@@ -90,7 +90,7 @@ namespace BeanModManager.Controls
 
                     if (displayRect.Y < firstTabRect.Bottom)
                     {
-                        using (var brush = new SolidBrush(palette.WindowBackColor))
+                        using (SolidBrush brush = new SolidBrush(palette.WindowBackColor))
                         {
                             e.Graphics.FillRectangle(brush, 0, firstTabRect.Bottom, Width, displayRect.Y - firstTabRect.Bottom);
                         }
@@ -107,10 +107,10 @@ namespace BeanModManager.Controls
                 {
                     try
                     {
-                        var tabRect = GetTabRect(i);
-                        var state = SelectedIndex == i ? DrawItemState.Selected : DrawItemState.Default;
+                        Rectangle tabRect = GetTabRect(i);
+                        DrawItemState state = SelectedIndex == i ? DrawItemState.Selected : DrawItemState.Default;
 
-                        var drawItemArgs = new DrawItemEventArgs(
+                        DrawItemEventArgs drawItemArgs = new DrawItemEventArgs(
                             e.Graphics,
                             Font,
                             tabRect,

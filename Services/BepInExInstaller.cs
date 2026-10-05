@@ -9,8 +9,8 @@ namespace BeanModManager.Services
     {
         public event EventHandler<string> ProgressChanged;
 
-        private const string BEPINEX_URL_STEAM = "https://builds.bepinex.dev/projects/bepinex_be/752/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.752%2Bdd0655f.zip";
-        private const string BEPINEX_URL_EPIC = "https://builds.bepinex.dev/projects/bepinex_be/752/BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.752%2Bdd0655f.zip";
+        private const string BEPINEX_URL_STEAM_X86 = "https://builds.bepinex.dev/projects/bepinex_be/752/BepInEx-Unity.IL2CPP-win-x86-6.0.0-be.752%2Bdd0655f.zip";
+        private const string BEPINEX_URL_X64 = "https://builds.bepinex.dev/projects/bepinex_be/752/BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.752%2Bdd0655f.zip";
 
         public async Task<bool> InstallBepInEx(string amongUsPath, string gameChannel = null)
         {
@@ -28,15 +28,19 @@ namespace BeanModManager.Services
                     return true;
                 }
 
-                bool isEpicOrMsStore = !string.IsNullOrEmpty(gameChannel) && gameChannel == "Epic/MS Store";
-                string bepInExUrl = isEpicOrMsStore ? BEPINEX_URL_EPIC : BEPINEX_URL_STEAM;
-                string architecture = isEpicOrMsStore ? "x64" : "x86";
+                // Since Among Us moved to x64, only the itch.io build still needs
+                // the x86 BepInEx; Steam, Epic Games and Microsoft Store all use x64.
+                string channel = Helpers.GameChannels.NormalizeChannel(gameChannel,
+                    AmongUsDetector.DetectChannelForPath(amongUsPath));
+                bool isLegacyItchBuild = channel == Helpers.GameChannels.ItchIo;
+                string bepInExUrl = isLegacyItchBuild ? BEPINEX_URL_STEAM_X86 : BEPINEX_URL_X64;
+                string architecture = isLegacyItchBuild ? "x86" : "x64";
 
                 OnProgressChanged($"Downloading BepInEx ({architecture})...");
 
-                var tempZip = Path.Combine(Path.GetTempPath(), "BepInEx.zip");
+                string tempZip = Path.Combine(Path.GetTempPath(), "BepInEx.zip");
 
-                var progress = new Progress<int>(percent =>
+                Progress<int> progress = new Progress<int>(percent =>
                 {
                     OnProgressChanged($"Downloading BepInEx ({architecture})... {percent}%");
                 });
@@ -45,16 +49,16 @@ namespace BeanModManager.Services
 
                 OnProgressChanged("Extracting BepInEx...");
 
-                using (var archive = ZipFile.OpenRead(tempZip))
+                using (ZipArchive archive = ZipFile.OpenRead(tempZip))
                 {
-                    foreach (var entry in archive.Entries)
+                    foreach (ZipArchiveEntry entry in archive.Entries)
                     {
-                        var destinationPath = Path.Combine(amongUsPath, entry.FullName);
-                        var destinationDir = Path.GetDirectoryName(destinationPath);
+                        string destinationPath = Path.Combine(amongUsPath, entry.FullName);
+                        string destinationDir = Path.GetDirectoryName(destinationPath);
 
                         if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
                         {
-                            Directory.CreateDirectory(destinationDir);
+                            _ = Directory.CreateDirectory(destinationDir);
                         }
 
                         if (!string.IsNullOrEmpty(entry.Name))
@@ -74,10 +78,10 @@ namespace BeanModManager.Services
                     }
                 }
 
-                var pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
+                string pluginsPath = Path.Combine(amongUsPath, "BepInEx", "plugins");
                 if (!Directory.Exists(pluginsPath))
                 {
-                    Directory.CreateDirectory(pluginsPath);
+                    _ = Directory.CreateDirectory(pluginsPath);
                     OnProgressChanged("Created plugins folder");
                 }
 

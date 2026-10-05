@@ -8,10 +8,11 @@ riderModule.iml
 .vs/
 *.user
 .qodo
-Properties/
 *.exe
 *.dll
 *.msi
+global.json
+mod-cache.json.backup
 
 .fake
 .REFERENCE

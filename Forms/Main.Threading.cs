@@ -9,7 +9,7 @@ namespace BeanModManager
         {
             if (InvokeRequired)
             {
-                Invoke(new Action<string>(UpdateStatus), message);
+                _ = Invoke(new Action<string>(UpdateStatus), message);
                 return;
             }
             lblStatus.Text = message;
@@ -19,7 +19,7 @@ namespace BeanModManager
         {
             if (InvokeRequired)
             {
-                Invoke(action);
+                _ = Invoke(action);
             }
             else
             {
@@ -29,14 +29,7 @@ namespace BeanModManager
 
         private T SafeInvoke<T>(Func<T> func)
         {
-            if (InvokeRequired)
-            {
-                return (T)Invoke(func);
-            }
-            else
-            {
-                return func();
-            }
+            return InvokeRequired ? (T)Invoke(func) : func();
         }
     }
 }

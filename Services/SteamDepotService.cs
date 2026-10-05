@@ -1,10 +1,10 @@
-﻿using BeanModManager.Helpers;
-using Microsoft.Win32;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using BeanModManager.Helpers;
+using Microsoft.Win32;
 
 namespace BeanModManager.Services
 {
@@ -28,7 +28,7 @@ namespace BeanModManager.Services
             // Try to get from mod registry first
             if (_modStore != null)
             {
-                var depotConfig = _modStore.GetDepotConfig(modId);
+                Models.DepotConfig depotConfig = _modStore.GetDepotConfig(modId);
                 if (depotConfig != null && !string.IsNullOrEmpty(depotConfig.manifestId))
                 {
                     return depotConfig.manifestId;
@@ -43,7 +43,7 @@ namespace BeanModManager.Services
             // Try to get from mod registry first
             if (_modStore != null)
             {
-                var depotConfig = _modStore.GetDepotConfig(modId);
+                Models.DepotConfig depotConfig = _modStore.GetDepotConfig(modId);
                 if (depotConfig != null && !string.IsNullOrEmpty(depotConfig.gameVersion))
                 {
                     return depotConfig.gameVersion;
@@ -57,11 +57,11 @@ namespace BeanModManager.Services
         {
             try
             {
-                using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Valve\Steam"))
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Valve\Steam"))
                 {
                     if (key != null)
                     {
-                        var installPath = key.GetValue("InstallPath") as string;
+                        string installPath = key.GetValue("InstallPath") as string;
                         if (!string.IsNullOrEmpty(installPath) && Directory.Exists(installPath))
                         {
                             return installPath;
@@ -69,11 +69,11 @@ namespace BeanModManager.Services
                     }
                 }
 
-                using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Valve\Steam"))
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Valve\Steam"))
                 {
                     if (key != null)
                     {
-                        var installPath = key.GetValue("InstallPath") as string;
+                        string installPath = key.GetValue("InstallPath") as string;
                         if (!string.IsNullOrEmpty(installPath) && Directory.Exists(installPath))
                         {
                             return installPath;
@@ -85,7 +85,7 @@ namespace BeanModManager.Services
             {
             }
 
-            var commonPaths = new[]
+            string[] commonPaths = new[]
             {
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam"),
                 Path.Combine("C:", "Program Files (x86)", "Steam"),
@@ -93,9 +93,9 @@ namespace BeanModManager.Services
                 Path.Combine("E:", "Steam"),
             };
 
-            foreach (var path in commonPaths)
+            foreach (string path in commonPaths)
             {
-                var steamExe = Path.Combine(path, "steam.exe");
+                string steamExe = Path.Combine(path, "steam.exe");
                 if (File.Exists(steamExe))
                 {
                     return path;
@@ -104,12 +104,14 @@ namespace BeanModManager.Services
 
             try
             {
-                foreach (var candidate in PathCompatibilityHelper.GetCommonNativeSteamRootsAsWinePaths())
+                foreach (string candidate in PathCompatibilityHelper.GetCommonNativeSteamRootsAsWinePaths())
                 {
                     if (string.IsNullOrEmpty(candidate))
+                    {
                         continue;
+                    }
 
-                    var steamapps = Path.Combine(candidate, "steamapps");
+                    string steamapps = Path.Combine(candidate, "steamapps");
                     if (Directory.Exists(steamapps))
                     {
                         return candidate;
@@ -125,17 +127,17 @@ namespace BeanModManager.Services
 
         public string GetDepotPath(string modId = null)
         {
-            var steamPath = GetSteamPath();
+            string steamPath = GetSteamPath();
             if (string.IsNullOrEmpty(steamPath))
             {
                 return null;
             }
 
-            var baseDepotPath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"depot_{AmongUsDepotId}");
+            string baseDepotPath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"depot_{AmongUsDepotId}");
 
             if (!string.IsNullOrEmpty(modId))
             {
-                var modSpecificPath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"depot_{AmongUsDepotId}_{modId}");
+                string modSpecificPath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"depot_{AmongUsDepotId}_{modId}");
                 return modSpecificPath;
             }
 
@@ -149,13 +151,13 @@ namespace BeanModManager.Services
                 return false;
             }
 
-            var depotPath = GetDepotPath(modId);
+            string depotPath = GetDepotPath(modId);
             if (string.IsNullOrEmpty(depotPath) || !Directory.Exists(depotPath))
             {
                 return false;
             }
 
-            var exePath = Path.Combine(depotPath, "Among Us.exe");
+            string exePath = Path.Combine(depotPath, "Among Us.exe");
             return File.Exists(exePath);
         }
 
@@ -168,7 +170,7 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                var depotPath = GetDepotPath(modId);
+                string depotPath = GetDepotPath(modId);
                 if (string.IsNullOrEmpty(depotPath) || !Directory.Exists(depotPath))
                 {
                     return true;
@@ -190,7 +192,7 @@ namespace BeanModManager.Services
         {
             try
             {
-                var baseDepotPath = GetBaseDepotPath();
+                string baseDepotPath = GetBaseDepotPath();
                 if (string.IsNullOrEmpty(baseDepotPath) || !Directory.Exists(baseDepotPath))
                 {
                     return true;
@@ -210,22 +212,22 @@ namespace BeanModManager.Services
 
         public bool IsBaseDepotDownloaded()
         {
-            var baseDepotPath = GetBaseDepotPath();
+            string baseDepotPath = GetBaseDepotPath();
             if (string.IsNullOrEmpty(baseDepotPath) || !Directory.Exists(baseDepotPath))
             {
                 return false;
             }
 
-            var exePath = Path.Combine(baseDepotPath, "Among Us.exe");
+            string exePath = Path.Combine(baseDepotPath, "Among Us.exe");
             if (!File.Exists(exePath))
             {
                 return false;
             }
 
-            var steamPath = GetSteamPath();
+            string steamPath = GetSteamPath();
             if (!string.IsNullOrEmpty(steamPath))
             {
-                var patchFilePath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"state_{AmongUsAppId}_{AmongUsDepotId}.patch");
+                string patchFilePath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"state_{AmongUsAppId}_{AmongUsDepotId}.patch");
                 if (File.Exists(patchFilePath))
                 {
                     return false;
@@ -237,27 +239,24 @@ namespace BeanModManager.Services
 
         public string GetBaseDepotPath()
         {
-            var steamPath = GetSteamPath();
-            if (string.IsNullOrEmpty(steamPath))
-            {
-                return null;
-            }
-
-            return Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"depot_{AmongUsDepotId}");
+            string steamPath = GetSteamPath();
+            return string.IsNullOrEmpty(steamPath)
+                ? null
+                : Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"depot_{AmongUsDepotId}");
         }
 
         public async Task<bool> DownloadDepotAsync(string depotCommand)
         {
             try
             {
-                var steamPath = GetSteamPath();
+                string steamPath = GetSteamPath();
                 if (string.IsNullOrEmpty(steamPath))
                 {
                     OnProgressChanged("Steam installation not found. Please ensure Steam is installed.");
                     return false;
                 }
 
-                var steamExe = Path.Combine(steamPath, "steam.exe");
+                string steamExe = Path.Combine(steamPath, "steam.exe");
                 if (!File.Exists(steamExe))
                 {
                     OnProgressChanged("Steam.exe not found.");
@@ -274,7 +273,7 @@ namespace BeanModManager.Services
                 }
 
                 OnProgressChanged("Opening Steam console...");
-                Process.Start(new ProcessStartInfo
+                _ = Process.Start(new ProcessStartInfo
                 {
                     FileName = "steam://open/console",
                     UseShellExecute = true
@@ -301,7 +300,7 @@ namespace BeanModManager.Services
                     bool isDownloading = false;
                     if (!string.IsNullOrEmpty(steamPath))
                     {
-                        var patchFilePath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"state_{AmongUsAppId}_{AmongUsDepotId}.patch");
+                        string patchFilePath = Path.Combine(steamPath, "steamapps", "content", $"app_{AmongUsAppId}", $"state_{AmongUsAppId}_{AmongUsDepotId}.patch");
                         isDownloading = File.Exists(patchFilePath);
                     }
 
@@ -348,27 +347,29 @@ namespace BeanModManager.Services
 
                 if (!string.IsNullOrEmpty(depotPath) && Directory.Exists(depotPath))
                 {
-                    var exePath = Path.Combine(depotPath, "Among Us.exe");
+                    string exePath = Path.Combine(depotPath, "Among Us.exe");
                     if (File.Exists(exePath))
                     {
                         OnProgressChanged("Installing mod files to depot...");
 
-                        var dllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
-                        var hasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
-                        var hasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
+                        modStoragePath = FileSystemHelper.ResolveContentRoot(modStoragePath);
 
-                        var depotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
+                        string[] dllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
+                        bool hasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
+                        bool hasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
+
+                        string depotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
                         if (!Directory.Exists(depotPluginsPath))
                         {
-                            Directory.CreateDirectory(depotPluginsPath);
+                            _ = Directory.CreateDirectory(depotPluginsPath);
                         }
 
                         if (dllFiles.Any() && !hasBepInExStructure && !hasSubdirectories)
                         {
-                            foreach (var dllFile in dllFiles)
+                            foreach (string dllFile in dllFiles)
                             {
-                                var fileName = Path.GetFileName(dllFile);
-                                var destPath = Path.Combine(depotPluginsPath, fileName);
+                                string fileName = Path.GetFileName(dllFile);
+                                string destPath = Path.Combine(depotPluginsPath, fileName);
                                 try
                                 {
                                     if (File.Exists(destPath))
@@ -404,7 +405,7 @@ namespace BeanModManager.Services
                     }
                 }
 
-                var baseDepotPath = GetBaseDepotPath();
+                string baseDepotPath = GetBaseDepotPath();
                 if (string.IsNullOrEmpty(baseDepotPath) || !Directory.Exists(baseDepotPath))
                 {
                     OnProgressChanged("Base depot path not found. Please download depot first.");
@@ -424,22 +425,22 @@ namespace BeanModManager.Services
 
                 OnProgressChanged("Installing mod files to depot...");
 
-                var modDllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
-                var modHasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
-                var modHasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
+                string[] modDllFiles = Directory.GetFiles(modStoragePath, "*.dll", SearchOption.TopDirectoryOnly);
+                bool modHasBepInExStructure = Directory.Exists(Path.Combine(modStoragePath, "BepInEx"));
+                bool modHasSubdirectories = Directory.GetDirectories(modStoragePath).Any();
 
-                var modDepotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
+                string modDepotPluginsPath = Path.Combine(depotPath, "BepInEx", "plugins");
                 if (!Directory.Exists(modDepotPluginsPath))
                 {
-                    Directory.CreateDirectory(modDepotPluginsPath);
+                    _ = Directory.CreateDirectory(modDepotPluginsPath);
                 }
 
                 if (modDllFiles.Any() && !modHasBepInExStructure && !modHasSubdirectories)
                 {
-                    foreach (var dllFile in modDllFiles)
+                    foreach (string dllFile in modDllFiles)
                     {
-                        var fileName = Path.GetFileName(dllFile);
-                        var destPath = Path.Combine(modDepotPluginsPath, fileName);
+                        string fileName = Path.GetFileName(dllFile);
+                        string destPath = Path.Combine(modDepotPluginsPath, fileName);
                         try
                         {
                             if (File.Exists(destPath))
@@ -499,7 +500,7 @@ namespace BeanModManager.Services
         {
             try
             {
-                var innerslothPath = GetInnerslothFolderPath();
+                string innerslothPath = GetInnerslothFolderPath();
 
                 if (Directory.Exists(innerslothPath))
                 {
@@ -515,7 +516,7 @@ namespace BeanModManager.Services
 
         public string GetInnerslothFolderPath()
         {
-            var localLowPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "..", "LocalLow");
+            string localLowPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "..", "LocalLow");
             return Path.Combine(localLowPath, "Innersloth");
         }
 
@@ -523,7 +524,7 @@ namespace BeanModManager.Services
         {
             try
             {
-                var innerslothPath = GetInnerslothFolderPath();
+                string innerslothPath = GetInnerslothFolderPath();
                 if (!Directory.Exists(innerslothPath))
                 {
                     OnProgressChanged("Innersloth folder not found. Nothing to backup.");
@@ -536,7 +537,7 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                Directory.CreateDirectory(Path.GetDirectoryName(backupPath));
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(backupPath));
                 CopyDirectoryContents(innerslothPath, backupPath, true);
                 OnProgressChanged($"Backed up Innersloth folder to: {backupPath}");
                 return true;
@@ -558,14 +559,14 @@ namespace BeanModManager.Services
                     return false;
                 }
 
-                var innerslothPath = GetInnerslothFolderPath();
+                string innerslothPath = GetInnerslothFolderPath();
                 if (Directory.Exists(innerslothPath))
                 {
                     Directory.Delete(innerslothPath, true);
                 }
 
-                Directory.CreateDirectory(Path.GetDirectoryName(innerslothPath));
-                Directory.CreateDirectory(innerslothPath);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(innerslothPath));
+                _ = Directory.CreateDirectory(innerslothPath);
                 CopyDirectoryContents(backupPath, innerslothPath, true);
                 OnProgressChanged($"Restored Innersloth folder from: {backupPath}");
                 return true;
@@ -591,13 +592,13 @@ namespace BeanModManager.Services
 
             if (!Directory.Exists(destDir))
             {
-                Directory.CreateDirectory(destDir);
+                _ = Directory.CreateDirectory(destDir);
             }
 
-            foreach (var file in Directory.GetFiles(sourceDir))
+            foreach (string file in Directory.GetFiles(sourceDir))
             {
-                var fileName = Path.GetFileName(file);
-                var destFile = Path.Combine(destDir, fileName);
+                string fileName = Path.GetFileName(file);
+                string destFile = Path.Combine(destDir, fileName);
 
                 try
                 {
@@ -619,10 +620,10 @@ namespace BeanModManager.Services
                 }
             }
 
-            foreach (var dir in Directory.GetDirectories(sourceDir))
+            foreach (string dir in Directory.GetDirectories(sourceDir))
             {
-                var dirName = Path.GetFileName(dir);
-                var destSubDir = Path.Combine(destDir, dirName);
+                string dirName = Path.GetFileName(dir);
+                string destSubDir = Path.Combine(destDir, dirName);
                 CopyDirectoryContents(dir, destSubDir, overwrite, gameRootPath);
             }
         }
@@ -630,7 +631,9 @@ namespace BeanModManager.Services
         private bool ShouldSkipFileOverwrite(string sourceFile, string destFile, string gameRootPath)
         {
             if (!sourceFile.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
                 return false;
+            }
 
             string relativeDestPath = null;
             if (!string.IsNullOrEmpty(gameRootPath) && destFile.StartsWith(gameRootPath, StringComparison.OrdinalIgnoreCase))
@@ -643,33 +646,34 @@ namespace BeanModManager.Services
             bool isBepInExCore = false;
             if (relativeDestPath != null)
             {
-                var relativeLower = relativeDestPath.ToLower();
-                isBepInExCore = (relativeLower == "bepinex/core/bepinex.core.dll" ||
-                                relativeLower == "bepinex/core/bepinex.dll");
+                string relativeLower = relativeDestPath.ToLower();
+                isBepInExCore = relativeLower == "bepinex/core/bepinex.core.dll" ||
+                                relativeLower == "bepinex/core/bepinex.dll";
             }
 
             bool isInPlugins = false;
             if (relativeDestPath != null)
             {
-                var relativeLower = relativeDestPath.ToLower();
+                string relativeLower = relativeDestPath.ToLower();
                 isInPlugins = relativeLower.StartsWith("bepinex/plugins/", StringComparison.OrdinalIgnoreCase);
             }
 
             if (!isBepInExCore && !isInPlugins)
+            {
                 return false;
+            }
 
             try
             {
-                var sourceVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(sourceFile);
-                var destVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(destFile);
+                string sourceVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(sourceFile);
+                string destVersion = Helpers.VersionComparisonHelper.GetDllProductVersion(destFile);
 
                 if (string.IsNullOrEmpty(destVersion))
+                {
                     return false;
+                }
 
-                if (string.IsNullOrEmpty(sourceVersion))
-                    return true;
-
-                return Helpers.VersionComparisonHelper.IsNewerOrEqual(destVersion, sourceVersion);
+                return string.IsNullOrEmpty(sourceVersion) || Helpers.VersionComparisonHelper.IsNewerOrEqual(destVersion, sourceVersion);
             }
             catch
             {

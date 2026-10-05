@@ -20,7 +20,7 @@ namespace BeanModManager.Services
         {
             try
             {
-                var startInfo = new ProcessStartInfo
+                ProcessStartInfo startInfo = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
                     Arguments = "-NoProfile -Command \"(Get-StartApps | Where-Object { $_.Name -like '*Among Us*' } | Select-Object -First 1).AppId\"",
@@ -29,13 +29,15 @@ namespace BeanModManager.Services
                     CreateNoWindow = true
                 };
 
-                using (var process = Process.Start(startInfo))
+                using (Process process = Process.Start(startInfo))
                 {
                     if (process == null)
+                    {
                         return null;
+                    }
 
-                    var output = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
-                    var appId = output?.Trim();
+                    string output = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
+                    string appId = output?.Trim();
                     return string.IsNullOrEmpty(appId) ? null : appId;
                 }
             }
@@ -51,11 +53,13 @@ namespace BeanModManager.Services
         public static bool Launch(string appId)
         {
             if (string.IsNullOrEmpty(appId))
+            {
                 return false;
+            }
 
             try
             {
-                Process.Start(new ProcessStartInfo
+                _ = Process.Start(new ProcessStartInfo
                 {
                     FileName = "explorer.exe",
                     Arguments = $"shell:AppsFolder\\{appId}",
@@ -75,18 +79,23 @@ namespace BeanModManager.Services
         /// </summary>
         public static Action DisableDoorstopFiles(string gameDir)
         {
-            var renames = new System.Collections.Generic.List<Tuple<string, string>>();
-            foreach (var name in new[] { "winhttp.dll", "doorstop_config.ini" })
+            System.Collections.Generic.List<Tuple<string, string>> renames = new System.Collections.Generic.List<Tuple<string, string>>();
+            foreach (string name in new[] { "winhttp.dll", "doorstop_config.ini" })
             {
-                var src = Path.Combine(gameDir, name);
+                string src = Path.Combine(gameDir, name);
                 if (!File.Exists(src))
+                {
                     continue;
+                }
 
-                var dst = src + ".vanilla-backup";
+                string dst = src + ".vanilla-backup";
                 try
                 {
                     if (File.Exists(dst))
+                    {
                         File.Delete(dst);
+                    }
+
                     File.Move(src, dst);
                     renames.Add(Tuple.Create(dst, src));
                 }
@@ -95,24 +104,26 @@ namespace BeanModManager.Services
                 }
             }
 
-            if (renames.Count == 0)
-                return null;
-
-            return () =>
+            return renames.Count == 0
+                ? (Action)null
+                : (() =>
             {
-                foreach (var pair in renames)
+                foreach (Tuple<string, string> pair in renames)
                 {
                     try
                     {
                         if (File.Exists(pair.Item2))
+                        {
                             File.Delete(pair.Item2);
+                        }
+
                         File.Move(pair.Item1, pair.Item2);
                     }
                     catch
                     {
                     }
                 }
-            };
+            });
         }
     }
 }

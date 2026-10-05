@@ -57,6 +57,7 @@ namespace BeanModManager.Models
     {
         public AssetFilter steam { get; set; }
         public AssetFilter epic { get; set; }
+        public AssetFilter itch { get; set; }
         public AssetFilter dll { get; set; }
         public AssetFilter @default { get; set; }
     }

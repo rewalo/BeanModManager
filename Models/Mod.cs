@@ -19,6 +19,7 @@ namespace BeanModManager.Models
         public List<string> Incompatibilities { get; set; }
         public bool IsFeatured { get; set; }
         public string ExecutableName { get; set; }
+        public DateTime? LastUpdated { get; set; }
 
         public Mod()
         {
@@ -39,7 +40,7 @@ namespace BeanModManager.Models
 
         public override string ToString()
         {
-            var result = Version ?? "Unknown";
+            string result = Version ?? "Unknown";
             if (!string.IsNullOrEmpty(GameVersion))
             {
                 result += $" ({GameVersion})";

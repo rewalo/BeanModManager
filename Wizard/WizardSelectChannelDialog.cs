@@ -1,94 +1,118 @@
-using BeanModManager.Helpers;
-using BeanModManager.Themes;
 using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using BeanModManager.Helpers;
+using BeanModManager.Themes;
 
 namespace BeanModManager.Wizard
 {
     public class WizardSelectChannelDialog : Form
     {
-        public string SelectedChannel { get; private set; } = "Steam/Itch.io";
+        public string SelectedChannel { get; private set; } = GameChannels.Steam;
 
-        public WizardSelectChannelDialog(bool isEpicOrMsStore, string initialChannel = null)
+        public WizardSelectChannelDialog(string detectedChannel = null, string initialChannel = null)
         {
-            InitializeComponent(isEpicOrMsStore, initialChannel);
+            InitializeComponent(detectedChannel, initialChannel);
             ApplyTheme();
-            this.HandleCreated += WizardSelectChannelDialog_HandleCreated;
+            HandleCreated += WizardSelectChannelDialog_HandleCreated;
         }
 
         private void WizardSelectChannelDialog_HandleCreated(object sender, EventArgs e)
         {
             ApplyDarkMode();
-            this.BeginInvoke(new Action(() =>
+            _ = BeginInvoke(new Action(() =>
 {
     ApplyTheme();
-    this.Invalidate(true);
+    Invalidate(true);
 }));
         }
 
-        private void InitializeComponent(bool isEpicOrMsStore, string initialChannel)
+        private void InitializeComponent(string detectedChannel, string initialChannel)
         {
-            this.SuspendLayout();
+            SuspendLayout();
 
-            this.Text = "Select Game Channel";
-            this.Size = new System.Drawing.Size(600, 350);
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.ShowInTaskbar = true;
+            Text = "Select Game Channel";
+            Size = new System.Drawing.Size(600, 380);
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            StartPosition = FormStartPosition.CenterScreen;
+            ShowInTaskbar = true;
 
-            var lblTitle = new Label
+            Label lblTitle = new Label
             {
                 Text = "Select Game Channel",
                 Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold),
                 AutoSize = true,
                 Location = new System.Drawing.Point(20, 20)
             };
-            this.Controls.Add(lblTitle);
+            Controls.Add(lblTitle);
 
-            var lblDescription = new Label
+            Label lblDescription = new Label
             {
-                Text = isEpicOrMsStore
-        ? "We detected an Epic Games or Microsoft Store installation.\nPlease confirm your game channel:"
+                Text = !string.IsNullOrEmpty(detectedChannel)
+        ? $"We detected a {detectedChannel} installation.\nPlease confirm your game channel:"
         : "Please select your game channel:",
                 Font = new System.Drawing.Font("Segoe UI", 9F),
                 AutoSize = false,
                 Size = new System.Drawing.Size(560, 50),
                 Location = new System.Drawing.Point(20, 55)
             };
-            this.Controls.Add(lblDescription);
+            Controls.Add(lblDescription);
 
-            var rbSteam = new RadioButton
+            RadioButton rbSteam = new RadioButton
             {
-                Text = "Steam / Itch.io",
+                Text = "Steam",
                 Font = new System.Drawing.Font("Segoe UI", 10F),
                 AutoSize = true,
-                Location = new System.Drawing.Point(40, 120),
+                Location = new System.Drawing.Point(40, 115),
                 Checked = false
             };
-            rbSteam.CheckedChanged += (s, e) => { if (rbSteam.Checked) SelectedChannel = "Steam/Itch.io"; };
-            this.Controls.Add(rbSteam);
+            rbSteam.CheckedChanged += (s, e) => { if (rbSteam.Checked) { SelectedChannel = GameChannels.Steam; } };
+            Controls.Add(rbSteam);
 
-            var rbEpic = new RadioButton
+            RadioButton rbEpic = new RadioButton
             {
-                Text = "Epic Games / Microsoft Store",
+                Text = "Epic Games",
                 Font = new System.Drawing.Font("Segoe UI", 10F),
                 AutoSize = true,
-                Location = new System.Drawing.Point(40, 150),
+                Location = new System.Drawing.Point(40, 145),
                 Checked = false
             };
-            rbEpic.CheckedChanged += (s, e) => { if (rbEpic.Checked) SelectedChannel = "Epic/MS Store"; };
-            this.Controls.Add(rbEpic);
+            rbEpic.CheckedChanged += (s, e) => { if (rbEpic.Checked) { SelectedChannel = GameChannels.EpicGames; } };
+            Controls.Add(rbEpic);
 
-            var preferredChannel = initialChannel ?? (isEpicOrMsStore ? "Epic/MS Store" : "Steam/Itch.io");
+            RadioButton rbMsStore = new RadioButton
+            {
+                Text = "Microsoft Store",
+                Font = new System.Drawing.Font("Segoe UI", 10F),
+                AutoSize = true,
+                Location = new System.Drawing.Point(40, 175),
+                Checked = false
+            };
+            rbMsStore.CheckedChanged += (s, e) => { if (rbMsStore.Checked) { SelectedChannel = GameChannels.MicrosoftStore; } };
+            Controls.Add(rbMsStore);
+
+            RadioButton rbItch = new RadioButton
+            {
+                Text = "itch.io",
+                Font = new System.Drawing.Font("Segoe UI", 10F),
+                AutoSize = true,
+                Location = new System.Drawing.Point(40, 205),
+                Checked = false
+            };
+            rbItch.CheckedChanged += (s, e) => { if (rbItch.Checked) { SelectedChannel = GameChannels.ItchIo; } };
+            Controls.Add(rbItch);
+
+            string preferredChannel = GameChannels.NormalizeChannel(initialChannel, detectedChannel);
             SelectedChannel = preferredChannel;
-            rbSteam.Checked = preferredChannel != "Epic/MS Store";
-            rbEpic.Checked = preferredChannel == "Epic/MS Store";
+            rbSteam.Checked = preferredChannel == GameChannels.Steam;
+            rbEpic.Checked = preferredChannel == GameChannels.EpicGames;
+            rbMsStore.Checked = preferredChannel == GameChannels.MicrosoftStore;
+            rbItch.Checked = preferredChannel == GameChannels.ItchIo;
 
-            var buttonPanel = new TableLayoutPanel
+            TableLayoutPanel buttonPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
                 Height = 70,
@@ -96,14 +120,14 @@ namespace BeanModManager.Wizard
                 RowCount = 1,
                 Padding = new Padding(10, 10, 10, 10)
             };
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
-            buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            _ = buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            _ = buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            var paletteInit = ThemeManager.Current;
+            ThemePalette paletteInit = ThemeManager.Current;
 
-            var btnNext = new Button
+            Button btnNext = new Button
             {
                 Text = "Next",
                 Dock = DockStyle.Fill,
@@ -115,9 +139,9 @@ namespace BeanModManager.Wizard
             };
             btnNext.FlatAppearance.BorderSize = 0;
             btnNext.FlatAppearance.BorderColor = paletteInit.PrimaryButtonColor;
-            btnNext.Click += (s, e) => { this.DialogResult = System.Windows.Forms.DialogResult.OK; };
+            btnNext.Click += (s, e) => { DialogResult = System.Windows.Forms.DialogResult.OK; };
 
-            var btnBack = new Button
+            Button btnBack = new Button
             {
                 Text = "Back",
                 Dock = DockStyle.Fill,
@@ -129,53 +153,46 @@ namespace BeanModManager.Wizard
             };
             btnBack.FlatAppearance.BorderSize = 0;
             btnBack.FlatAppearance.BorderColor = paletteInit.SecondaryButtonColor;
-            btnBack.Click += (s, e) => { this.DialogResult = System.Windows.Forms.DialogResult.Retry; };
+            btnBack.Click += (s, e) => { DialogResult = System.Windows.Forms.DialogResult.Retry; };
 
             buttonPanel.Controls.Add(new Panel(), 0, 0); buttonPanel.Controls.Add(btnBack, 1, 0);
             buttonPanel.Controls.Add(btnNext, 2, 0);
-            this.Controls.Add(buttonPanel);
+            Controls.Add(buttonPanel);
 
-            this.AcceptButton = btnNext;
-            this.CancelButton = null;
+            AcceptButton = btnNext;
+            CancelButton = null;
 
-            this.ResumeLayout(true);
-            this.PerformLayout();
+            ResumeLayout(true);
+            PerformLayout();
         }
 
         private void ApplyTheme()
         {
-            var palette = ThemeManager.Current;
-            this.BackColor = palette.WindowBackColor;
-            this.ForeColor = palette.PrimaryTextColor;
+            ThemePalette palette = ThemeManager.Current;
+            BackColor = palette.WindowBackColor;
+            ForeColor = palette.PrimaryTextColor;
 
-            var buttonPanel = this.Controls.OfType<TableLayoutPanel>().FirstOrDefault();
+            TableLayoutPanel buttonPanel = Controls.OfType<TableLayoutPanel>().FirstOrDefault();
             if (buttonPanel != null)
             {
                 buttonPanel.BackColor = palette.SurfaceColor;
             }
 
-            var labels = this.Controls.OfType<Label>().ToList();
-            foreach (var lbl in labels)
+            System.Collections.Generic.List<Label> labels = Controls.OfType<Label>().ToList();
+            foreach (Label lbl in labels)
             {
-                if (lbl.Text.Contains("Select Game Channel") && lbl.Font.Bold)
-                {
-                    lbl.ForeColor = palette.HeadingTextColor;
-                }
-                else
-                {
-                    lbl.ForeColor = palette.PrimaryTextColor;
-                }
+                lbl.ForeColor = lbl.Text.Contains("Select Game Channel") && lbl.Font.Bold ? palette.HeadingTextColor : palette.PrimaryTextColor;
             }
 
-            var radioButtons = this.Controls.OfType<RadioButton>().ToList();
-            foreach (var rb in radioButtons)
+            System.Collections.Generic.List<RadioButton> radioButtons = Controls.OfType<RadioButton>().ToList();
+            foreach (RadioButton rb in radioButtons)
             {
                 rb.ForeColor = palette.PrimaryTextColor;
                 rb.BackColor = Color.Transparent;
             }
 
-            var buttons = this.Controls.OfType<Button>().ToList();
-            foreach (var btn in buttons)
+            System.Collections.Generic.List<Button> buttons = Controls.OfType<Button>().ToList();
+            foreach (Button btn in buttons)
             {
                 btn.UseVisualStyleBackColor = false;
                 btn.FlatStyle = FlatStyle.Flat;
@@ -203,7 +220,9 @@ namespace BeanModManager.Wizard
         private void ApplyDarkMode()
         {
             if (!IsHandleCreated)
+            {
                 return;
+            }
 
             bool isDark = ThemeManager.CurrentVariant == ThemeVariant.Dark;
             DarkModeHelper.EnableDarkMode(this, isDark);

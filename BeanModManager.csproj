@@ -52,7 +52,7 @@
     <StartupObject>BeanModManager.Program</StartupObject>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>mod.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\mod.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -73,30 +73,32 @@
   <ItemGroup>
     <Compile Include="Helpers\DarkModeHelper.cs" />
     <Compile Include="Helpers\FileSystemHelper.cs" />
+    <Compile Include="Helpers\GameChannels.cs" />
     <Compile Include="Helpers\GitHubCacheHelper.cs" />
+    <Compile Include="Helpers\JunctionHelper.cs" />
     <Compile Include="Helpers\PathCompatibilityHelper.cs" />
     <Compile Include="Helpers\PromptDialog.cs" />
     <Compile Include="Helpers\VersionComparisonHelper.cs" />
-    <Compile Include="Main.cs">
+    <Compile Include="Forms\Main.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Main.Skeleton.cs">
+    <Compile Include="Forms\Main.Skeleton.cs">
       <DependentUpon>Main.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Main.Startup.cs">
+    <Compile Include="Forms\Main.Startup.cs">
       <DependentUpon>Main.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Main.Updates.cs">
+    <Compile Include="Forms\Main.Updates.cs">
       <DependentUpon>Main.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Main.Threading.cs">
+    <Compile Include="Forms\Main.Threading.cs">
       <DependentUpon>Main.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Main.Designer.cs">
+    <Compile Include="Forms\Main.Designer.cs">
       <DependentUpon>Main.cs</DependentUpon>
     </Compile>
     <Compile Include="Models\Mod.cs" />
@@ -104,6 +106,7 @@
     <Compile Include="Models\ModCache.cs" />
     <Compile Include="Models\ModPack.cs" />
     <Compile Include="Models\ModRegistry.cs" />
+    <Compile Include="Services\ModPackProfileService.cs" />
     <Compile Include="Themes\ThemeManager.cs" />
     <Compile Include="Services\AmongUsDetector.cs" />
     <Compile Include="Services\UpdateChecker.cs" />
@@ -125,13 +128,21 @@
     <Compile Include="Controls\ModCard.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Controls\ModFilterBar.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Controls\SkeletonModCard.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Controls\ThemedDropDown.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Controls\CardShapes.cs" />
+    <Compile Include="Controls\RoundedButtons.cs" />
     <Compile Include="Controls\VirtualizedModPanel.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="PopulateRegistryCache.cs" />
+    <Compile Include="Scripts\PopulateRegistryCache.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\SteamDepotService.cs" />
@@ -151,7 +162,7 @@
     <Compile Include="Wizard\WizardWelcomeDialog.cs">
       <SubType>Form</SubType>
     </Compile>
-    <EmbeddedResource Include="Main.resx">
+    <EmbeddedResource Include="Forms\Main.resx">
       <DependentUpon>Main.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -187,7 +198,7 @@
     <PackageReference Include="System.Resources.Extensions" Version="4.7.1" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="mod.ico" />
+    <Content Include="Assets\mod.ico" />
     <Content Include="mod-registry.json" Condition="'$(Configuration)' == 'Debug'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
