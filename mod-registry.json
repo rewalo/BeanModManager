@@ -1134,7 +1134,7 @@
       "description": "Immersive proximity voice chat built directly inside Among Us",
       "githubOwner": "artriy",
       "githubRepo": "Perfect-Comms",
-      "category": "Utility",
+      "category": "Mod",
       "assetFilters": {
         "dll": {
           "patterns": ["PerfectComms.dll"],
@@ -1365,6 +1365,35 @@
           "githubRepo": "Reactor",
           "requiredVersion": null,
           "optional": true
+        }
+      ],
+      "incompatibilities": []
+    },
+    {
+      "id": "AchievementsAPI",
+      "name": "Achievements API",
+      "author": "am-clonec",
+      "description": "An Among Us API that allows mods to add their own achievements, with progressable achievements and an achievement menu.",
+      "githubOwner": "am-clonec",
+      "githubRepo": "AchievementsAPI",
+      "category": "Dependency",
+      "assetFilters": {
+        "dll": {
+          "patterns": ["AchievementsAPI.dll"],
+          "exclude": [],
+          "exactMatch": true
+        }
+      },
+      "requiresDepot": false,
+      "dependencies": [
+        {
+          "modId": "Reactor",
+          "name": "Reactor",
+          "fileName": "Reactor.dll",
+          "githubOwner": "NuclearPowered",
+          "githubRepo": "Reactor",
+          "requiredVersion": null,
+          "optional": false
         }
       ],
       "incompatibilities": []
